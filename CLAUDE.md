@@ -8,14 +8,14 @@
 
 Combina, numa única fonte de dados:
 
-| Referência | O que trazemos |
-|---|---|
-| Monday.com | Boards, grupos e colunas customizáveis; múltiplas views do mesmo dado |
-| Trello | Kanban simples e fluido, drag-and-drop instantâneo |
-| Jira | Sprints, backlog, tipos de item, workflows com transições controladas |
-| Pipefy | Processos por fases, formulários por fase, SLA, campos obrigatórios por fase |
-| MS Project | Cronograma com dependências (FS/SS/FF/SF + lag), caminho crítico, baselines |
-| PPM (Planview etc.) | Portfólio, programas, priorização (scoring), capacity e rollups |
+| Referência          | O que trazemos                                                               |
+| ------------------- | ---------------------------------------------------------------------------- |
+| Monday.com          | Boards, grupos e colunas customizáveis; múltiplas views do mesmo dado        |
+| Trello              | Kanban simples e fluido, drag-and-drop instantâneo                           |
+| Jira                | Sprints, backlog, tipos de item, workflows com transições controladas        |
+| Pipefy              | Processos por fases, formulários por fase, SLA, campos obrigatórios por fase |
+| MS Project          | Cronograma com dependências (FS/SS/FF/SF + lag), caminho crítico, baselines  |
+| PPM (Planview etc.) | Portfólio, programas, priorização (scoring), capacity e rollups              |
 
 Caso de referência: consultoria que atende órgãos públicos com contratos medidos em **UST**. O módulo **Contratos/OS/UST** é **opcional por workspace** — o núcleo é genérico e multissetor.
 
@@ -31,22 +31,22 @@ Caso de referência: consultoria que atende órgãos públicos com contratos med
 
 ## 3. Stack
 
-| Camada | Tecnologia | ADR |
-|---|---|---|
-| Monorepo | Turborepo + pnpm workspaces | 0002 |
-| Frontend | Next.js (App Router), React, TypeScript, TailwindCSS + shadcn/ui, TanStack Query/Table/Virtual, dnd-kit, Zustand, ECharts, Tiptap | 0016 |
-| Backend | Node.js + NestJS (monólito modular, Clean Architecture/DDD) | 0003 |
-| API | REST (OpenAPI) como contrato principal e público + GraphQL somente leitura para agregações | 0009 |
-| Tempo real | Socket.IO + Redis adapter (`apps/realtime`), Yjs via Hocuspocus para rich text | 0007, 0008 |
-| Banco | PostgreSQL 16+ com `tenant_id` + RLS; valores customizados em JSONB + projeção tipada | 0004, 0005 |
-| ORM | **Drizzle ORM** + drizzle-kit | 0006 |
-| Cache/pub-sub/presença | Redis 7 | 0007 |
-| Filas | BullMQ + outbox transacional | 0012 |
-| Arquivos | S3 compatível (MinIO em dev) | — |
-| Busca | Meilisearch (tenant tokens) | 0011 |
-| Identidade | OIDC; Keycloak como broker (Google, Entra ID, SAML, MFA); SCIM 2.0 na API | 0010 |
-| Infra | Docker, docker-compose, Kubernetes (Helm), GitHub Actions | 0018 |
-| Observabilidade | OpenTelemetry, Prometheus/Grafana, Sentry, logs estruturados (pino) | 0018 |
+| Camada                 | Tecnologia                                                                                                                        | ADR        |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| Monorepo               | Turborepo + pnpm workspaces                                                                                                       | 0002       |
+| Frontend               | Next.js (App Router), React, TypeScript, TailwindCSS + shadcn/ui, TanStack Query/Table/Virtual, dnd-kit, Zustand, ECharts, Tiptap | 0016       |
+| Backend                | Node.js + NestJS (monólito modular, Clean Architecture/DDD)                                                                       | 0003       |
+| API                    | REST (OpenAPI) como contrato principal e público + GraphQL somente leitura para agregações                                        | 0009       |
+| Tempo real             | Socket.IO + Redis adapter (`apps/realtime`), Yjs via Hocuspocus para rich text                                                    | 0007, 0008 |
+| Banco                  | PostgreSQL 16+ com `tenant_id` + RLS; valores customizados em JSONB + projeção tipada                                             | 0004, 0005 |
+| ORM                    | **Drizzle ORM** + drizzle-kit                                                                                                     | 0006       |
+| Cache/pub-sub/presença | Redis 7                                                                                                                           | 0007       |
+| Filas                  | BullMQ + outbox transacional                                                                                                      | 0012       |
+| Arquivos               | S3 compatível (MinIO em dev)                                                                                                      | —          |
+| Busca                  | Meilisearch (tenant tokens)                                                                                                       | 0011       |
+| Identidade             | OIDC; Keycloak como broker (Google, Entra ID, SAML, MFA); SCIM 2.0 na API                                                         | 0010       |
+| Infra                  | Docker, docker-compose, Kubernetes (Helm), GitHub Actions                                                                         | 0018       |
+| Observabilidade        | OpenTelemetry, Prometheus/Grafana, Sentry, logs estruturados (pino)                                                               | 0018       |
 
 ## 4. Estrutura do monorepo (resumo)
 
@@ -64,11 +64,29 @@ docs/           Arquitetura, ADRs, roadmap
 infra/          docker, helm, observabilidade
 ```
 
-Estrutura completa em `docs/architecture.md` §5.
+Estrutura completa em `docs/architecture.md` §5. Modelo de dados em `docs/data-model.md`.
+
+### Comandos
+
+```bash
+cp .env.example .env && pnpm install
+pnpm infra:up                     # PostgreSQL, Redis, MinIO, Meilisearch, Mailpit (docker compose)
+pnpm db:migrate | db:seed | db:reset
+pnpm lint && pnpm typecheck && pnpm test
+pnpm format                       # Prettier
+```
+
+### Regras do banco (packages/db)
+
+- Todo acesso a dados de negócio passa por `withTenant(db, { tenantId, userId }, tx => ...)`.
+- Tabela nova com `tenant_id`: use `tenantTable()` (adiciona colunas padrão e `UNIQUE (tenant_id, id)`), FKs com `tenantFk()` e, na migração, `select app.enable_tenant_rls('public.<tabela>')`.
+- Mudou o schema → `pnpm db:generate`; SQL manual (RLS, funções, triggers) → migração `--custom`. Nunca edite migrações já aplicadas em ambientes compartilhados.
+- Auditoria via `appendAuditLog(tx, ...)` na mesma transação da mudança.
 
 ## 5. Convenções de código
 
 ### Gerais
+
 - **TypeScript `strict: true`** (+ `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`). Proibido `any` implícito; `any` explícito só com comentário justificando.
 - **ESLint + Prettier** compartilhados via `packages/config`. CI falha com warnings.
 - **Validação na borda com Zod**; schemas vivem em `packages/shared` e são reutilizados no front e no back.
@@ -78,7 +96,8 @@ Estrutura completa em `docs/architecture.md` §5.
 - Sem TODOs, placeholders ou código morto em entregas.
 
 ### Backend (NestJS)
-- Monólito modular: um módulo por *bounded context* em `apps/api/src/modules/<context>/` com camadas:
+
+- Monólito modular: um módulo por _bounded context_ em `apps/api/src/modules/<context>/` com camadas:
   - `domain/` — entidades, value objects, eventos de domínio, regras puras (sem Nest, sem Drizzle);
   - `application/` — casos de uso (commands/queries), portas (interfaces);
   - `infrastructure/` — repositórios Drizzle, adaptadores (S3, Redis, Meilisearch);
@@ -88,19 +107,22 @@ Estrutura completa em `docs/architecture.md` §5.
 - Erros de domínio tipados → mapeados para RFC 7807 (`application/problem+json`).
 
 ### Frontend (Next.js)
+
 - App Router; Server Components para shell/SEO, Client Components para áreas interativas.
-- Estado de servidor: TanStack Query. Estado de UI efêmero: Zustand. Eventos realtime aplicam *patches* no cache do Query.
+- Estado de servidor: TanStack Query. Estado de UI efêmero: Zustand. Eventos realtime aplicam _patches_ no cache do Query.
 - Componentes reutilizáveis em `packages/ui`; nada de estilo ad-hoc repetido.
 - Acessibilidade: navegação por teclado completa, foco visível, ARIA correto, contraste WCAG 2.1 AA (e eMAG quando aplicável).
 - Responsivo: mobile-first a partir de 360 px.
 
 ### Git
+
 - **Conventional Commits** (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`, `perf:`, `ci:`), escopo opcional (`feat(api): ...`).
 - Branches curtas; PR com descrição, testes e checklist de pronto.
 
 ### Testes
+
 - Unitários: Vitest (domínio e utilitários; front com Testing Library).
-- Integração: Vitest + Testcontainers (PostgreSQL/Redis reais, incluindo testes de RLS).
+- Integração: Vitest com PostgreSQL real (`TEST_DATABASE_URL` ou Testcontainers) e papéis **sem BYPASSRLS** (ADR 0024).
 - E2E: Playwright, incluindo cenários com **dois navegadores** simultâneos para validar tempo real.
 - Carga: k6 para os cenários de 50 mil itens e propagação < 300 ms.
 
@@ -115,7 +137,9 @@ Estrutura completa em `docs/architecture.md` §5.
 7. Aguardar validação do usuário ao final de cada prompt antes de iniciar o próximo.
 
 ### Definição de pronto (DoD)
+
 Uma funcionalidade só está pronta quando:
+
 - [ ] funciona em **tempo real entre dois navegadores**;
 - [ ] **respeita permissões** (tenant, workspace, board, coluna, convidado);
 - [ ] tem **testes passando** (unit, integração, E2E do fluxo crítico);
@@ -126,23 +150,23 @@ Uma funcionalidade só está pronta quando:
 
 ## 7. Roadmap de prompts
 
-| # | Tema |
-|---|---|
-| 1 | Arquitetura |
-| 2 | Banco de dados e tabelas |
-| 3 | Backend base |
-| 4 | Frontend base |
-| 5 | Boards, colunas e Tabela |
-| 6 | Kanban e views salvas |
-| 7 | Painel do item |
-| 8 | Calendário, Timeline, Gantt e Formulários |
-| 9 | Dashboards |
-| 10 | Automações, Processos e Notificações |
-| 11 | Capacity e Timesheet |
-| 12 | Portfólio |
-| 13 | Contratos/OS/UST |
-| 14 | IA |
-| 15 | API pública, Integrações, Importadores e Templates |
-| 16 | Segurança, Performance, Testes e Deploy |
+| #   | Tema                                               |
+| --- | -------------------------------------------------- |
+| 1   | Arquitetura                                        |
+| 2   | Banco de dados e tabelas                           |
+| 3   | Backend base                                       |
+| 4   | Frontend base                                      |
+| 5   | Boards, colunas e Tabela                           |
+| 6   | Kanban e views salvas                              |
+| 7   | Painel do item                                     |
+| 8   | Calendário, Timeline, Gantt e Formulários          |
+| 9   | Dashboards                                         |
+| 10  | Automações, Processos e Notificações               |
+| 11  | Capacity e Timesheet                               |
+| 12  | Portfólio                                          |
+| 13  | Contratos/OS/UST                                   |
+| 14  | IA                                                 |
+| 15  | API pública, Integrações, Importadores e Templates |
+| 16  | Segurança, Performance, Testes e Deploy            |
 
 Status atualizado em `docs/roadmap.md`.

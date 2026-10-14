@@ -5,9 +5,11 @@
 - **Prompt:** 1
 
 ## Contexto
+
 A UI é altamente interativa (grid virtualizado com 50k linhas, Kanban, Gantt, edição inline), colaborativa e localizada.
 
 ## Decisão
+
 - **Next.js (App Router)** com rotas `[locale]`; Server Components para shell, layout e páginas estáticas; Client Components para áreas interativas. Sem lógica de negócio no BFF.
 - **TanStack Query** = estado de servidor; eventos realtime aplicam patches normalizados no cache; mutações otimistas com rollback.
 - **Zustand** = estado de UI (seleção, painel aberto, edição de célula, preferências locais).
@@ -20,9 +22,11 @@ A UI é altamente interativa (grid virtualizado com 50k linhas, Kanban, Gantt, e
 - Formulários com **react-hook-form + Zod** (mesmos schemas do backend).
 
 ## Alternativas consideradas
+
 - **AG Grid**: excelente, mas licença enterprise para recursos-chave e customização visual limitada.
 - **Redux Toolkit**: mais cerimônia que Zustand + Query para este caso.
 - **Recharts**: SVG puro, degrada com muitos pontos.
 
 ## Consequências
+
 - `packages/ui` concentra DataGrid, KanbanBoard, Gantt, editores de célula e é testado isoladamente (Storybook + testes de acessibilidade com axe).

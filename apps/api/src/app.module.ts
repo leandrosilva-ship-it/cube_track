@@ -12,6 +12,7 @@ import { FilesModule } from './modules/files/files.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
 import { RealtimeModule } from './modules/realtime/realtime.module.js';
 import { SearchModule } from './modules/search/search.module.js';
+import { StructureModule } from './modules/structure/structure.module.js';
 import { WorkModule } from './modules/work/work.module.js';
 
 @Module({
@@ -30,6 +31,7 @@ import { WorkModule } from './modules/work/work.module.js';
     AccessModule,
     IdentityModule,
     WorkModule,
+    StructureModule,
     FilesModule,
     SearchModule,
     // Com REALTIME_MODE=separate o gateway roda só no processo main.realtime (ADR 0027).

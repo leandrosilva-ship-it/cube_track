@@ -1,0 +1,134 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+/* Componentes do design system (o app consumidor também registra as próprias fontes). */
+@source '../components';
+@source '../brand';
+
+/* Tema claro/escuro por atributo (data-theme) além da preferência do sistema. */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+@theme inline {
+  --color-background: var(--ct-background);
+  --color-surface: var(--ct-surface);
+  --color-surface-sunken: var(--ct-surface-sunken);
+  --color-surface-raised: var(--ct-surface-raised);
+  --color-surface-hover: var(--ct-surface-hover);
+  --color-border: var(--ct-border);
+  --color-border-strong: var(--ct-border-strong);
+  --color-fg: var(--ct-text);
+  --color-fg-muted: var(--ct-text-muted);
+  --color-fg-subtle: var(--ct-text-subtle);
+  --color-primary: var(--ct-primary);
+  --color-primary-hover: var(--ct-primary-hover);
+  --color-primary-foreground: var(--ct-primary-foreground);
+  --color-primary-soft: var(--ct-primary-soft);
+  --color-accent: var(--ct-accent);
+  --color-danger: var(--ct-danger);
+  --color-danger-soft: var(--ct-danger-soft);
+  --color-success: var(--ct-success);
+  --color-success-soft: var(--ct-success-soft);
+  --color-warning: var(--ct-warning);
+  --color-warning-soft: var(--ct-warning-soft);
+  --color-info: var(--ct-info);
+  --color-info-soft: var(--ct-info-soft);
+  --color-focus: var(--ct-focus);
+  --color-overlay: var(--ct-overlay);
+  --color-status-on-dark: #1b1f2e;
+  --color-status-on-light: #ffffff;
+  --font-sans: var(--ct-font-sans);
+  --font-mono: var(--ct-font-mono);
+  --radius-sm: var(--ct-radius-sm);
+  --radius-md: var(--ct-radius-md);
+  --radius-lg: var(--ct-radius-lg);
+  --radius-xl: var(--ct-radius-xl);
+  --shadow-sm: var(--ct-shadow-sm);
+  --shadow-md: var(--ct-shadow-md);
+  --shadow-lg: var(--ct-shadow-lg);
+  --spacing-control: var(--ct-control);
+  --spacing-row: var(--ct-row);
+  --spacing-gap: var(--ct-gap);
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--ct-border);
+  }
+
+  html {
+    font-family: var(--ct-font-sans);
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--ct-background);
+    color: var(--ct-text);
+  }
+
+  /* Foco sempre visível para teclado (WCAG 2.4.7), sem anel em clique de mouse. */
+  :focus-visible {
+    outline: 2px solid var(--ct-focus);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--ct-primary-soft);
+    color: var(--ct-text);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Animações de entrada usadas por popovers, menus, drawers e modais. */
+  .ct-animate-in {
+    animation: ct-fade-in 120ms ease-out;
+  }
+  .ct-slide-in-right {
+    animation: ct-slide-right 180ms ease-out;
+  }
+  .ct-slide-in-left {
+    animation: ct-slide-left 180ms ease-out;
+  }
+}
+
+@keyframes ct-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes ct-slide-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes ct-slide-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}

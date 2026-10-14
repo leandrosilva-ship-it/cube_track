@@ -72,6 +72,12 @@ export const EVENT_PAYLOADS = {
     resourceId: z.uuid().nullable(),
   }),
   'session.revoked': z.object({ sessionId: z.uuid() }),
+  /** Estrutura do workspace mudou (pastas, boards, ordem): clientes recarregam a árvore filtrada. */
+  'workspace.structure_changed': z.object({ workspaceId: z.uuid() }),
+  /** Views do board mudaram (criação, renomeação, ordem, exclusão): só ids — o cliente recarrega. */
+  'view.changed': z.object({ boardId: z.uuid(), viewId: z.uuid() }),
+  /** Favoritos do usuário mudaram (sincroniza abas/dispositivos do mesmo usuário). */
+  'favorites.changed': z.object({}),
   'presence.joined': z.object({
     room: z.string(),
     userId: z.uuid(),

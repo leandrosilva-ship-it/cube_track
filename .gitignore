@@ -11,3 +11,5 @@ coverage/
 
 # Redis local
 dump.rdb
+storybook-static/
+*.log

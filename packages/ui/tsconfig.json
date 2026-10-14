@@ -1,0 +1,8 @@
+{
+  "extends": "@cube-track/config/typescript/react.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["vitest/globals", "@testing-library/jest-dom"]
+  },
+  "include": ["src", "test", ".storybook/*.ts", ".storybook/*.tsx", "vitest.config.ts"]
+}

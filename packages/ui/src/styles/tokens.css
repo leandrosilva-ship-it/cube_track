@@ -1,0 +1,117 @@
+/*
+ * Tokens de design do CUBE TRACK (espelho de src/tokens.ts — mantidos em sincronia por teste).
+ * Tema: data-theme="light" | "dark" no <html>; sem atributo, segue o sistema (prefers-color-scheme).
+ * Densidade: data-density="comfortable" (padrão) | "compact".
+ */
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --ct-background: #f6f7fb;
+  --ct-surface: #ffffff;
+  --ct-surface-sunken: #eef0f6;
+  --ct-surface-raised: #ffffff;
+  --ct-surface-hover: #eef0f6;
+  --ct-border: #d9dce6;
+  --ct-border-strong: #8a91a8;
+  --ct-text: #1b1f2e;
+  --ct-text-muted: #4a5068;
+  --ct-text-subtle: #5f6680;
+  --ct-primary: #4252d9;
+  --ct-primary-hover: #3442c4;
+  --ct-primary-foreground: #ffffff;
+  --ct-primary-soft: #e8eaff;
+  --ct-accent: #00a9a5;
+  --ct-danger: #c62a3c;
+  --ct-danger-soft: #fde8ea;
+  --ct-success: #127c58;
+  --ct-success-soft: #e3f6ee;
+  --ct-warning: #9a5300;
+  --ct-warning-soft: #fff1dc;
+  --ct-info: #1d6aaf;
+  --ct-info-soft: #e3f0fc;
+  --ct-focus: #4252d9;
+  --ct-overlay: #0b0d14;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --ct-background: #12141c;
+  --ct-surface: #1a1d28;
+  --ct-surface-sunken: #0e1017;
+  --ct-surface-raised: #222634;
+  --ct-surface-hover: #262b3b;
+  --ct-border: #2e3344;
+  --ct-border-strong: #6b7391;
+  --ct-text: #eceef5;
+  --ct-text-muted: #b4b9cc;
+  --ct-text-subtle: #9298ae;
+  --ct-primary: #7b87ff;
+  --ct-primary-hover: #9aa5ff;
+  --ct-primary-foreground: #0b0d14;
+  --ct-primary-soft: #262c55;
+  --ct-accent: #4eccc6;
+  --ct-danger: #ff7a86;
+  --ct-danger-soft: #3d1f26;
+  --ct-success: #4fd6a0;
+  --ct-success-soft: #173528;
+  --ct-warning: #ffb547;
+  --ct-warning-soft: #3a2b14;
+  --ct-info: #6cb4ff;
+  --ct-info-soft: #16304a;
+  --ct-focus: #9aa5ff;
+  --ct-overlay: #000000;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --ct-background: #12141c;
+    --ct-surface: #1a1d28;
+    --ct-surface-sunken: #0e1017;
+    --ct-surface-raised: #222634;
+    --ct-surface-hover: #262b3b;
+    --ct-border: #2e3344;
+    --ct-border-strong: #6b7391;
+    --ct-text: #eceef5;
+    --ct-text-muted: #b4b9cc;
+    --ct-text-subtle: #9298ae;
+    --ct-primary: #7b87ff;
+    --ct-primary-hover: #9aa5ff;
+    --ct-primary-foreground: #0b0d14;
+    --ct-primary-soft: #262c55;
+    --ct-accent: #4eccc6;
+    --ct-danger: #ff7a86;
+    --ct-danger-soft: #3d1f26;
+    --ct-success: #4fd6a0;
+    --ct-success-soft: #173528;
+    --ct-warning: #ffb547;
+    --ct-warning-soft: #3a2b14;
+    --ct-info: #6cb4ff;
+    --ct-info-soft: #16304a;
+    --ct-focus: #9aa5ff;
+    --ct-overlay: #000000;
+  }
+}
+
+:root {
+  --ct-radius-sm: 4px;
+  --ct-radius-md: 6px;
+  --ct-radius-lg: 10px;
+  --ct-radius-xl: 14px;
+  --ct-shadow-sm: 0 1px 2px rgb(11 13 20 / 0.08);
+  --ct-shadow-md: 0 4px 12px rgb(11 13 20 / 0.12);
+  --ct-shadow-lg: 0 12px 32px rgb(11 13 20 / 0.18);
+  --ct-control: 36px;
+  --ct-row: 40px;
+  --ct-gap: 12px;
+  --ct-font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', 'Noto Sans',
+    Arial, sans-serif;
+  --ct-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+[data-density='compact'] {
+  --ct-control: 30px;
+  --ct-row: 32px;
+  --ct-gap: 8px;
+}

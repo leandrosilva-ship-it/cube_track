@@ -66,6 +66,8 @@ export function client(baseUrl: string) {
       request<T>('POST', path, options),
     patch: <T = Record<string, unknown>>(path: string, options?: RequestOptions) =>
       request<T>('PATCH', path, options),
+    put: <T = Record<string, unknown>>(path: string, options?: RequestOptions) =>
+      request<T>('PUT', path, options),
     delete: <T = Record<string, unknown>>(path: string, options?: RequestOptions) =>
       request<T>('DELETE', path, options),
     async login(email: string, password = DEMO_PASSWORD): Promise<string> {

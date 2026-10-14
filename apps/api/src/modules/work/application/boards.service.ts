@@ -60,8 +60,16 @@ export class BoardsService {
       .from(workspaces)
       .where(isNull(workspaces.deletedAt))
       .orderBy(asc(workspaces.position));
+    // Convidados sem leitura do workspace ainda o enxergam se tiverem algum board concedido nele.
+    const boardWorkspaces = new Set(
+      (await this.access.readableBoards(user)).map((board) => board.workspaceId),
+    );
     const visible = await Promise.all(
-      rows.map(async (row) => ((await this.access.workspace(user, row.id)) === null ? null : row)),
+      rows.map(async (row) =>
+        boardWorkspaces.has(row.id) || (await this.access.workspace(user, row.id)) !== null
+          ? row
+          : null,
+      ),
     );
     return visible.filter((row) => row !== null);
   }

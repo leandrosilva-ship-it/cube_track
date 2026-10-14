@@ -1,0 +1,21 @@
+{
+  "name": "@cube-track/i18n",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@cube-track/config": "workspace:*",
+    "@types/node": "^22.19.0",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

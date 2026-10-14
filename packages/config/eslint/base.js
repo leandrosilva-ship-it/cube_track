@@ -31,6 +31,8 @@ export function createConfig(tsconfigRootDir) {
           { allowNumber: true, allowBoolean: true },
         ],
         'no-console': ['error', { allow: ['info', 'warn', 'error'] }],
+        // Módulos NestJS são classes vazias decoradas.
+        '@typescript-eslint/no-extraneous-class': ['error', { allowWithDecorator: true }],
         eqeqeq: ['error', 'always'],
       },
     },

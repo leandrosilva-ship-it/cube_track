@@ -1,0 +1,11 @@
+{
+  "extends": "@cube-track/config/typescript/node.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "verbatimModuleSyntax": false,
+    "useDefineForClassFields": false
+  },
+  "include": ["src", "test", "vitest.config.ts", "tsup.config.ts"]
+}

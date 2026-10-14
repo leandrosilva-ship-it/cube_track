@@ -14,6 +14,19 @@ export const resourceType = pgEnum('resource_type', [
   'program',
   'board',
   'dashboard',
+  'view',
+  'item',
+]);
+export const authTokenPurpose = pgEnum('auth_token_purpose', [
+  'magic_link',
+  'password_reset',
+  'email_verification',
+]);
+export const identityProvider = pgEnum('identity_provider', [
+  'google',
+  'microsoft',
+  'saml',
+  'oidc',
 ]);
 
 // Estrutura

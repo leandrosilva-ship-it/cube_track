@@ -20,13 +20,14 @@
   },
   "dependencies": {
     "@cube-track/shared": "workspace:*",
+    "@node-rs/argon2": "^2.0.2",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.0",
     "pg": "^8.16.3"
   },
   "devDependencies": {
     "@cube-track/config": "workspace:*",
-    "@testcontainers/postgresql": "^11.7.0",
+    "@cube-track/testing": "workspace:*",
     "@types/node": "^22.19.0",
     "@types/pg": "^8.15.6",
     "drizzle-kit": "^0.31.6",

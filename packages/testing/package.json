@@ -1,0 +1,25 @@
+{
+  "name": "@cube-track/testing",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@cube-track/db": "workspace:*",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@cube-track/config": "workspace:*",
+    "@testcontainers/postgresql": "^11.7.0",
+    "@types/node": "^22.19.0",
+    "@types/pg": "^8.15.6",
+    "eslint": "^9.39.1",
+    "typescript": "5.9.3"
+  }
+}

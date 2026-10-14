@@ -10,16 +10,14 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 
+import type { ColumnPermissions } from '@cube-track/shared';
+
 import { statusCategory } from './_enums.js';
 import { deletedAt, position, tenantFk, tenantTable } from './_helpers.js';
 import { boards } from './structure.js';
 
-export interface ColumnPermissions {
-  /** Papéis/usuários/times que podem ver a coluna (vazio = todos com acesso ao board). */
-  viewers?: { roleIds?: string[]; userIds?: string[]; teamIds?: string[] };
-  /** Papéis/usuários/times que podem editar a coluna (vazio = todos os editores do board). */
-  editors?: { roleIds?: string[]; userIds?: string[]; teamIds?: string[] };
-}
+/** Quem vê/edita a coluna (listas vazias = sem restrição). Schema em `@cube-track/shared`. */
+export type { ColumnPermissions } from '@cube-track/shared';
 
 /**
  * Definição de coluna de um board. `key` é o identificador estável usado em `items.values`.

@@ -29,6 +29,20 @@
       "when": 1791984535483,
       "tag": "0003_reference_data",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791987163960,
+      "tag": "0004_auth_outbox_permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791987191609,
+      "tag": "0005_auth_outbox_security",
+      "breakpoints": true
     }
   ]
 }

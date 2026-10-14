@@ -41,6 +41,8 @@ export const views = tenantTable(
       .default(sql`'{}'::text[]`),
     isDefault: boolean('is_default').notNull().default(false),
     isLocked: boolean('is_locked').notNull().default(false),
+    /** View compartilhada restrita: só quem tem concessão explícita (access_grants) ou gerencia o board. */
+    isRestricted: boolean('is_restricted').notNull().default(false),
     position: position('position').notNull(),
     deletedAt: deletedAt(),
   },

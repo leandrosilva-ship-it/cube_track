@@ -5,6 +5,7 @@ import {
   check,
   index,
   inet,
+  integer,
   jsonb,
   pgTable,
   text,
@@ -14,6 +15,8 @@ import {
 } from 'drizzle-orm/pg-core';
 
 import {
+  authTokenPurpose,
+  identityProvider,
   membershipKind,
   membershipStatus,
   principalType,
@@ -43,6 +46,19 @@ export const users = pgTable(
     identityProvider: text('identity_provider'),
     externalSubject: text('external_subject'),
     mfaEnabled: boolean('mfa_enabled').notNull().default(false),
+    /** Hash Argon2id da senha (nulo para contas só SSO/magic link). */
+    passwordHash: text('password_hash'),
+    passwordChangedAt: timestamp('password_changed_at', { withTimezone: true }),
+    emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
+    /** Segredo TOTP cifrado (AES-256-GCM) — ativo e pendente de confirmação. */
+    mfaSecretCiphertext: text('mfa_secret_ciphertext'),
+    mfaPendingSecretCiphertext: text('mfa_pending_secret_ciphertext'),
+    mfaRecoveryCodeHashes: text('mfa_recovery_code_hashes')
+      .array()
+      .notNull()
+      .default(sql`'{}'::text[]`),
+    failedLoginCount: integer('failed_login_count').notNull().default(0),
+    lockedUntil: timestamp('locked_until', { withTimezone: true }),
     lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -210,6 +226,10 @@ export const sessions = tenantTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     refreshTokenHash: text('refresh_token_hash').notNull(),
+    /** Família de rotação: reutilizar um token já rotacionado revoga a família inteira. */
+    familyId: uuid('family_id').notNull(),
+    replacedById: uuid('replaced_by_id'),
+    authMethod: text('auth_method').notNull().default('password'),
     ip: inet('ip'),
     userAgent: text('user_agent'),
     mfaVerified: boolean('mfa_verified').notNull().default(false),
@@ -250,5 +270,60 @@ export const apiTokens = tenantTable(
     uniqueIndex('api_tokens_token_hash_key').on(t.tokenHash),
     index('api_tokens_user_idx').on(t.tenantId, t.userId),
     check('api_tokens_prefix_len', sql`char_length(${t.tokenPrefix}) between 4 and 16`),
+  ],
+);
+
+/** Identidade externa (OAuth/OIDC/SAML) vinculada a um usuário global. */
+export const userIdentities = pgTable(
+  'user_identities',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`app.uuid_v7()`)
+      .$defaultFn(newId),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    provider: identityProvider('provider').notNull(),
+    subject: text('subject').notNull(),
+    email: text('email'),
+    lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid('created_by'),
+  },
+  (t) => [
+    uniqueIndex('user_identities_provider_subject_key').on(t.provider, t.subject),
+    index('user_identities_user_idx').on(t.userId),
+  ],
+);
+
+/**
+ * Tokens de uso único (magic link, redefinição de senha, verificação de e-mail).
+ * Global (antes do contexto de tenant); acessível apenas pelo papel `app_auth`.
+ */
+export const authTokens = pgTable(
+  'auth_tokens',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`app.uuid_v7()`)
+      .$defaultFn(newId),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    tenantId: uuid('tenant_id'),
+    purpose: authTokenPurpose('purpose').notNull(),
+    tokenHash: text('token_hash').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    ip: inet('ip'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdBy: uuid('created_by'),
+  },
+  (t) => [
+    uniqueIndex('auth_tokens_token_hash_key').on(t.tokenHash),
+    index('auth_tokens_user_purpose_idx').on(t.userId, t.purpose),
   ],
 );

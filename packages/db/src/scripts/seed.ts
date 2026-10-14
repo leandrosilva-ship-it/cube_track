@@ -1,11 +1,13 @@
 import { createDatabase } from '../client.js';
 import { requireEnv } from '../env.js';
 import { DEMO_FORM_TOKEN, DEMO_SHARE_TOKEN } from '../seed/context.js';
+import { DEMO_PASSWORD, seedDemoCredentials } from '../seed/credentials.js';
 import { seedDemo } from '../seed/demo.js';
 
 const handle = createDatabase(requireEnv('DATABASE_URL'), { max: 1 });
 try {
   const result = await seedDemo(handle.db);
+  await seedDemoCredentials(handle.db);
   if (result.created) {
     console.info(
       `Seed concluído: tenant "Empresa Demo" (${result.tenantId}), board PMSP ${result.boardId ?? ''}.`,

@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 
 import { createDatabase } from './client.js';
 import { runMigrations } from './migrate.js';
+import { seedDemoCredentials } from './seed/credentials.js';
 import { seedDemo, type DemoSeedResult } from './seed/demo.js';
 
 /**
@@ -28,7 +29,9 @@ export async function resetDatabase(
   if (!options.seed) return null;
   const seedHandle = createDatabase(connectionString, { max: 1 });
   try {
-    return await seedDemo(seedHandle.db);
+    const result = await seedDemo(seedHandle.db);
+    await seedDemoCredentials(seedHandle.db);
+    return result;
   } finally {
     await seedHandle.close();
   }

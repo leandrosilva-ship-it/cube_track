@@ -153,6 +153,19 @@ export class IdentityRepository {
     return rows.length > 0;
   }
 
+  /**
+   * Substitui um sucessor de rotação que nunca foi usado (resposta perdida): revoga-o como
+   * `superseded` apontando para a nova sessão. Retorna false se ele já foi usado ou revogado.
+   */
+  async supersedeUnusedSuccessor(id: string, replacedById: string): Promise<boolean> {
+    const rows = await this.db
+      .update(sessions)
+      .set({ revokedAt: new Date(), revokedReason: 'superseded', replacedById })
+      .where(and(eq(sessions.id, id), isNull(sessions.revokedAt)))
+      .returning({ id: sessions.id });
+    return rows.length > 0;
+  }
+
   async revokeFamily(familyId: string, reason: string): Promise<SessionRecord[]> {
     return this.db
       .update(sessions)

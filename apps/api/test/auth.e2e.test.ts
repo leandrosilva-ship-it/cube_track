@@ -233,15 +233,45 @@ describe('Autenticação', () => {
     expect(rotated.status).toBe(200);
     const second = refreshCookie(rotated.headers);
     expect(second).not.toBe(first);
+    // O sucessor circulou: reapresentar o token antigo é reutilização, mesmo dentro da tolerância.
+    const third = refreshCookie(
+      (await api.post('/v1/auth/refresh', { headers: { cookie: second ?? '' } })).headers,
+    );
+    expect(third).toBeDefined();
     const reuse = await api.post<{ code: string }>('/v1/auth/refresh', {
       headers: { cookie: first ?? '' },
     });
     expect(reuse.status).toBe(401);
     expect(reuse.body.code).toBe('refresh_reused');
     const afterReuse = await api.post<{ code: string }>('/v1/auth/refresh', {
-      headers: { cookie: second ?? '' },
+      headers: { cookie: third ?? '' },
     });
     expect(afterReuse.status).toBe(401);
+  });
+
+  it('resposta de rotação perdida: reemite a sessão dentro da tolerância e invalida o sucessor', async () => {
+    const login = await api.post<Session>('/v1/auth/login', {
+      body: { email: USERS.rafael, password: DEMO_PASSWORD },
+    });
+    const first = refreshCookie(login.headers);
+    const lost = refreshCookie(
+      (await api.post('/v1/auth/refresh', { headers: { cookie: first ?? '' } })).headers,
+    );
+    const retry = await api.post<Session>('/v1/auth/refresh', {
+      headers: { cookie: first ?? '' },
+    });
+    expect(retry.status).toBe(200);
+    const current = refreshCookie(retry.headers);
+    expect(current).not.toBe(lost);
+    const superseded = await api.post<{ code: string }>('/v1/auth/refresh', {
+      headers: { cookie: lost ?? '' },
+    });
+    expect(superseded.status).toBe(401);
+    expect(superseded.body.code).toBe('refresh_revoked');
+    const next = await api.post<Session>('/v1/auth/refresh', {
+      headers: { cookie: current ?? '' },
+    });
+    expect(next.status).toBe(200);
   });
 
   it('refresh token no corpo para clientes nativos e logout encerra a sessão', async () => {

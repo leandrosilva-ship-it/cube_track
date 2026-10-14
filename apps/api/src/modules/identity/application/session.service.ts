@@ -9,6 +9,7 @@ import { randomToken, sha256Hex } from '../domain/secrets.js';
 import {
   IdentityRepository,
   type MembershipSummary,
+  type SessionRecord,
   type UserRecord,
 } from '../infrastructure/identity.repository.js';
 import { AuthAudit } from './auth-audit.js';
@@ -96,49 +97,25 @@ export class SessionService {
 
   /**
    * Rotaciona o refresh token. Apresentar um token já rotacionado indica roubo: toda a família é
-   * revogada e o usuário precisa autenticar de novo.
+   * revogada e o usuário precisa autenticar de novo — exceto dentro da janela de tolerância, quando o
+   * sucessor ainda não foi usado (a resposta da rotação se perdeu): a sessão é reemitida.
    */
   async refresh(refreshToken: string): Promise<IssuedSession> {
     const session = await this.repository.findSessionByTokenHash(sha256Hex(refreshToken));
     if (session === null) throw new UnauthorizedError('refresh_invalid', 'Sessão inválida.');
     if (session.revokedAt !== null) {
       if (session.revokedReason === 'rotated') {
-        const revoked = await this.repository.revokeFamily(session.familyId, 'reuse_detected');
-        await this.audit.record(
-          session.tenantId,
-          session.userId,
-          'auth.refresh_reuse_detected',
-          'session',
-          session.id,
-          {
-            familyId: session.familyId,
-          },
-        );
-        await this.audit.sessionsRevoked(revoked);
-        throw new UnauthorizedError(
-          'refresh_reused',
-          'Sessão encerrada por segurança. Entre novamente.',
-        );
+        if (this.withinReuseGrace(session)) {
+          const reissued = await this.reissueLostRotation(session);
+          if (reissued !== null) return reissued;
+        }
+        await this.reuseDetected(session);
       }
       throw new UnauthorizedError('refresh_revoked', 'Sessão encerrada.');
     }
     if (session.expiresAt.getTime() <= Date.now())
       throw new UnauthorizedError('refresh_expired', 'Sessão expirada.');
-    const user = await this.repository.findUserById(session.userId);
-    if (user?.status !== 'active') throw new UnauthorizedError('user_inactive', 'Usuário inativo.');
-    const membership = await this.repository.findMembership(user.id, session.tenantId);
-    if (membership === null)
-      throw new UnauthorizedError(
-        'membership_inactive',
-        'Você não participa mais desta organização.',
-      );
-    const issued = await this.issue({
-      user,
-      membership,
-      method: 'refresh',
-      amr: session.mfaVerified ? ['pwd', 'otp'] : ['pwd'],
-      familyId: session.familyId,
-    });
+    const issued = await this.issueForRefresh(session);
     const rotated = await this.repository.markRotated(session.id, issued.sessionId);
     if (!rotated) {
       // Corrida: outra requisição rotacionou primeiro — trata como reutilização.
@@ -151,6 +128,75 @@ export class SessionService {
       );
     }
     return issued;
+  }
+
+  private withinReuseGrace(session: SessionRecord): boolean {
+    const graceMs = this.config.REFRESH_REUSE_GRACE_SECONDS * 1000;
+    return (
+      graceMs > 0 &&
+      session.replacedById !== null &&
+      session.revokedAt !== null &&
+      Date.now() - session.revokedAt.getTime() <= graceMs &&
+      session.expiresAt.getTime() > Date.now()
+    );
+  }
+
+  /** Reemite a sessão quando o sucessor nunca foi usado; null se ele já circulou (reutilização). */
+  private async reissueLostRotation(session: SessionRecord): Promise<IssuedSession | null> {
+    if (session.replacedById === null) return null;
+    const issued = await this.issueForRefresh(session);
+    const superseded = await this.repository.supersedeUnusedSuccessor(
+      session.replacedById,
+      issued.sessionId,
+    );
+    if (!superseded) {
+      await this.repository.deleteSession(issued.sessionId);
+      return null;
+    }
+    await this.audit.record(
+      session.tenantId,
+      session.userId,
+      'auth.refresh_reissued',
+      'session',
+      issued.sessionId,
+      { familyId: session.familyId, supersededSessionId: session.replacedById },
+    );
+    return issued;
+  }
+
+  private async reuseDetected(session: SessionRecord): Promise<never> {
+    const revoked = await this.repository.revokeFamily(session.familyId, 'reuse_detected');
+    await this.audit.record(
+      session.tenantId,
+      session.userId,
+      'auth.refresh_reuse_detected',
+      'session',
+      session.id,
+      { familyId: session.familyId },
+    );
+    await this.audit.sessionsRevoked(revoked);
+    throw new UnauthorizedError(
+      'refresh_reused',
+      'Sessão encerrada por segurança. Entre novamente.',
+    );
+  }
+
+  private async issueForRefresh(session: SessionRecord): Promise<IssuedSession> {
+    const user = await this.repository.findUserById(session.userId);
+    if (user?.status !== 'active') throw new UnauthorizedError('user_inactive', 'Usuário inativo.');
+    const membership = await this.repository.findMembership(user.id, session.tenantId);
+    if (membership === null)
+      throw new UnauthorizedError(
+        'membership_inactive',
+        'Você não participa mais desta organização.',
+      );
+    return this.issue({
+      user,
+      membership,
+      method: 'refresh',
+      amr: session.mfaVerified ? ['pwd', 'otp'] : ['pwd'],
+      familyId: session.familyId,
+    });
   }
 
   /** Encerra a sessão (e sua família de rotação). */

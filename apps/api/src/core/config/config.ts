@@ -28,6 +28,11 @@ export const ConfigSchema = z.object({
   JWT_ISSUER: z.string().default('cube-track'),
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).default(600),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).default(30),
+  /**
+   * Tolerância para reapresentar um refresh token recém-rotacionado cuja resposta se perdeu (aba
+   * fechada, rede móvel): reemite a sessão em vez de revogar a família. 0 desativa.
+   */
+  REFRESH_REUSE_GRACE_SECONDS: z.coerce.number().int().min(0).max(120).default(30),
   /** Chave AES-256-GCM em base64 (32 bytes) para segredos TOTP e similares. */
   ENCRYPTION_KEY: z
     .string()

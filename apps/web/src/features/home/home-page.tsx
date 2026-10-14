@@ -43,7 +43,11 @@ export function HomePage() {
   return (
     <div className="pb-10">
       <PageHeader
-        title={t('greeting', { name: user?.name.split(' ')[0] ?? '' })}
+        title={
+          user === null
+            ? t('greetingAnonymous')
+            : t('greeting', { name: user.name.split(' ')[0] ?? '' })
+        }
         subtitle={t('subtitle', { organization: tenant?.name ?? '' })}
         {...(tree.data?.canCreateBoards === true && workspaceId !== null
           ? {
@@ -60,75 +64,83 @@ export function HomePage() {
             }
           : {})}
       />
-      <div className="grid gap-8 px-4 sm:px-8 lg:grid-cols-2">
-        <section aria-labelledby="home-recent">
-          <h2 id="home-recent" className="mb-3 flex items-center gap-2 text-base font-semibold">
-            <Clock className="size-4 text-fg-muted" aria-hidden="true" />
-            {t('recent')}
-          </h2>
-          {recent.length === 0 ? (
-            <p className="text-sm text-fg-muted">{t('noRecent')}</p>
-          ) : (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {recent.map((board) => (
-                <BoardCard
-                  key={board.id}
-                  href={`/w/${board.workspaceId}/b/${board.id}`}
-                  name={board.name}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-        <section aria-labelledby="home-favorites">
-          <h2 id="home-favorites" className="mb-3 flex items-center gap-2 text-base font-semibold">
-            <Star className="size-4 text-fg-muted" aria-hidden="true" />
-            {t('favorites')}
-          </h2>
-          {favorites.data === undefined ? (
-            <Skeleton className="h-14" />
-          ) : boardFavorites.length === 0 ? (
-            <p className="text-sm text-fg-muted">{t('noFavorites')}</p>
-          ) : (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {boardFavorites.map((favorite) => (
-                <BoardCard
-                  key={favorite.entityId}
-                  href={`/w/${favorite.workspaceId}/b/${favorite.entityId}`}
-                  name={favorite.name}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-        <section aria-labelledby="home-workspaces" className="lg:col-span-2">
-          <h2 id="home-workspaces" className="mb-3 text-base font-semibold">
-            {t('workspaces')}
-          </h2>
-          {workspaces.data === undefined ? (
-            <Skeleton className="h-20" />
-          ) : workspaces.data.length === 0 ? (
-            <EmptyState title={t('workspaces')} />
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {workspaces.data.map((workspace) => (
-                <Link
-                  key={workspace.id}
-                  href={`/w/${workspace.id}`}
-                  className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4 hover:border-primary hover:bg-surface-hover"
-                >
-                  <span className="font-semibold">{workspace.name}</span>
-                  {workspace.description === null ? null : (
-                    <span className="line-clamp-2 text-sm text-fg-muted">
-                      {workspace.description}
-                    </span>
-                  )}
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
+      {favorites.isPending || workspaces.isPending ? (
+        // Seções entram juntas (as listas têm alturas variáveis): sem deslocamentos (CLS).
+        <div className="grid gap-8 px-4 sm:px-8 lg:grid-cols-2" aria-busy="true">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24 lg:col-span-2" />
+        </div>
+      ) : (
+        <div className="grid gap-8 px-4 sm:px-8 lg:grid-cols-2">
+          <section aria-labelledby="home-recent">
+            <h2 id="home-recent" className="mb-3 flex items-center gap-2 text-base font-semibold">
+              <Clock className="size-4 text-fg-muted" aria-hidden="true" />
+              {t('recent')}
+            </h2>
+            {recent.length === 0 ? (
+              <p className="text-sm text-fg-muted">{t('noRecent')}</p>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {recent.map((board) => (
+                  <BoardCard
+                    key={board.id}
+                    href={`/w/${board.workspaceId}/b/${board.id}`}
+                    name={board.name}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+          <section aria-labelledby="home-favorites">
+            <h2
+              id="home-favorites"
+              className="mb-3 flex items-center gap-2 text-base font-semibold"
+            >
+              <Star className="size-4 text-fg-muted" aria-hidden="true" />
+              {t('favorites')}
+            </h2>
+            {boardFavorites.length === 0 ? (
+              <p className="text-sm text-fg-muted">{t('noFavorites')}</p>
+            ) : (
+              <div className="grid gap-2 sm:grid-cols-2">
+                {boardFavorites.map((favorite) => (
+                  <BoardCard
+                    key={favorite.entityId}
+                    href={`/w/${favorite.workspaceId}/b/${favorite.entityId}`}
+                    name={favorite.name}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+          <section aria-labelledby="home-workspaces" className="lg:col-span-2">
+            <h2 id="home-workspaces" className="mb-3 text-base font-semibold">
+              {t('workspaces')}
+            </h2>
+            {workspaces.data === undefined || workspaces.data.length === 0 ? (
+              <EmptyState title={t('workspaces')} />
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {workspaces.data.map((workspace) => (
+                  <Link
+                    key={workspace.id}
+                    href={`/w/${workspace.id}`}
+                    className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-4 hover:border-primary hover:bg-surface-hover"
+                  >
+                    <span className="font-semibold">{workspace.name}</span>
+                    {workspace.description === null ? null : (
+                      <span className="line-clamp-2 text-sm text-fg-muted">
+                        {workspace.description}
+                      </span>
+                    )}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
     </div>
   );
 }

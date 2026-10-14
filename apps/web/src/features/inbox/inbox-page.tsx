@@ -12,6 +12,7 @@ import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api/client';
 import type { Notification, NotificationPage } from '@/lib/api/types';
 import { qk } from '@/lib/query/keys';
+import { useAuthenticated } from '@/stores/session';
 
 import { useTree } from '../workspace/hooks';
 import { useCurrentWorkspaceId } from '../workspace/use-current-workspace';
@@ -24,7 +25,9 @@ export function InboxPage() {
   const [unreadOnly, setUnreadOnly] = useState(false);
   const workspaceId = useCurrentWorkspaceId();
   const tree = useTree(workspaceId);
+  const authenticated = useAuthenticated();
   const notifications = useInfiniteQuery({
+    enabled: authenticated,
     queryKey: qk.notificationList(unreadOnly),
     initialPageParam: null as string | null,
     getNextPageParam: (page: NotificationPage) => page.pageInfo.nextCursor,

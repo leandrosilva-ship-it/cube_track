@@ -12,14 +12,10 @@ import type {
 } from '@/lib/api/types';
 import { useErrorMessage } from '@/lib/errors/use-error-message';
 import { qk } from '@/lib/query/keys';
-import { useSession } from '@/stores/session';
+import { useAuthenticated } from '@/stores/session';
 
 import { workspaceApi } from './api';
 import { applyMove, type MoveIntent } from './tree-model';
-
-function useAuthenticated(): boolean {
-  return useSession((state) => state.status === 'authenticated');
-}
 
 export function useWorkspaces() {
   const enabled = useAuthenticated();

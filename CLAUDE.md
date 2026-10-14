@@ -64,7 +64,7 @@ docs/           Arquitetura, ADRs, roadmap
 infra/          docker, helm, observabilidade
 ```
 
-Estrutura completa em `docs/architecture.md` §5. Modelo de dados em `docs/data-model.md`.
+Estrutura completa em `docs/architecture.md` §5. Modelo de dados em `docs/data-model.md`. Frontend: `docs/frontend-guidelines.md` e `docs/brand.md`.
 
 ### Comandos
 
@@ -75,6 +75,10 @@ pnpm db:migrate | db:seed | db:reset
 pnpm build                        # tsup + SWC (api, worker)
 pnpm --filter @cube-track/api dev     # API em :3001 (OpenAPI em /v1/docs)
 pnpm --filter @cube-track/worker dev  # worker + Bull Board em :3010/admin/queues
+pnpm --filter @cube-track/web dev     # web em :3000 (Next.js + webpack; API via proxy /v1)
+pnpm --filter @cube-track/ui storybook # design system em :6006
+pnpm --filter @cube-track/web test:e2e # Playwright (banco demo: db:reset && db:seed)
+pnpm --filter @cube-track/web lighthouse # performance/acessibilidade das telas base
 pnpm --filter @cube-track/api openapi:export   # atualiza docs/openapi.json (após build)
 pnpm lint && pnpm typecheck && pnpm test
 pnpm format                       # Prettier

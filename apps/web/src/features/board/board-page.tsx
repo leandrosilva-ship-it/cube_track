@@ -120,7 +120,8 @@ export function BoardPage({
     );
   }
 
-  if (board.data === undefined) {
+  // Board e views juntos: abas e barra entram de uma vez, sem deslocar a lista (CLS).
+  if (board.data === undefined || views.isPending) {
     return (
       <div className="flex flex-col gap-4 p-6" aria-busy="true">
         <span className="sr-only">{t('loading')}</span>

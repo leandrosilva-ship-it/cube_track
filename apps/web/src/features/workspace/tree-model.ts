@@ -1,4 +1,4 @@
-import { positionBetween } from '@cube-track/shared';
+import { positionBetween } from '@cube-track/shared/fractional-index';
 
 import type { TreeBoard, TreeFolder, WorkspaceTree } from '@/lib/api/types';
 

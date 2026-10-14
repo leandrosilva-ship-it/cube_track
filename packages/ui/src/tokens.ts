@@ -55,7 +55,7 @@ export const THEMES = {
     primary: '#7b87ff',
     'primary-hover': '#9aa5ff',
     'primary-foreground': '#0b0d14',
-    'primary-soft': '#262c55',
+    'primary-soft': '#1e2244',
     accent: '#4eccc6',
     danger: '#ff7a86',
     'danger-soft': '#3d1f26',

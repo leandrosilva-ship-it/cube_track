@@ -57,19 +57,17 @@ export function WorkspacePanel({ onNavigate, collapsible = false }: WorkspacePan
       <div className="flex items-center gap-1">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              className="min-w-0 flex-1 justify-between px-2"
-              aria-label={t('select')}
-            >
+            <Button variant="ghost" className="min-w-0 flex-1 justify-between px-2">
               <span className="flex min-w-0 items-center gap-2">
                 <span
-                  className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground"
+                  className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground before:content-[attr(data-initial)]"
+                  data-initial={(current?.name ?? '·').slice(0, 1).toUpperCase()}
                   aria-hidden="true"
-                >
-                  {(current?.name ?? '·').slice(0, 1).toUpperCase()}
+                />
+                <span className="truncate font-semibold">
+                  <span className="sr-only">{t('select')}: </span>
+                  {current?.name ?? '…'}
                 </span>
-                <span className="truncate font-semibold">{current?.name ?? '…'}</span>
               </span>
               <ChevronsUpDown className="text-fg-muted" aria-hidden="true" />
             </Button>

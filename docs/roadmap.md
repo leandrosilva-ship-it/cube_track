@@ -2,24 +2,24 @@
 
 Legenda: ✅ concluído · 🟡 aguardando validação · ⏳ pendente · 🔄 em andamento
 
-| #   | Prompt                                             | Status                  | Entregáveis principais                                                                                                                                                                   | ADRs      |
-| --- | -------------------------------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| 1   | Visão do produto e arquitetura                     | ✅ Concluído            | `CLAUDE.md`, `docs/architecture.md`, ADRs 0001–0019, este roadmap                                                                                                                        | 0001–0019 |
-| 2   | Banco de dados e tabelas                           | ✅ Concluído            | Monorepo, docker-compose, `packages/db` (88 tabelas + auditoria particionada), RLS, seed PMSP, testes, benchmark                                                                         | 0020–0025 |
-| 3   | Backend base                                       | 🟡 Aguardando validação | `apps/api` (auth, multi-tenant, RBAC 5 níveis, REST/GraphQL, realtime, auditoria, arquivos, busca), `apps/worker`, `docs/permissions.md`, `docs/realtime-events.md`, `docs/openapi.json` | 0026–0030 |
-| 4   | Frontend base                                      | ⏳                      | Next.js shell, design system, i18n, auth, navegação workspace/pastas, cliente realtime                                                                                                   | —         |
-| 5   | Boards, colunas e Tabela                           | ⏳                      | CRUD de boards/grupos/colunas/itens, ~30 tipos de coluna, Tabela virtualizada, edição inline realtime                                                                                    | —         |
-| 6   | Kanban e views salvas                              | ⏳                      | Kanban com raias, filtros/ordenação/agrupamento, views salvas e compartilhadas, link público                                                                                             | —         |
-| 7   | Painel do item                                     | ⏳                      | Atualizações com @menções, respostas, reações, arquivos, log de atividade, subitens, Yjs                                                                                                 | —         |
-| 8   | Calendário, Timeline, Gantt e Formulários          | ⏳                      | Views de tempo, dependências, caminho crítico, baselines, formulários públicos                                                                                                           | —         |
-| 9   | Dashboards                                         | ⏳                      | Widgets, agregações, Project Health, exportação                                                                                                                                          | —         |
-| 10  | Automações, Processos e Notificações               | ⏳                      | Motor de regras, fases com SLA, workflows, inbox, e-mail                                                                                                                                 | —         |
-| 11  | Capacity e Timesheet                               | ⏳                      | Alocação, carga por pessoa, apontamento de horas, aprovações                                                                                                                             | —         |
-| 12  | Portfólio                                          | ⏳                      | Programas, portfólios, scoring, rollups, visão executiva                                                                                                                                 | —         |
-| 13  | Contratos/OS/UST                                   | ⏳                      | Contratos, catálogo, OS, medição UST, faturamento                                                                                                                                        | —         |
-| 14  | IA                                                 | ⏳                      | Assistente, resumos, chatbot do board, sugestões                                                                                                                                         | —         |
-| 15  | API pública, Integrações, Importadores e Templates | ⏳                      | API v1, webhooks, SDK, importador Monday/Jira/Trello/CSV, templates                                                                                                                      | —         |
-| 16  | Segurança, Performance, Testes e Deploy            | ⏳                      | Hardening, testes de carga, CI/CD, Helm, observabilidade, runbooks                                                                                                                       | —         |
+| #   | Prompt                                             | Status                  | Entregáveis principais                                                                                                                                                                     | ADRs      |
+| --- | -------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| 1   | Visão do produto e arquitetura                     | ✅ Concluído            | `CLAUDE.md`, `docs/architecture.md`, ADRs 0001–0019, este roadmap                                                                                                                          | 0001–0019 |
+| 2   | Banco de dados e tabelas                           | ✅ Concluído            | Monorepo, docker-compose, `packages/db` (88 tabelas + auditoria particionada), RLS, seed PMSP, testes, benchmark                                                                           | 0020–0025 |
+| 3   | Backend base                                       | ✅ Concluído            | `apps/api` (auth, multi-tenant, RBAC 5 níveis, REST/GraphQL, realtime, auditoria, arquivos, busca), `apps/worker`, `docs/permissions.md`, `docs/realtime-events.md`, `docs/openapi.json`   | 0026–0030 |
+| 4   | Frontend base                                      | 🟡 Aguardando validação | `apps/web` (shell, auth, navegação, board header/abas/toolbar, paleta, PWA), `packages/ui` + Storybook, i18n pt-BR/en/es, cliente realtime, `docs/brand.md`, `docs/frontend-guidelines.md` | 0031–0036 |
+| 5   | Boards, colunas e Tabela                           | ⏳                      | CRUD de boards/grupos/colunas/itens, ~30 tipos de coluna, Tabela virtualizada, edição inline realtime                                                                                      | —         |
+| 6   | Kanban e views salvas                              | ⏳                      | Kanban com raias, filtros/ordenação/agrupamento, views salvas e compartilhadas, link público                                                                                               | —         |
+| 7   | Painel do item                                     | ⏳                      | Atualizações com @menções, respostas, reações, arquivos, log de atividade, subitens, Yjs                                                                                                   | —         |
+| 8   | Calendário, Timeline, Gantt e Formulários          | ⏳                      | Views de tempo, dependências, caminho crítico, baselines, formulários públicos                                                                                                             | —         |
+| 9   | Dashboards                                         | ⏳                      | Widgets, agregações, Project Health, exportação                                                                                                                                            | —         |
+| 10  | Automações, Processos e Notificações               | ⏳                      | Motor de regras, fases com SLA, workflows, inbox, e-mail                                                                                                                                   | —         |
+| 11  | Capacity e Timesheet                               | ⏳                      | Alocação, carga por pessoa, apontamento de horas, aprovações                                                                                                                               | —         |
+| 12  | Portfólio                                          | ⏳                      | Programas, portfólios, scoring, rollups, visão executiva                                                                                                                                   | —         |
+| 13  | Contratos/OS/UST                                   | ⏳                      | Contratos, catálogo, OS, medição UST, faturamento                                                                                                                                          | —         |
+| 14  | IA                                                 | ⏳                      | Assistente, resumos, chatbot do board, sugestões                                                                                                                                           | —         |
+| 15  | API pública, Integrações, Importadores e Templates | ⏳                      | API v1, webhooks, SDK, importador Monday/Jira/Trello/CSV, templates                                                                                                                        | —         |
+| 16  | Segurança, Performance, Testes e Deploy            | ⏳                      | Hardening, testes de carga, CI/CD, Helm, observabilidade, runbooks                                                                                                                         | —         |
 
 ## Prompt 1 — Resumo
 
@@ -150,3 +150,68 @@ pnpm lint && pnpm typecheck && pnpm test
 ```
 
 **Próximos passos:** Prompt 4, frontend base (Next.js, design system, i18n, fluxos de autenticação, navegação e cliente realtime com patches no TanStack Query).
+
+## Prompt 4 — Resumo
+
+**Feito**
+
+- **Design system** (`packages/ui`, ADR 0034):
+  - Tokens em TS espelhados em CSS (teste de igualdade), temas claro e escuro e densidade confortável ou compacta.
+  - Paleta de 20 status com contraste AA, e `accessiblePair` para cores livres.
+  - 18 famílias de componentes sobre Radix: botões, inputs, select, date picker pt-BR, avatar e grupo, badges e pills, tooltip, popover, drawer, modal, toasts, abas, menus de contexto, empty state, skeleton, comando e outros.
+  - Storybook 10 e 51 testes com axe.
+- **Identidade visual:** cubo isométrico com trilha, Azul Cubo `#4252d9`, favicon, ícones do PWA e `docs/brand.md`.
+- **Shell** (`apps/web`, Next.js 16, ADR 0031):
+  - Trilho fixo com Início, Minha semana, Inbox (contador), Favoritos, Busca, IA e Mais.
+  - Painel do workspace com seletor, árvore de pastas e boards com drag-and-drop por mouse e teclado, favoritos, filtro e criação de pasta e board.
+  - Cabeçalho do board com nome e descrição editáveis, menu, presença em tempo real, Convidar, Compartilhar, Integrar, Automatizar e Agentes.
+  - Abas de views com "+" e "Todas".
+  - Toolbar com Novo item, Pesquisar, Pessoa, Filtro, Ordenar, Ocultar, Agrupar por e ⋯ (CSV).
+  - No mobile, drawer e barra inferior.
+- **Autenticação** (ADR 0032): login, cadastro, convite, MFA, recuperação e redefinição, magic link, verificação de e-mail, callback OAuth e seleção de organização.
+  - Access token em memória; refresh serializado entre abas (Web Locks) e sincronizado por BroadcastChannel.
+  - **Correção na API:** tolerância de 30 s para reapresentar um refresh cuja resposta se perdeu, sem deslogar o usuário.
+- **Dados e tempo real** (ADR 0033):
+  - Chaves de query padronizadas.
+  - Updates otimistas com rollback e reconciliação de 409.
+  - Patches LWW por campo, `seq` com replay de lacunas, resync, dedupe, eco ignorado, reconexão com backoff e presença.
+- **API de estrutura** (ADR 0035): 10 rotas novas (árvore, pastas, boards, favoritos, views, notificações, "Minha semana") e eventos `workspace.structure_changed`, `view.changed` e `favorites.changed`.
+- **Paleta de comandos** (Ctrl/⌘+K) e atalhos documentados (`?` mostra a lista; ver `docs/frontend-guidelines.md` §6).
+- **i18n:** pt-BR, en e es (paridade testada); formatação brasileira de datas, números e moeda; URLs sem prefixo em pt-BR.
+- **PWA:** manifesto, service worker sem cache de `/v1`, página offline e aviso de nova versão.
+- **Acessibilidade:** axe sem violações nas telas base (claro e escuro), navegação completa por teclado, skip link, foco visível e Lighthouse acessibilidade 100 em todas as telas.
+- **Testes:** 316 passando, sendo 58 em `shared`, 39 em `db`, 93 em `api`, 29 em `worker`, 51 em `ui`, 10 em `i18n` e 36 unitários em `web`. Há ainda 13 E2E Playwright, incluindo presença e criação de item entre **dois navegadores**.
+- **CI:** build do Storybook e job de E2E (Postgres, Redis e Meilisearch, banco de demonstração, Playwright).
+
+**Critérios de aceite**
+
+- ✅ Navegação fluida sem recarregar a página (E2E verifica que o documento não recarrega).
+- ✅ Presença em tempo real no cabeçalho do board (E2E com dois navegadores).
+- ⚠️ Lighthouse ≥ 90:
+  - acessibilidade 100 em todas as telas;
+  - performance ≥ 90 no login (mobile 93, desktop 100) e em todas as telas no desktop (99–100);
+  - telas autenticadas no **perfil mobile simulado** ficam em 63–73.
+  - A causa é estrutural: conteúdo dependente da sessão recuperada no cliente, sobre cerca de 130 KB gz de React e roteador. O plano está na ADR 0036.
+
+**Pendências**
+
+- Performance mobile das telas autenticadas (≥ 90): sessão legível no servidor e SSR com dados iniciais (Prompt 16, ADR 0036).
+- Lighthouse roda localmente (`pnpm --filter @cube-track/web lighthouse`); no CI entra no Prompt 16, junto com o ambiente de preview.
+- Tabela virtualizada, edição inline e colunas: Prompt 5. Kanban e views salvas com filtros persistidos: Prompt 6. A lista atual do board é a base de leitura e criação/renomeação.
+- IA: Prompt 14. A página mostra o estado "módulo não habilitado". Integrar, Automatizar e Agentes ficam visíveis como desabilitados (`aria-disabled`, com tooltip explicativo) até os Prompts 15, 10 e 14.
+
+**Como rodar e testar**
+
+```bash
+cp .env.example .env && pnpm install
+pnpm infra:up && pnpm db:reset && pnpm db:seed
+pnpm build
+pnpm --filter @cube-track/api start            # API :3001
+pnpm --filter @cube-track/web start            # web :3000 — ana.ribeiro@empresademo.com.br / CubeTrack@2026
+pnpm --filter @cube-track/ui storybook         # Storybook :6006
+pnpm lint && pnpm typecheck && pnpm test
+pnpm --filter @cube-track/web test:e2e         # Playwright (API e web de produção)
+pnpm --filter @cube-track/web lighthouse       # relatórios em apps/web/lighthouse/
+```
+
+**Próximos passos:** Prompt 5, com boards, grupos, colunas (cerca de 30 tipos) e a Tabela virtualizada com edição inline em tempo real.

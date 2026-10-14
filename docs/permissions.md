@@ -95,3 +95,18 @@ A escrita numa coluna sem permissão de edição, ou num campo nativo vinculado 
 | `GET/PATCH /v1/members`             | papel e status de membros e convidados                      |
 | `POST /v1/access/check`             | `can(usuário, ação, recurso)`                               |
 | `GET /v1/me/permissions?boardId=`   | permissões efetivas, escopo de itens e colunas ocultas      |
+
+### Navegação e estrutura (Prompt 4, ADR 0035)
+
+| Rota                                                              | Permissão exigida                                                              |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `POST /v1/workspaces`                                             | `workspace.create` (tenant)                                                    |
+| `GET /v1/workspaces/:id/tree`                                     | leitura do workspace; convidados recebem só os boards concedidos, sem pastas   |
+| `POST /v1/workspaces/:id/folders`, `PATCH/DELETE /v1/folders/:id` | `folder.manage` no workspace                                                   |
+| `POST /v1/workspaces/:id/boards`                                  | `board.create` no workspace; o criador recebe `board_owner`                    |
+| `PATCH /v1/boards/:id`                                            | `board.manage` (nome e descrição); mover entre pastas exige `folder.manage`    |
+| `GET/PUT/DELETE /v1/me/favorites`                                 | leitura do recurso favoritado (`board.read` ou `workspace.read`)               |
+| `GET /v1/boards/:id/views`                                        | `board.read`; cada view é filtrada por `view.read`                             |
+| `POST /v1/boards/:id/views`                                       | `view.manage` (compartilhada) ou `board.read` (pessoal)                        |
+| `PATCH/DELETE /v1/views/:id`                                      | `view.update`; a view padrão não pode ser excluída                             |
+| `GET /v1/me/notifications`, `GET /v1/me/week`                     | próprio usuário; "Minha semana" respeita colunas ocultas e escopo de convidado |

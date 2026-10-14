@@ -5,7 +5,7 @@ import { Button, Field, Input } from '@cube-track/ui';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
-import { z } from 'zod';
+import * as z from 'zod/mini';
 
 import { FormMessage } from '@/components/common/form-error';
 import { Link } from '@/i18n/navigation';
@@ -36,11 +36,11 @@ export function SignupForm() {
   const [slugEdited, setSlugEdited] = useState(false);
 
   const schema = z.object({
-    name: z.string().trim().min(2, tv('required')),
+    name: z.string().check(z.trim(), z.minLength(2, tv('required'))),
     email: z.email(tv('email')),
-    password: z.string().min(10, tv('passwordLength')),
-    organizationName: z.string().trim().min(2, tv('required')),
-    organizationSlug: z.string().regex(/^[a-z0-9][a-z0-9-]{1,62}$/, tv('slug')),
+    password: z.string().check(z.minLength(10, tv('passwordLength'))),
+    organizationName: z.string().check(z.trim(), z.minLength(2, tv('required'))),
+    organizationSlug: z.string().check(z.regex(/^[a-z0-9][a-z0-9-]{1,62}$/, tv('slug'))),
   });
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),

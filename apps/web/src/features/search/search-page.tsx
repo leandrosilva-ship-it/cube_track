@@ -12,6 +12,7 @@ import { Link, useRouter } from '@/i18n/navigation';
 import { api } from '@/lib/api/client';
 import type { SearchHit } from '@/lib/api/types';
 import { qk } from '@/lib/query/keys';
+import { useAuthenticated } from '@/stores/session';
 
 import { useTree } from '../workspace/hooks';
 import { useCurrentWorkspaceId } from '../workspace/use-current-workspace';
@@ -45,13 +46,14 @@ export function SearchPage() {
     };
   }, [value, router]);
 
+  const authenticated = useAuthenticated();
   const results = useQuery({
     queryKey: qk.search(query),
     queryFn: () =>
       api<{ data: SearchHit[] }>('/v1/search', { query: { q: query, limit: 20 } }).then(
         (response) => response.data,
       ),
-    enabled: query.length >= 2,
+    enabled: authenticated && query.length >= 2,
   });
   const workspaceOf = (boardId: string) =>
     tree.data?.boards.find((board) => board.id === boardId)?.workspaceId ?? workspaceId ?? '';

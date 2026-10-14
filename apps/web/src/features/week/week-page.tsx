@@ -12,6 +12,7 @@ import { Link } from '@/i18n/navigation';
 import { api } from '@/lib/api/client';
 import type { Week, WeekItem } from '@/lib/api/types';
 import { qk } from '@/lib/query/keys';
+import { useAuthenticated } from '@/stores/session';
 
 function shift(date: string, days: number): string {
   const value = new Date(`${date}T00:00:00Z`);
@@ -43,9 +44,11 @@ export function WeekPage() {
   const tc = useTranslations('common');
   const locale = useLocale();
   const [anchor, setAnchor] = useState(today);
+  const authenticated = useAuthenticated();
   const week = useQuery({
     queryKey: qk.week(anchor),
     queryFn: () => api<Week>('/v1/me/week', { query: { date: anchor } }),
+    enabled: authenticated,
   });
   const data = week.data;
   const days =

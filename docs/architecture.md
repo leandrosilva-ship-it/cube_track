@@ -366,26 +366,20 @@ cube_track/
 │   ├── CODEOWNERS
 │   └── pull_request_template.md
 ├── apps/
-│   ├── web/                        # Next.js (App Router)
+│   ├── web/                        # Next.js 16 (App Router, webpack — ADR 0031); detalhes em docs/frontend-guidelines.md
 │   │   ├── src/
-│   │   │   ├── app/
-│   │   │   │   ├── [locale]/
-│   │   │   │   │   ├── (auth)/           # login, callback, convite
-│   │   │   │   │   ├── (app)/            # shell autenticado
-│   │   │   │   │   │   ├── w/[workspaceId]/
-│   │   │   │   │   │   │   ├── b/[boardId]/[[...viewId]]/
-│   │   │   │   │   │   │   ├── dashboards/[dashboardId]/
-│   │   │   │   │   │   │   └── portfolio/
-│   │   │   │   │   │   ├── inbox/  my-work/  search/  settings/  admin/
-│   │   │   │   │   └── share/[token]/    # link público somente leitura
-│   │   │   │   └── api/                  # rotas BFF mínimas (sessão)
-│   │   │   ├── features/                 # por domínio: boards, items, views, kanban, gantt, forms,
-│   │   │   │                             #   dashboards, automations, portfolio, contracts, timesheet…
-│   │   │   │   └── <feature>/{components,hooks,api,store,lib}
-│   │   │   ├── realtime/                 # cliente Socket.IO, aplicação de patches, presença, reconexão
-│   │   │   ├── lib/                      # http client, auth, query client, utils
-│   │   │   └── styles/
-│   │   ├── e2e/                          # Playwright (inclui multi-browser realtime)
+│   │   │   ├── app/[locale]/
+│   │   │   │   ├── (auth)/               # login, signup, invite, organizations, auth/{mfa,forgot,reset,magic-link,verify-email,callback}
+│   │   │   │   └── (app)/                # shell autenticado: início, my-week, inbox, favorites, search, ai, settings,
+│   │   │   │       └── w/[workspaceId]/b/[boardId]/[[...view]]/
+│   │   │   ├── features/<feature>/       # auth, shell, workspace, board, home, week, inbox, favorites, search, ai, settings
+│   │   │   ├── realtime/                 # cliente Socket.IO, patches no cache (apply.ts), presença, mutações pendentes
+│   │   │   ├── lib/                      # api client, sessão (Web Locks), query keys, erros
+│   │   │   ├── stores/                   # Zustand: sessão, preferências, shell
+│   │   │   ├── i18n/  proxy.ts           # next-intl (as-needed + cookie ct_locale)
+│   │   ├── public/sw.js                  # PWA (ADR 0036)
+│   │   ├── e2e/                          # Playwright (inclui dois navegadores para realtime e presença)
+│   │   ├── scripts/lighthouse.mjs        # auditoria de performance/acessibilidade
 │   │   └── next.config.ts
 │   ├── api/                        # NestJS
 │   │   ├── src/
@@ -422,8 +416,8 @@ cube_track/
 │   │   └── seeds/                        # dev/demo (inclui caso PMSP/UST)
 │   ├── shared/
 │   │   └── src/{schemas,events,columns,permissions,errors,dates,money,fractional-index,filters}
-│   ├── ui/                         # shadcn/ui + componentes (DataGrid, KanbanBoard, Gantt, Cell editors…)
-│   ├── i18n/                       # messages/{pt-BR,en,es}.json, formatadores, feriados BR (nacionais/estaduais/municipais)
+│   ├── ui/                         # design system: tokens, Tailwind 4, Radix, Storybook (ADR 0034); DataGrid/Kanban/Gantt nos próximos prompts
+│   ├── i18n/                       # messages/{pt-BR,en,es}.ts (paridade testada), formatadores, feriados BR
 │   ├── config/                     # eslint-config, prettier-config, tsconfig, tailwind-preset
 │   ├── testing/                    # factories, fixtures, helpers Testcontainers, utilitários Playwright
 │   └── sdk/                        # cliente TS da API pública (Prompt 15)

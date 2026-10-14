@@ -45,6 +45,11 @@ export function clearSession(): void {
   sessionStore.setState({ ...initial, status: 'anonymous' });
 }
 
+/** Queries de dados só disparam com sessão (o shell renderiza enquanto ela é recuperada). */
+export function useAuthenticated(): boolean {
+  return useStore(sessionStore, (state) => state.status === 'authenticated');
+}
+
 export function useSession<T>(selector: (state: SessionState) => T): T {
   return useStore(sessionStore, selector);
 }

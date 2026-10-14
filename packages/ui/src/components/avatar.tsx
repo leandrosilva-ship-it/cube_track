@@ -63,7 +63,15 @@ export function Avatar({
       {...(decorative ? { 'aria-hidden': true } : { role: 'img', 'aria-label': person.name })}
     >
       {person.avatarUrl === undefined || person.avatarUrl === null || person.avatarUrl === '' ? (
-        initials(person.name)
+        decorative ? (
+          // Decorativo: iniciais via CSS (fora do texto do DOM), para não poluir o nome acessível do pai.
+          <span
+            data-initials={initials(person.name)}
+            className="before:content-[attr(data-initials)]"
+          />
+        ) : (
+          initials(person.name)
+        )
       ) : (
         <>
           <AvatarPrimitive.Image src={person.avatarUrl} alt="" className="size-full object-cover" />

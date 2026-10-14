@@ -82,6 +82,9 @@ function TreeItemRow({ row, tree, active, favorite, onToggle, onNavigate }: RowP
       id: row.id,
       disabled: !tree.canManageFolders,
     });
+  // Sem permissão de reorganizar, o item não recebe atributos de arrastar (o dnd-kit marcaria
+  // aria-disabled, e o link pareceria desabilitado para leitores de tela).
+  const dragProps = tree.canManageFolders ? { ...attributes, ...listeners } : {};
   const style: CSSProperties = {
     transform: CSS.Translate.toString(transform),
     transition,
@@ -101,13 +104,12 @@ function TreeItemRow({ row, tree, active, favorite, onToggle, onNavigate }: RowP
         type="button"
         className={rowClass}
         style={style}
+        // Nome = texto visível (WCAG 2.5.3); o estado vem de aria-expanded.
         aria-expanded={row.expanded}
-        aria-label={row.expanded ? t('collapse', { name }) : t('expand', { name })}
         onClick={() => {
           onToggle(row.id);
         }}
-        {...attributes}
-        {...listeners}
+        {...dragProps}
       >
         <ChevronRight
           className={cn('size-3.5 shrink-0 transition-transform', row.expanded && 'rotate-90')}
@@ -124,12 +126,13 @@ function TreeItemRow({ row, tree, active, favorite, onToggle, onNavigate }: RowP
     ) : (
       <Link
         href={`/w/${tree.workspaceId}/b/${row.id}`}
+        // Árvores grandes: sem prefetch por viewport (dezenas de requisições RSC na abertura).
+        prefetch={false}
         className={rowClass}
         style={style}
         aria-current={active ? 'page' : undefined}
         onClick={onNavigate}
-        {...attributes}
-        {...listeners}
+        {...dragProps}
         // O dnd-kit define role="button"; aqui o elemento é um link de navegação.
         role="link"
       >

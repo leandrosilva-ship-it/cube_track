@@ -67,6 +67,8 @@ jobs:
         run: timeout 60 bash -c 'until curl -sf http://localhost:7700/health; do sleep 2; done'
       - run: pnpm test
       - run: pnpm build
+      - name: Storybook (build)
+        run: pnpm --filter @cube-track/ui build-storybook
       - name: OpenAPI exportado está atualizado
         env:
           NODE_ENV: test
@@ -87,3 +89,68 @@ jobs:
           psql postgres://postgres:postgres@localhost:5432/postgres -c "create database cubetrack_ci"
           pnpm db:reset
           pnpm db:seed
+
+  e2e:
+    name: E2E (Playwright, dois navegadores)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: cubetrack
+          POSTGRES_PASSWORD: cubetrack
+          POSTGRES_DB: cubetrack
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cubetrack"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      meilisearch:
+        image: getmeili/meilisearch:v1.13
+        env:
+          MEILI_MASTER_KEY: cubetrack-dev-master-key
+          MEILI_NO_ANALYTICS: 'true'
+        ports:
+          - 7700:7700
+    env:
+      CI: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Ambiente local (.env de exemplo) e papéis do banco
+        run: |
+          cp .env.example .env
+          psql postgres://cubetrack:cubetrack@localhost:5432/cubetrack -f infra/docker/postgres/init/01-roles.sql
+      - name: Banco de demonstração
+        run: pnpm db:reset && pnpm db:seed
+      - run: pnpm build
+      - name: Navegador do Playwright
+        run: pnpm --filter @cube-track/web exec playwright install --with-deps chromium
+      - name: E2E
+        run: pnpm --filter @cube-track/web test:e2e
+      - name: Relatório do Playwright
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7

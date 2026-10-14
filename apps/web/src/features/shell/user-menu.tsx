@@ -38,14 +38,15 @@ export function UserMenu({ side = 'right' }: { side?: 'right' | 'top' | 'bottom'
   const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
-  if (user === null) return null;
+  // Reserva o espaço do avatar enquanto a sessão é recuperada (sem deslocamento).
+  if (user === null) return <span className="block size-8 rounded-full bg-surface-sunken" />;
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2"
-        aria-label={`${t('menu')}: ${user.name}`}
-      >
+      <DropdownMenuTrigger className="rounded-full focus-visible:outline-2 focus-visible:outline-offset-2">
         <Avatar person={{ id: user.id, name: user.name }} size="md" decorative />
+        <span className="sr-only">
+          {t('menu')}: {user.name}
+        </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent side={side} align="end" className="w-64">
         <DropdownMenuLabel className="flex flex-col">

@@ -160,8 +160,6 @@ export const es: Messages = {
       emptyFilter: 'Ningún tablero coincide con la búsqueda.',
       favorites: 'Favoritos',
       boards: 'Tableros',
-      expand: 'Expandir {name}',
-      collapse: 'Contraer {name}',
       addFavorite: 'Agregar a favoritos',
       removeFavorite: 'Quitar de favoritos',
       folderActions: 'Acciones de la carpeta {name}',
@@ -352,6 +350,7 @@ export const es: Messages = {
   },
   home: {
     greeting: '¡Hola, {name}!',
+    greetingAnonymous: '¡Hola!',
     subtitle: 'Este es el resumen de tu trabajo en {organization}.',
     recent: 'Visitados recientemente',
     noRecent: 'Los tableros que abras aparecerán aquí.',

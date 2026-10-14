@@ -1,6 +1,6 @@
 'use client';
 
-import { rooms } from '@cube-track/shared';
+import { rooms } from '@cube-track/shared/realtime';
 
 import type { Member } from '@/lib/api/types';
 import { useRealtime } from '@/realtime/store';

@@ -4,7 +4,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from '@cube-track/ui';
 import { useTranslations } from 'next-intl';
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react';
-import { io } from 'socket.io-client';
 
 import { signOut } from '@/lib/auth/session';
 import { sessionStore, useSession } from '@/stores/session';
@@ -41,8 +40,8 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
         ? null
         : new RealtimeClient(
             queryClient,
-            () =>
-              io(REALTIME_URL, {
+            async () =>
+              (await import('socket.io-client')).io(REALTIME_URL, {
                 transports: ['websocket'],
                 // Função: cada (re)conexão usa o access token mais recente.
                 auth: (callback) => {

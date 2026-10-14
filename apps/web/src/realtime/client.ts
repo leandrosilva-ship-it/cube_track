@@ -1,4 +1,5 @@
-import { PRESENCE_HEARTBEAT_SECONDS, type RealtimeEvent } from '@cube-track/shared';
+import type { RealtimeEvent } from '@cube-track/shared';
+import { PRESENCE_HEARTBEAT_SECONDS } from '@cube-track/shared/realtime';
 import type { QueryClient } from '@tanstack/react-query';
 import type { Socket } from 'socket.io-client';
 
@@ -17,7 +18,8 @@ import {
 
 const DEDUPE_SIZE = 5_000;
 
-export type SocketFactory = (token: string) => Socket;
+/** Pode ser assíncrona: o provider carrega `socket.io-client` sob demanda (fora do bundle inicial). */
+export type SocketFactory = (token: string) => Socket | Promise<Socket>;
 
 interface BoardSubscription {
   refs: number;
@@ -46,6 +48,9 @@ export class RealtimeClient {
   private readonly seen = new Set<string>();
   private heartbeat: ReturnType<typeof setInterval> | undefined;
   private readonly replaying = new Set<string>();
+  /** Incrementa a cada start/stop: descarta sockets criados por um start já cancelado. */
+  private generation = 0;
+  private starting = false;
 
   constructor(
     private readonly queryClient: QueryClient,
@@ -54,9 +59,28 @@ export class RealtimeClient {
   ) {}
 
   start(token: string): void {
-    if (this.socket !== null) return;
+    if (this.socket !== null || this.starting) return;
+    this.starting = true;
+    const generation = ++this.generation;
     realtimeStore.setState({ status: 'connecting' });
-    const socket = this.createSocket(token);
+    void Promise.resolve(this.createSocket(token)).then(
+      (socket) => {
+        if (generation !== this.generation) {
+          socket.disconnect();
+          return;
+        }
+        this.starting = false;
+        this.attach(socket);
+      },
+      () => {
+        if (generation !== this.generation) return;
+        this.starting = false;
+        realtimeStore.setState({ status: 'offline' });
+      },
+    );
+  }
+
+  private attach(socket: Socket): void {
     this.socket = socket;
     socket.on('ready', () => {
       realtimeStore.setState({ status: 'online' });
@@ -83,6 +107,8 @@ export class RealtimeClient {
   }
 
   stop(): void {
+    this.generation += 1;
+    this.starting = false;
     if (this.heartbeat !== undefined) clearInterval(this.heartbeat);
     this.heartbeat = undefined;
     this.socket?.removeAllListeners();

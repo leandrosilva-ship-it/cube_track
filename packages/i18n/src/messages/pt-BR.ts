@@ -162,8 +162,6 @@ export const ptBR = {
       emptyFilter: 'Nenhum board corresponde à busca.',
       favorites: 'Favoritos',
       boards: 'Boards',
-      expand: 'Expandir {name}',
-      collapse: 'Recolher {name}',
       addFavorite: 'Adicionar aos favoritos',
       removeFavorite: 'Remover dos favoritos',
       folderActions: 'Ações da pasta {name}',
@@ -354,6 +352,7 @@ export const ptBR = {
   },
   home: {
     greeting: 'Olá, {name}!',
+    greetingAnonymous: 'Olá!',
     subtitle: 'Este é o resumo do seu trabalho em {organization}.',
     recent: 'Visitados recentemente',
     noRecent: 'Os boards que você abrir aparecem aqui.',

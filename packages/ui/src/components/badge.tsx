@@ -2,7 +2,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import type { HTMLAttributes } from 'react';
 
 import { cn } from '../lib/cn';
-import { readableTextOn } from '../lib/contrast';
+import { accessiblePair } from '../lib/contrast';
 
 export const badgeVariants = cva(
   'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap',
@@ -38,13 +38,14 @@ export interface StatusPillProps {
 
 /** Rótulo de status em cor viva com texto sempre legível (contraste AA). */
 export function StatusPill({ label, color, className }: StatusPillProps) {
+  const pair = accessiblePair(color);
   return (
     <span
       className={cn(
         'inline-flex h-7 min-w-24 items-center justify-center rounded-sm px-2 text-xs font-medium',
         className,
       )}
-      style={{ backgroundColor: color, color: readableTextOn(color) }}
+      style={{ backgroundColor: pair.background, color: pair.text }}
     >
       {label}
     </span>

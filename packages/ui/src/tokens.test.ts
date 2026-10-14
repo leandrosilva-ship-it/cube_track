@@ -50,6 +50,11 @@ describe('tokens', () => {
         }
       }
       expect(contrastRatio(theme['primary-foreground'], theme.primary)).toBeGreaterThanOrEqual(4.5);
+      // Item ativo (texto primário sobre fundo primário suave) e badges.
+      expect(contrastRatio(theme.primary, theme['primary-soft'])).toBeGreaterThanOrEqual(4.5);
+      for (const tone of ['success', 'warning', 'danger', 'info'] as const) {
+        expect(contrastRatio(theme[tone], theme[`${tone}-soft`]), tone).toBeGreaterThanOrEqual(4.5);
+      }
       // Bordas de controles (WCAG 1.4.11: componentes de interface ≥ 3:1).
       expect(contrastRatio(theme['border-strong'], theme.surface)).toBeGreaterThanOrEqual(3);
       expect(contrastRatio(theme.focus, theme.surface)).toBeGreaterThanOrEqual(3);

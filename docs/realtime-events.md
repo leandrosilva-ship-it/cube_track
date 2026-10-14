@@ -46,21 +46,24 @@ interface RealtimeEvent {
 
 ## 4. Tipos de evento
 
-| Tipo                   | Room                 | Payload                                                                               | Origem                                        |
-| ---------------------- | -------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `item.created`         | board                | `{ item: ItemSnapshot }`                                                              | `POST /v1/boards/:id/items`                   |
-| `item.updated`         | board + item         | `{ itemId, version, changes: [{ field, kind: 'column'\|'native', value, version }] }` | `PATCH /v1/items/:id`, automações, cronograma |
-| `item.deleted`         | board + item         | `{ itemId }`                                                                          | `DELETE /v1/items/:id`                        |
-| `column.updated`       | board                | `{ columnId, key, changes }`                                                          | `PATCH /v1/boards/:id/columns/:columnId`      |
-| `board.updated`        | board                | `{ boardId, changes }`                                                                | alterações de board                           |
-| `update.created`       | board + item         | `{ updateId, itemId, authorId, bodyText }`                                            | comentários                                   |
-| `notification.created` | usuário              | `{ notificationId, type, title, itemId, boardId }`                                    | worker (menções, automações)                  |
-| `permission.changed`   | tenant               | `{ scope, resourceId }`                                                               | papéis, concessões, membros                   |
-| `session.revoked`      | usuário (sessão)     | `{ sessionId }`. O socket da sessão é desconectado                                    | logout, revogação, reuso de refresh token     |
-| `presence.joined`      | board/item/dashboard | `{ room, userId, state }`                                                             | heartbeat                                     |
-| `presence.updated`     | board/item/dashboard | `{ room, userId, state }`                                                             | heartbeat com estado alterado                 |
-| `presence.left`        | board/item/dashboard | `{ room, userId }`                                                                    | unsubscribe, desconexão ou TTL                |
-| `sequence.skipped`     | board                | `{}` (mantém a continuidade de `seq`)                                                 | evento não visível para o destinatário        |
+| Tipo                          | Room                 | Payload                                                                               | Origem                                                         |
+| ----------------------------- | -------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `item.created`                | board                | `{ item: ItemSnapshot }`                                                              | `POST /v1/boards/:id/items`                                    |
+| `item.updated`                | board + item         | `{ itemId, version, changes: [{ field, kind: 'column'\|'native', value, version }] }` | `PATCH /v1/items/:id`, automações, cronograma                  |
+| `item.deleted`                | board + item         | `{ itemId }`                                                                          | `DELETE /v1/items/:id`                                         |
+| `column.updated`              | board                | `{ columnId, key, changes }`                                                          | `PATCH /v1/boards/:id/columns/:columnId`                       |
+| `board.updated`               | board                | `{ boardId, changes }`                                                                | alterações de board                                            |
+| `update.created`              | board + item         | `{ updateId, itemId, authorId, bodyText }`                                            | comentários                                                    |
+| `workspace.structure_changed` | tenant               | `{ workspaceId }`. O cliente recarrega a árvore (já filtrada por permissão)           | pastas, boards, ordem (ADR 0035)                               |
+| `view.changed`                | board                | `{ boardId, viewId }`                                                                 | criar, editar ou excluir views                                 |
+| `favorites.changed`           | usuário              | `{}`                                                                                  | adicionar ou remover favoritos (sincroniza as abas do usuário) |
+| `notification.created`        | usuário              | `{ notificationId, type, title, itemId, boardId }`                                    | worker (menções, automações)                                   |
+| `permission.changed`          | tenant               | `{ scope, resourceId }`                                                               | papéis, concessões, membros                                    |
+| `session.revoked`             | usuário (sessão)     | `{ sessionId }`. O socket da sessão é desconectado                                    | logout, revogação, reuso de refresh token                      |
+| `presence.joined`             | board/item/dashboard | `{ room, userId, state }`                                                             | heartbeat                                                      |
+| `presence.updated`            | board/item/dashboard | `{ room, userId, state }`                                                             | heartbeat com estado alterado                                  |
+| `presence.left`               | board/item/dashboard | `{ room, userId }`                                                                    | unsubscribe, desconexão ou TTL                                 |
+| `sequence.skipped`            | board                | `{}` (mantém a continuidade de `seq`)                                                 | evento não visível para o destinatário                         |
 
 ## 5. Redação por destinatário
 

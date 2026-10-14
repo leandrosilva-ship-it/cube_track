@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./realtime": "./src/realtime.ts",
+    "./fractional-index": "./src/fractional-index.ts"
   },
   "scripts": {
     "lint": "eslint .",
@@ -22,5 +24,6 @@
     "eslint": "^9.39.1",
     "typescript": "5.9.3",
     "vitest": "^3.2.4"
-  }
+  },
+  "sideEffects": false
 }

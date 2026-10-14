@@ -20,6 +20,12 @@ interface Bucket {
   items: Item[];
 }
 
+const TYPE_PRIORITY = ['status', 'people', 'date', 'number', 'dropdown', 'text', 'checkbox'];
+const typePriority = (type: string) => {
+  const index = TYPE_PRIORITY.indexOf(type);
+  return index === -1 ? TYPE_PRIORITY.length : index;
+};
+
 const byPosition = (a: Item, b: Item) =>
   a.position < b.position ? -1 : a.position > b.position ? 1 : 0;
 
@@ -99,12 +105,12 @@ function ItemName({ item, boardId, canEdit }: { item: Item; boardId: string; can
     );
   }
   if (!canEdit || pending) {
-    return <span className={cn('truncate', pending && 'text-fg-muted')}>{item.name}</span>;
+    return <span className={cn('block truncate', pending && 'text-fg-muted')}>{item.name}</span>;
   }
   return (
     <button
       type="button"
-      className="truncate rounded-sm text-start hover:underline"
+      className="block w-full truncate rounded-sm text-start hover:underline"
       title={tc('rename')}
       onClick={() => {
         setDraft(item.name);
@@ -189,7 +195,13 @@ export function ItemsList({
           (column) =>
             DISPLAYABLE_TYPES.has(column.type) && !state.hiddenColumnKeys.includes(column.key),
         )
-        .slice(0, 5),
+        // Mais informativas primeiro: status, pessoas e datas (mantendo a ordem do board).
+        .map((column, index) => ({ column, index }))
+        .sort(
+          (a, b) => typePriority(a.column.type) - typePriority(b.column.type) || a.index - b.index,
+        )
+        .slice(0, 4)
+        .map(({ column }) => column),
     [board.columns, state.hiddenColumnKeys],
   );
   const buckets = useMemo(

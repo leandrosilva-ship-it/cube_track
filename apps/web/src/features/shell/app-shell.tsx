@@ -4,7 +4,8 @@ import { Drawer, Dialog, IconButton, Logo, Skeleton, cn } from '@cube-track/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { Menu, PanelLeftOpen } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useEffect, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
+import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
 
 import { usePathname, useRouter } from '@/i18n/navigation';
 import { bootstrapSession, onAuthBroadcast, refreshSession } from '@/lib/auth/session';
@@ -14,25 +15,55 @@ import { setMobilePanelOpen, useShell } from '@/stores/shell';
 import { updatePreferences, usePreferences } from '@/stores/preferences';
 
 import { WorkspacePanel } from '../workspace/workspace-panel';
-import { CommandPalette } from './command-palette';
 import { IconRail } from './icon-rail';
-import { ShellDialogs } from './shell-dialogs';
 import { useGlobalShortcuts } from './shortcuts';
 import { UserMenu } from './user-menu';
 
+const loadPalette = () => import('./command-palette').then((module) => module.CommandPalette);
+const loadDialogs = () => import('./shell-dialogs').then((module) => module.ShellDialogs);
+const CommandPalette = dynamic(loadPalette, { ssr: false });
+const ShellDialogs = dynamic(loadDialogs, { ssr: false });
+
+/** Pré-carrega paleta e diálogos quando o navegador fica ocioso (abrem sem atraso perceptível). */
+function usePrefetchOverlays() {
+  useEffect(() => {
+    const prefetch = () => {
+      void loadPalette();
+      void loadDialogs();
+    };
+    if ('requestIdleCallback' in window) {
+      const handle = window.requestIdleCallback(prefetch, { timeout: 5_000 });
+      return () => {
+        window.cancelIdleCallback(handle);
+      };
+    }
+    const timer = setTimeout(prefetch, 3_000);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, []);
+}
+
+/** Mesmo arcabouço do shell (barra superior/inferior no mobile, trilho e painel no desktop): sem CLS. */
 function ShellSkeleton() {
   return (
-    <div className="flex h-dvh" aria-busy="true">
-      <div className="hidden w-14 border-e border-border bg-surface md:block" />
-      <div className="hidden w-64 border-e border-border bg-surface p-3 lg:block">
+    <div className="flex h-dvh flex-col overflow-hidden md:flex-row" aria-busy="true">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-surface px-2 md:hidden">
+        <Skeleton className="size-9" />
+        <Logo className="flex-1" />
+        <Skeleton className="size-8 rounded-full" />
+      </div>
+      <div className="hidden w-14 shrink-0 border-e border-border bg-surface md:block" />
+      <div className="hidden w-64 shrink-0 border-e border-border bg-surface p-3 lg:block">
         <Skeleton className="mb-3 h-8" />
         <Skeleton className="mb-2 h-6" />
         <Skeleton className="h-6 w-4/5" />
       </div>
-      <div className="flex-1 p-6">
+      <div className="min-h-0 flex-1 p-6">
         <Skeleton className="mb-4 h-8 w-1/3" />
         <Skeleton className="h-40" />
       </div>
+      <div className="h-[49px] shrink-0 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)] md:hidden" />
     </div>
   );
 }
@@ -42,8 +73,10 @@ function AuthenticatedShell({ children }: { children: ReactNode }) {
   const tc = useTranslations('common');
   const collapsed = usePreferences((state) => state.panelCollapsed);
   const mobileOpen = useShell((state) => state.mobilePanelOpen);
+  const overlaysRequested = useShell((state) => state.overlaysRequested);
   const pathname = usePathname();
   useGlobalShortcuts();
+  usePrefetchOverlays();
 
   // Fecha o drawer ao navegar.
   useEffect(() => {
@@ -120,9 +153,24 @@ function AuthenticatedShell({ children }: { children: ReactNode }) {
         <IconRail orientation="horizontal" />
       </div>
 
-      <CommandPalette />
-      <ShellDialogs />
+      {overlaysRequested ? (
+        <>
+          <CommandPalette />
+          <ShellDialogs />
+        </>
+      ) : null}
     </div>
+  );
+}
+
+const noopSubscribe = () => () => undefined;
+
+/** false no servidor e na hidratação; true logo após montar (estado do navegador disponível). */
+function useMounted(): boolean {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
   );
 }
 
@@ -132,6 +180,7 @@ function AuthenticatedShell({ children }: { children: ReactNode }) {
  */
 export function AppShell({ children }: { children: ReactNode }) {
   const status = useSession((state) => state.status);
+  const mounted = useMounted();
   const router = useRouter();
   const pathname = usePathname();
   const queryClient = useQueryClient();
@@ -161,7 +210,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     [queryClient],
   );
 
-  if (status !== 'authenticated') return <ShellSkeleton />;
+  // Logo após montar, shell e página renderizam em paralelo à recuperação da sessão (as queries só
+  // disparam autenticadas): o conteúdo aparece sem esperar o refresh terminar.
+  if (!mounted || status === 'anonymous') return <ShellSkeleton />;
   return (
     <RealtimeProvider>
       <AuthenticatedShell>{children}</AuthenticatedShell>

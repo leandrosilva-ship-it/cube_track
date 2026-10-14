@@ -17,7 +17,7 @@ const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   transpilePackages: ['@cube-track/ui', '@cube-track/i18n', '@cube-track/shared'],
-  experimental: { optimizePackageImports: ['lucide-react'] },
+  experimental: { optimizePackageImports: ['lucide-react', '@cube-track/ui', '@cube-track/i18n'] },
   // Pacotes internos usam imports `./x.js` (NodeNext, exigido pela API): o webpack resolve para `.ts`.
   webpack(webpackConfig: { resolve: { extensionAlias?: Record<string, string[]> } }) {
     webpackConfig.resolve.extensionAlias = {

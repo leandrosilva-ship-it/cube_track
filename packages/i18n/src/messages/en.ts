@@ -160,8 +160,6 @@ export const en: Messages = {
       emptyFilter: 'No boards match the search.',
       favorites: 'Favorites',
       boards: 'Boards',
-      expand: 'Expand {name}',
-      collapse: 'Collapse {name}',
       addFavorite: 'Add to favorites',
       removeFavorite: 'Remove from favorites',
       folderActions: 'Actions for folder {name}',
@@ -352,6 +350,7 @@ export const en: Messages = {
   },
   home: {
     greeting: 'Hello, {name}!',
+    greetingAnonymous: 'Hello!',
     subtitle: 'Here is a summary of your work at {organization}.',
     recent: 'Recently visited',
     noRecent: 'Boards you open will show up here.',

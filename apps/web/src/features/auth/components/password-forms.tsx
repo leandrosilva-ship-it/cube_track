@@ -6,7 +6,7 @@ import { useTranslations } from 'next-intl';
 import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import * as z from 'zod/mini';
 
 import { FormMessage } from '@/components/common/form-error';
 import { Link } from '@/i18n/navigation';
@@ -69,11 +69,16 @@ export function ResetPasswordForm() {
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const schema = z
-    .object({ password: z.string().min(10, tv('passwordLength')), confirm: z.string() })
-    .refine((value) => value.password === value.confirm, {
-      path: ['confirm'],
-      message: tv('passwordMismatch'),
-    });
+    .object({
+      password: z.string().check(z.minLength(10, tv('passwordLength'))),
+      confirm: z.string(),
+    })
+    .check(
+      z.refine((value) => value.password === value.confirm, {
+        path: ['confirm'],
+        message: tv('passwordMismatch'),
+      }),
+    );
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: { password: '', confirm: '' },

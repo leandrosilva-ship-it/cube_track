@@ -13,6 +13,11 @@ export interface ShellState {
   paletteOpen: boolean;
   /** Painel do workspace aberto como drawer (telas pequenas). */
   mobilePanelOpen: boolean;
+  /**
+   * Paleta e diálogos são carregados sob demanda (fora do bundle inicial): ficam montados a partir
+   * do primeiro uso para preservar animações de saída e estado.
+   */
+  overlaysRequested: boolean;
 }
 
 /** Estado efêmero de UI do shell (Zustand — ADR 0016). */
@@ -20,6 +25,7 @@ export const shellStore = createStore<ShellState>(() => ({
   dialog: null,
   paletteOpen: false,
   mobilePanelOpen: false,
+  overlaysRequested: false,
 }));
 
 export function useShell<T>(selector: (state: ShellState) => T): T {
@@ -27,7 +33,7 @@ export function useShell<T>(selector: (state: ShellState) => T): T {
 }
 
 export function openDialog(dialog: ShellDialog): void {
-  shellStore.setState({ dialog, paletteOpen: false });
+  shellStore.setState({ dialog, paletteOpen: false, overlaysRequested: true });
 }
 
 export function closeDialog(): void {
@@ -35,7 +41,7 @@ export function closeDialog(): void {
 }
 
 export function setPaletteOpen(paletteOpen: boolean): void {
-  shellStore.setState({ paletteOpen });
+  shellStore.setState(paletteOpen ? { paletteOpen, overlaysRequested: true } : { paletteOpen });
 }
 
 export function setMobilePanelOpen(mobilePanelOpen: boolean): void {

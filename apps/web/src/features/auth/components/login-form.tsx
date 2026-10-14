@@ -3,10 +3,9 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Field, Input } from '@cube-track/ui';
 import { useTranslations } from 'next-intl';
-import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { z } from 'zod';
+import * as z from 'zod/mini';
 
 import { FormMessage } from '@/components/common/form-error';
 import { Link, useRouter } from '@/i18n/navigation';
@@ -21,8 +20,6 @@ export function LoginForm() {
   const tv = useTranslations('validation');
   const tc = useTranslations('common');
   const errorMessage = useErrorMessage();
-  const searchParams = useSearchParams();
-  const next = searchParams.get('next');
   const router = useRouter();
   const complete = useCompleteSignIn();
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +28,7 @@ export function LoginForm() {
 
   const schema = z.object({
     email: z.email(tv('email')),
-    password: z.string().min(1, tv('required')),
+    password: z.string().check(z.minLength(1, tv('required'))),
   });
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
@@ -40,6 +37,8 @@ export function LoginForm() {
 
   const submit = form.handleSubmit(async ({ email, password }) => {
     setError(null);
+    // Lido no envio (não via useSearchParams): a página é pré-renderizada por completo no servidor.
+    const next = new URLSearchParams(window.location.search).get('next');
     try {
       const response = await authApi.login(email, password);
       if (isMfaChallenge(response)) {

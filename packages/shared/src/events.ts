@@ -136,17 +136,6 @@ export interface RealtimeTransportMessage {
   routing: EventRouting;
 }
 
-export const REALTIME_CHANNEL = 'cube:realtime:events';
-
-/** Nomes de rooms (sempre prefixados pelo tenant). */
-export const rooms = {
-  tenant: (tenantId: string) => `t:${tenantId}`,
-  user: (tenantId: string, userId: string) => `t:${tenantId}:u:${userId}`,
-  board: (tenantId: string, boardId: string) => `t:${tenantId}:b:${boardId}`,
-  item: (tenantId: string, itemId: string) => `t:${tenantId}:i:${itemId}`,
-  dashboard: (tenantId: string, dashboardId: string) => `t:${tenantId}:d:${dashboardId}`,
-} as const;
-
 /** Mensagens cliente → servidor. Comandos de escrita trafegam por REST (ADR 0007). */
 export const SubscribeRequestSchema = z.object({
   room: z.enum(['board', 'item', 'dashboard']),
@@ -169,5 +158,9 @@ export const PresenceHeartbeatSchema = z.object({
 });
 export type PresenceHeartbeat = z.infer<typeof PresenceHeartbeatSchema>;
 
-export const PRESENCE_TTL_SECONDS = 30;
-export const PRESENCE_HEARTBEAT_SECONDS = 10;
+export {
+  PRESENCE_HEARTBEAT_SECONDS,
+  PRESENCE_TTL_SECONDS,
+  REALTIME_CHANNEL,
+  rooms,
+} from './realtime.js';

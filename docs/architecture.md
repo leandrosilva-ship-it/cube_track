@@ -447,7 +447,7 @@ classDiagram
   direction LR
   class Tenant { id; slug; plan; locale; timezone; dataRegion }
   class User { id; email; name; locale; status }
-  class Membership { tenantId; userId; role; kind(member|guest) }
+  class Membership { tenantId; userId; role; kind: member ou guest }
   class Team { id; name }
   class Workspace { id; name; visibility; enabledModules[] }
   class Folder { id; parentId; name; position }
@@ -457,7 +457,7 @@ classDiagram
   class Item { id; name; position; values(jsonb); fieldVersions; parentItemId; itemTypeId; archivedAt }
   class ItemType { id; name; icon; workflowId }
   class Workflow { id; states; transitions; rules }
-  class Dependency { predecessorId; successorId; type(FS|SS|FF|SF); lag }
+  class Dependency { predecessorId; successorId; type: FS SS FF SF; lag }
   class ItemLink { fromItemId; toItemId; columnId }
   class View { id; type; config; filters; sort; groupBy; isShared }
   class Update { id; body(Yjs/HTML); parentId; mentions }

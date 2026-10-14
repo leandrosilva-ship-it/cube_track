@@ -1,3 +1,5 @@
+'use client';
+
 import { format as formatDate, parseISO, type Locale as DateFnsLocale } from 'date-fns';
 import { enUS, es, ptBR } from 'date-fns/locale';
 import { CalendarDays } from 'lucide-react';

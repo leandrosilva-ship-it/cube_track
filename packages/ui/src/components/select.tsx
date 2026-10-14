@@ -1,3 +1,5 @@
+'use client';
+
 import { Select as SelectPrimitive } from 'radix-ui';
 import { Check, ChevronDown } from 'lucide-react';
 import { forwardRef } from 'react';

@@ -1,3 +1,5 @@
+'use client';
+
 import { ContextMenu as ContextMenuPrimitive, DropdownMenu as MenuPrimitive } from 'radix-ui';
 import { Check } from 'lucide-react';
 import { forwardRef, type ComponentPropsWithoutRef, type ReactNode } from 'react';

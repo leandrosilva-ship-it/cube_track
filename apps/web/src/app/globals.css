@@ -1,0 +1,4 @@
+@import '@cube-track/ui/styles.css';
+
+/* Classes usadas pelo app (o design system registra as próprias). */
+@source '../';

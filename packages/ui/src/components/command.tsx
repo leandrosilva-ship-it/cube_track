@@ -1,3 +1,5 @@
+'use client';
+
 import { Command as CommandPrimitive } from 'cmdk';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { Search } from 'lucide-react';

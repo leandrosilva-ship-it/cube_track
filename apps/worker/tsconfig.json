@@ -1,0 +1,7 @@
+{
+  "extends": "@cube-track/config/typescript/node.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src", "test", "vitest.config.ts", "tsup.config.ts"]
+}

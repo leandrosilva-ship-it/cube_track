@@ -84,7 +84,22 @@ services:
       - '1025:1025'
       - '8025:8025'
 
+  # Antivírus para uploads (worker, fila file-scan). Opcional em dev: use ANTIVIRUS_MODE=disabled.
+  clamav:
+    image: clamav/clamav:1.4
+    profiles: ['antivirus']
+    ports:
+      - '3310:3310'
+    volumes:
+      - clamav-data:/var/lib/clamav
+    healthcheck:
+      test: ['CMD', 'clamdcheck.sh']
+      interval: 30s
+      timeout: 10s
+      retries: 20
+
 volumes:
+  clamav-data:
   postgres-data:
   redis-data:
   minio-data:

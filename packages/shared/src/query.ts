@@ -96,7 +96,7 @@ export interface SortTerm {
 /** Interpreta `sort=c_ust:desc,name:asc` (máximo 3 termos). */
 export function parseSort(raw: string | undefined): SortTerm[] {
   if (raw === undefined || raw.trim() === '') return [];
-  const terms = raw.split(',').map((part) => {
+  const terms = raw.split(',').map((part): SortTerm => {
     const [field, direction = 'asc'] = part.trim().split(':');
     if (
       field === undefined ||
@@ -105,7 +105,7 @@ export function parseSort(raw: string | undefined): SortTerm[] {
     ) {
       throw new Error(`Termo de ordenação inválido: "${part}"`);
     }
-    return { field, direction } as SortTerm;
+    return { field, direction };
   });
   if (terms.length > 3) throw new Error('Máximo de 3 termos de ordenação');
   return terms;

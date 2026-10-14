@@ -65,8 +65,7 @@ export function computeSchedule(
 
   const queue = [...indegree.entries()].filter(([, degree]) => degree === 0).map(([id]) => id);
   const order: string[] = [];
-  while (queue.length > 0) {
-    const id = queue.shift() as string;
+  for (let id = queue.shift(); id !== undefined; id = queue.shift()) {
     order.push(id);
     for (const link of outgoing.get(id) ?? []) {
       const next = (indegree.get(link.successorId) ?? 0) - 1;
@@ -80,12 +79,14 @@ export function computeSchedule(
   for (const id of order) {
     const task = byId.get(id);
     const predecessors = incoming.get(id) ?? [];
-    if (task?.start == null || task.end == null || predecessors.length === 0) continue;
+    if (task === undefined || task.start === null || task.end === null || predecessors.length === 0)
+      continue;
     const duration = Math.max(1, businessDaysBetween(task.start, task.end, calendar));
     let earliestStart = alignToBusinessDay(task.start, calendar);
     for (const link of predecessors) {
       const predecessor = byId.get(link.predecessorId);
-      if (predecessor?.start == null || predecessor.end == null) continue;
+      if (predecessor === undefined || predecessor.start === null || predecessor.end === null)
+        continue;
       let constraint: string;
       switch (link.type) {
         case 'FS':

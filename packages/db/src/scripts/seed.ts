@@ -8,6 +8,9 @@ const handle = createDatabase(requireEnv('DATABASE_URL'), { max: 1 });
 try {
   const result = await seedDemo(handle.db);
   await seedDemoCredentials(handle.db);
+  console.info(
+    `Login de demonstração (somente dev): ana.ribeiro@empresademo.com.br / senha "${DEMO_PASSWORD}".`,
+  );
   if (result.created) {
     console.info(
       `Seed concluído: tenant "Empresa Demo" (${result.tenantId}), board PMSP ${result.boardId ?? ''}.`,

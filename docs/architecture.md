@@ -30,6 +30,13 @@ Sumário
 
 > **Mudança em relação à stack sugerida:** adicionamos `apps/realtime`. Conexões WebSocket são longas e escalam por memória/FDs, não por CPU; separá-las do `apps/api` permite deploys da API sem derrubar conexões e autoscaling independente (ADR 0007). O código compartilha os mesmos pacotes (`packages/shared`, `packages/db`).
 
+> **Atualização (Prompt 3):**
+>
+> - O gateway realtime é um **módulo da API** (`apps/api/src/modules/realtime`) com entrypoint próprio (`main.realtime`). O deployment separado continua: `REALTIME_MODE=separate`. Assim as regras de permissão e de redação são as mesmas no REST e no WebSocket (ADR 0027).
+> - A identidade é **nativa na API**. O Keycloak passa a ser apenas um adaptador SAML opcional (ADR 0026).
+> - No diagrama abaixo, leia `apps/realtime` como "processo realtime" e Keycloak como "IdP SAML opcional".
+> - Contratos: `docs/realtime-events.md`, `docs/permissions.md` e `docs/openapi.json`.
+
 Microsserviços foram descartados neste estágio (ADR 0003): o domínio tem muitas transações que atravessam contextos (item + auditoria + outbox + rollup), e a sobrecarga operacional não se paga antes de haver times independentes.
 
 ### 1.2 Diagrama de componentes

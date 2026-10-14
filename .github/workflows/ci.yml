@@ -28,8 +28,28 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+      meilisearch:
+        image: getmeili/meilisearch:v1.13
+        env:
+          MEILI_MASTER_KEY: ci-meili-master-key
+          MEILI_NO_ANALYTICS: 'true'
+        ports:
+          - 7700:7700
     env:
       TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      TEST_REDIS_URL: redis://localhost:6379/13
+      TEST_WORKER_REDIS_URL: redis://localhost:6379/12
+      TEST_MEILI_URL: http://localhost:7700
+      TEST_MEILI_KEY: ci-meili-master-key
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -43,7 +63,23 @@ jobs:
       - run: pnpm typecheck
       - name: Migrações consistentes com o schema
         run: pnpm --filter @cube-track/db exec drizzle-kit check
+      - name: Aguardar Meilisearch
+        run: timeout 60 bash -c 'until curl -sf http://localhost:7700/health; do sleep 2; done'
       - run: pnpm test
+      - run: pnpm build
+      - name: OpenAPI exportado está atualizado
+        env:
+          NODE_ENV: test
+          DATABASE_APP_URL: postgres://postgres:postgres@localhost:5432/postgres
+          DATABASE_AUTH_URL: postgres://postgres:postgres@localhost:5432/postgres
+          REDIS_URL: redis://localhost:6379/11
+          JWT_SECRET: ci-openapi-export-secret-0123456789abcdef
+          ENCRYPTION_KEY: Y2ktb3BlbmFwaS1leHBvcnQta2V5LTMyLWJ5dGVzISE=
+          OTEL_SDK_DISABLED: 'true'
+        run: |
+          pnpm --filter @cube-track/api openapi:export
+          pnpm exec prettier --write docs/openapi.json
+          git diff --exit-code docs/openapi.json
       - name: Smoke test de db:reset (migrações + seed)
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/cubetrack_ci

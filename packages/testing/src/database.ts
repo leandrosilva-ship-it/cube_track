@@ -1,7 +1,5 @@
 import pg from 'pg';
 
-import { runMigrations } from '@cube-track/db';
-
 /** Papéis de login criados para os testes (todos sem BYPASSRLS, exceto auth/relay — ADR 0028). */
 export const TEST_ROLES = {
   app: { name: 'cube_test_app', group: 'app_rw' },
@@ -42,8 +40,13 @@ async function adminQuery(url: string, text: string): Promise<void> {
 /**
  * Cria um banco isolado, aplica as migrações como dono e cria papéis de login para os testes
  * (ADR 0024). Usa `TEST_DATABASE_URL` (superusuário) ou sobe um PostgreSQL via Testcontainers.
+ * `migrate` é injetado (normalmente `runMigrations` de `@cube-track/db`) para que este pacote não
+ * dependa do pacote de banco, que por sua vez o usa nos próprios testes.
  */
-export async function createTestDatabase(prefix = 'cube_test'): Promise<TestDatabase> {
+export async function createTestDatabase(
+  prefix: string,
+  migrate: (adminUrl: string) => Promise<void>,
+): Promise<TestDatabase> {
   let serverUrl = process.env.TEST_DATABASE_URL;
   let stopContainer: (() => Promise<unknown>) | undefined;
   if (serverUrl === undefined || serverUrl === '') {
@@ -56,7 +59,7 @@ export async function createTestDatabase(prefix = 'cube_test'): Promise<TestData
   const database = `${prefix}_${process.pid}_${Date.now()}`;
   await adminQuery(server, `create database ${database}`);
   const adminUrl = withDatabase(server, database);
-  await runMigrations(adminUrl);
+  await migrate(adminUrl);
 
   const statements = Object.values(TEST_ROLES)
     .map(

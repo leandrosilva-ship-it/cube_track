@@ -37,14 +37,14 @@ Caso de referência: consultoria que atende órgãos públicos com contratos med
 | Frontend               | Next.js (App Router), React, TypeScript, TailwindCSS + shadcn/ui, TanStack Query/Table/Virtual, dnd-kit, Zustand, ECharts, Tiptap | 0016       |
 | Backend                | Node.js + NestJS (monólito modular, Clean Architecture/DDD)                                                                       | 0003       |
 | API                    | REST (OpenAPI) como contrato principal e público + GraphQL somente leitura para agregações                                        | 0009       |
-| Tempo real             | Socket.IO + Redis adapter (`apps/realtime`), Yjs via Hocuspocus para rich text                                                    | 0007, 0008 |
+| Tempo real             | Socket.IO + Redis adapter (módulo `realtime` da API, deploy separado com `REALTIME_MODE=separate`), Yjs via Hocuspocus            | 0007, 0027 |
 | Banco                  | PostgreSQL 16+ com `tenant_id` + RLS; valores customizados em JSONB + projeção tipada                                             | 0004, 0005 |
 | ORM                    | **Drizzle ORM** + drizzle-kit                                                                                                     | 0006       |
 | Cache/pub-sub/presença | Redis 7                                                                                                                           | 0007       |
 | Filas                  | BullMQ + outbox transacional                                                                                                      | 0012       |
 | Arquivos               | S3 compatível (MinIO em dev)                                                                                                      | —          |
 | Busca                  | Meilisearch (tenant tokens)                                                                                                       | 0011       |
-| Identidade             | OIDC; Keycloak como broker (Google, Entra ID, SAML, MFA); SCIM 2.0 na API                                                         | 0010       |
+| Identidade             | Auth nativa na API (senha Argon2id, magic link, OAuth Google/Microsoft, TOTP); portas SAML/SCIM                                   | 0026       |
 | Infra                  | Docker, docker-compose, Kubernetes (Helm), GitHub Actions                                                                         | 0018       |
 | Observabilidade        | OpenTelemetry, Prometheus/Grafana, Sentry, logs estruturados (pino)                                                               | 0018       |
 
@@ -52,14 +52,14 @@ Caso de referência: consultoria que atende órgãos públicos com contratos med
 
 ```
 apps/web        Next.js (UI)
-apps/api        NestJS (REST + GraphQL, regras de negócio)
-apps/realtime   Gateway Socket.IO + Hocuspocus (Yjs)
-apps/worker     BullMQ (automações, notificações, outbox relay, importações, rollups)
+apps/api        NestJS (REST + GraphQL, regras de negócio) + gateway Socket.IO (main.realtime)
+apps/worker     BullMQ (outbox relay, e-mails, notificações, automações, cronograma, busca, antivírus) + Bull Board
 packages/db     Schema Drizzle, migrações SQL, políticas RLS, seeds
 packages/shared Contratos (Zod), tipos de domínio, eventos, registro de tipos de coluna
 packages/ui     Design system (shadcn/ui + componentes CUBE TRACK)
 packages/config ESLint, Prettier, tsconfig, Tailwind preset
 packages/i18n   Mensagens pt-BR/en/es, formatadores, feriados
+packages/testing Utilitários de teste (banco isolado por execução, papéis sem BYPASSRLS)
 docs/           Arquitetura, ADRs, roadmap
 infra/          docker, helm, observabilidade
 ```
@@ -72,6 +72,10 @@ Estrutura completa em `docs/architecture.md` §5. Modelo de dados em `docs/data-
 cp .env.example .env && pnpm install
 pnpm infra:up                     # PostgreSQL, Redis, MinIO, Meilisearch, Mailpit (docker compose)
 pnpm db:migrate | db:seed | db:reset
+pnpm build                        # tsup + SWC (api, worker)
+pnpm --filter @cube-track/api dev     # API em :3001 (OpenAPI em /v1/docs)
+pnpm --filter @cube-track/worker dev  # worker + Bull Board em :3010/admin/queues
+pnpm --filter @cube-track/api openapi:export   # atualiza docs/openapi.json (após build)
 pnpm lint && pnpm typecheck && pnpm test
 pnpm format                       # Prettier
 ```

@@ -205,6 +205,112 @@ importers:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@22.20.5)(tsx@4.23.15)(yaml@2.9.1)
 
+  apps/worker:
+    dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.920.0
+        version: 3.1151.0
+      '@bull-board/api':
+        specifier: ^6.14.0
+        version: 6.21.3(@bull-board/ui@6.21.3)
+      '@bull-board/express':
+        specifier: ^6.14.0
+        version: 6.21.3
+      '@cube-track/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@cube-track/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@opentelemetry/api':
+        specifier: ^1.9.0
+        version: 1.9.1
+      '@opentelemetry/exporter-prometheus':
+        specifier: ^0.205.0
+        version: 0.205.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/exporter-trace-otlp-http':
+        specifier: ^0.205.0
+        version: 0.205.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/instrumentation-ioredis':
+        specifier: ^0.53.0
+        version: 0.53.3(@opentelemetry/api@1.9.1)
+      '@opentelemetry/instrumentation-pg':
+        specifier: ^0.58.0
+        version: 0.58.3(@opentelemetry/api@1.9.1)
+      '@opentelemetry/resources':
+        specifier: ^2.1.0
+        version: 2.12.0(@opentelemetry/api@1.9.1)
+      '@opentelemetry/sdk-node':
+        specifier: ^0.205.0
+        version: 0.205.0(@opentelemetry/api@1.9.1)
+      bullmq:
+        specifier: ^5.61.0
+        version: 5.81.5
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.4.2
+      drizzle-orm:
+        specifier: ^0.45.0
+        version: 0.45.4(@opentelemetry/api@1.9.1)(@types/pg@8.23.1)(pg@8.23.1)
+      express:
+        specifier: ^5.1.0
+        version: 5.2.1
+      fractional-indexing:
+        specifier: ^3.2.0
+        version: 3.4.0
+      ioredis:
+        specifier: ^5.8.2
+        version: 5.11.1
+      meilisearch:
+        specifier: ^0.53.0
+        version: 0.53.0
+      nodemailer:
+        specifier: ^7.0.10
+        version: 7.0.13
+      pg:
+        specifier: ^8.16.3
+        version: 8.23.1
+      pino:
+        specifier: ^9.14.0
+        version: 9.14.0
+      uuid:
+        specifier: ^11.1.0
+        version: 11.1.1
+      zod:
+        specifier: ^4.1.12
+        version: 4.6.7
+    devDependencies:
+      '@cube-track/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@cube-track/testing':
+        specifier: workspace:*
+        version: link:../../packages/testing
+      '@types/express':
+        specifier: ^5.0.3
+        version: 5.0.6
+      '@types/node':
+        specifier: ^22.19.0
+        version: 22.20.5
+      '@types/nodemailer':
+        specifier: ^7.0.3
+        version: 7.0.12
+      eslint:
+        specifier: ^9.39.1
+        version: 9.39.5
+      s3rver:
+        specifier: ^3.7.1
+        version: 3.7.1
+      tsup:
+        specifier: ^8.5.0
+        version: 8.5.1(@swc/core@1.16.18)(postcss@8.5.30)(tsx@4.23.15)(typescript@5.9.3)(yaml@2.9.1)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@22.20.5)(tsx@4.23.15)(yaml@2.9.1)
+
   packages/config:
     dependencies:
       '@eslint/js':
@@ -302,9 +408,6 @@ importers:
 
   packages/testing:
     dependencies:
-      '@cube-track/db':
-        specifier: workspace:*
-        version: link:../db
       pg:
         specifier: ^8.16.3
         version: 8.23.1
@@ -511,6 +614,17 @@ packages:
 
   '@borewit/text-codec@0.2.2':
     resolution: {integrity: sha512-DDaRehssg1aNrH4+2hnj1B7vnUGEjU6OIlyRdkMd0aUdIUvKXrJfXsy8LVtXAy7DRvYVluWbMspsRhz2lcW0mQ==}
+
+  '@bull-board/api@6.21.3':
+    resolution: {integrity: sha512-FoQO+0MgZsPrQX9WLZx0KpINamJY48FUU+OyMcZxx9mQWCwsdak45V/uBgQrTYB3GaF5oGA0SxPXEp4RHwj36A==}
+    peerDependencies:
+      '@bull-board/ui': 6.21.3
+
+  '@bull-board/express@6.21.3':
+    resolution: {integrity: sha512-9tE5osCSjjDYCJtTt/bOeXGbykPlhiIKtlGG3/YPCuvQ3qkYrjdBiXSzEUXGqqgX6Kf4HVri/UuY8gy99g/A7w==}
+
+  '@bull-board/ui@6.21.3':
+    resolution: {integrity: sha512-s/PLBJab8cnoQAGVqjQb0v4oGe0KgB4aQ5G5g93doxzXB/D+wkXNL9P9+zLWLldBJXE57jL4CR99ttDCIiyNHw==}
 
   '@colors/colors@1.6.0':
     resolution: {integrity: sha512-Ir+AOibqzrIsL6ajt3Rz3LskB7OiMVHqltZmspbW/TJuTVuyOMirVqAkjfY6JISiLHgyNqicAC8AyHHGzNd/dA==}
@@ -2132,6 +2246,9 @@ packages:
   '@types/node@22.20.5':
     resolution: {integrity: sha512-U2+DNr+wSjpsTS/wZGYHq7GcwfuSmKiKvoPvK22zwTlRhU91yOniN4qRR5KhIjvif7ysw/dz/hKmfDH0Ris4aA==}
 
+  '@types/nodemailer@7.0.12':
+    resolution: {integrity: sha512-80vKwiIsVSyFA1rRovH59jNPLBOuc6dRZIHEu40gXTkBkZnQv8vog1xSGEb9j5q/tdMAs5ivvDR2pLTU0hGHXA==}
+
   '@types/pg-pool@2.0.6':
     resolution: {integrity: sha512-TaAUE5rq2VQYxab5Ts7WZhKNmuN78Q6PiFonTDdpbx8a1H0M1vhy3rhiMjl+e2iHmogyMw7jZF4FrE6eJUy5HQ==}
 
@@ -2888,6 +3005,11 @@ packages:
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
 
+  ejs@5.0.2:
+    resolution: {integrity: sha512-IpbUaI/CAW86l3f+T8zN0iggSc0LmMZLcIW5eRVStLVNCoTXkE0YlncbbH50fp8Cl6zHIky0sW2uUbhBqGw0Jw==}
+    engines: {node: '>=0.12.18'}
+    hasBin: true
+
   emoji-regex@8.0.0:
     resolution: {integrity: sha512-MSjYzcWNOA0ewAHpz0MxpYFvwg6yjy1NG3xteoqz644VCo/RPgnr1/GGt+ic3iJTzQ8Eu3TdM14SawnVUmGE6A==}
 
@@ -3635,6 +3757,10 @@ packages:
     resolution: {integrity: sha512-s+w+rBWnpTMwSFbaE0UXsRlg7hU4FjekKU4eyAih5T8nJuNZT1nNsskXpxmeqSK9UzkBl6UgRlnKc8hz8IEqOw==}
     hasBin: true
 
+  nodemailer@7.0.13:
+    resolution: {integrity: sha512-PNDFSJdP+KFgdsG3ZzMXCgquO7I6McjY2vlqILjtJd0hy8wEvtugS9xKRF2NWlPNGxvLCXlTNIae4serI7dinw==}
+    engines: {node: '>=6.0.0'}
+
   normalize-path@3.0.0:
     resolution: {integrity: sha512-6eZs5Ls3WtCisHWp9S2GUy8dqkpGi4BVSz3GaqiE6ezub0512ESztXUwUB6C6IKbQkY2Pnb/mD4WYojCRwcwLA==}
     engines: {node: '>=0.10.0'}
@@ -3909,6 +4035,9 @@ packages:
   redis-errors@1.2.0:
     resolution: {integrity: sha512-1qny3OExCf0UvUV/5wpYKf2YwPcOqXzkwKKSmKHiE6ZMQs5heeE/c8eXK+PNllPvmjgAbfnsbpkGZWy8cBpn9w==}
     engines: {node: '>=4'}
+
+  redis-info@3.1.0:
+    resolution: {integrity: sha512-ER4L9Sh/vm63DkIE0bkSjxluQlioBiBgf5w1UuldaW/3vPcecdljVDisZhmnCMvsxHNiARTTDDHGg9cGwTfrKg==}
 
   redis-parser@3.0.0:
     resolution: {integrity: sha512-DJnGAeenTdpMEH6uAJRK/uiyEIH9WVsUmoLwzudwGJUwZPp80PDBWPHXSAGNPwNvIXAbe7MSUB1zQFugFml66A==}
@@ -4962,6 +5091,24 @@ snapshots:
   '@balena/dockerignore@1.0.2': {}
 
   '@borewit/text-codec@0.2.2': {}
+
+  '@bull-board/api@6.21.3(@bull-board/ui@6.21.3)':
+    dependencies:
+      '@bull-board/ui': 6.21.3
+      redis-info: 3.1.0
+
+  '@bull-board/express@6.21.3':
+    dependencies:
+      '@bull-board/api': 6.21.3(@bull-board/ui@6.21.3)
+      '@bull-board/ui': 6.21.3
+      ejs: 5.0.2
+      express: 5.2.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@bull-board/ui@6.21.3':
+    dependencies:
+      '@bull-board/api': 6.21.3(@bull-board/ui@6.21.3)
 
   '@colors/colors@1.6.0': {}
 
@@ -6271,6 +6418,10 @@ snapshots:
     dependencies:
       undici-types: 6.21.0
 
+  '@types/nodemailer@7.0.12':
+    dependencies:
+      '@types/node': 22.20.5
+
   '@types/pg-pool@2.0.6':
     dependencies:
       '@types/pg': 8.23.1
@@ -6971,6 +7122,8 @@ snapshots:
   eastasianwidth@0.2.0: {}
 
   ee-first@1.1.1: {}
+
+  ejs@5.0.2: {}
 
   emoji-regex@8.0.0: {}
 
@@ -7836,6 +7989,8 @@ snapshots:
       detect-libc: 2.1.2
     optional: true
 
+  nodemailer@7.0.13: {}
+
   normalize-path@3.0.0: {}
 
   notepack.io@3.0.1: {}
@@ -8106,6 +8261,10 @@ snapshots:
   real-require@0.2.0: {}
 
   redis-errors@1.2.0: {}
+
+  redis-info@3.1.0:
+    dependencies:
+      lodash: 4.18.1
 
   redis-parser@3.0.0:
     dependencies:

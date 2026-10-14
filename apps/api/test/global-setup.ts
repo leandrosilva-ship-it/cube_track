@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createDatabase, seedDemo, seedDemoCredentials } from '@cube-track/db';
+import { createDatabase, runMigrations, seedDemo, seedDemoCredentials } from '@cube-track/db';
 import { createTestDatabase } from '@cube-track/testing';
 import { Redis } from 'ioredis';
 import S3rver from 's3rver';
@@ -28,7 +28,7 @@ declare module 'vitest' {
  * DB lógico dedicado e um S3 fake (s3rver). Meilisearch vem de TEST_MEILI_URL (CI: service container).
  */
 export default async function setup(project: TestProject): Promise<() => Promise<void>> {
-  const database = await createTestDatabase('cube_api_test');
+  const database = await createTestDatabase('cube_api_test', runMigrations);
   const admin = createDatabase(database.adminUrl, { max: 1 });
   await seedDemo(admin.db);
   await seedDemoCredentials(admin.db);

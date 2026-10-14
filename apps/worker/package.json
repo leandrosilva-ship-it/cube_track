@@ -1,0 +1,52 @@
+{
+  "name": "@cube-track/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch --onSuccess \"node --enable-source-maps --import ./dist/instrumentation.js dist/main.js\"",
+    "start": "node --enable-source-maps --import ./dist/instrumentation.js dist/main.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.920.0",
+    "@bull-board/api": "^6.14.0",
+    "@bull-board/express": "^6.14.0",
+    "@cube-track/db": "workspace:*",
+    "@cube-track/shared": "workspace:*",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/exporter-prometheus": "^0.205.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.205.0",
+    "@opentelemetry/instrumentation-ioredis": "^0.53.0",
+    "@opentelemetry/instrumentation-pg": "^0.58.0",
+    "@opentelemetry/resources": "^2.1.0",
+    "@opentelemetry/sdk-node": "^0.205.0",
+    "bullmq": "^5.61.0",
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.45.0",
+    "express": "^5.1.0",
+    "fractional-indexing": "^3.2.0",
+    "ioredis": "^5.8.2",
+    "meilisearch": "^0.53.0",
+    "nodemailer": "^7.0.10",
+    "pg": "^8.16.3",
+    "pino": "^9.14.0",
+    "uuid": "^11.1.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@cube-track/config": "workspace:*",
+    "@cube-track/testing": "workspace:*",
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.19.0",
+    "@types/nodemailer": "^7.0.3",
+    "eslint": "^9.39.1",
+    "s3rver": "^3.7.1",
+    "tsup": "^8.5.0",
+    "typescript": "5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

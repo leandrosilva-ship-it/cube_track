@@ -1,6 +1,6 @@
 # ADR 0007 — Tempo real: Socket.IO + Redis adapter em processo dedicado (`apps/realtime`)
 
-- **Status:** Aceita
+- **Status:** Refinada pela [ADR 0027](0027-tempo-real-mesmo-codigo-outbox-como-replay.md) (mesmo código da API, deployment separado)
 - **Data:** 2026-10-14
 - **Prompt:** 1
 

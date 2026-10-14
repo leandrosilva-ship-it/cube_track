@@ -1,6 +1,6 @@
 # ADR 0010 — Identidade: OIDC com Keycloak como broker; SCIM 2.0 na API
 
-- **Status:** Aceita (revisar após resposta à dúvida D1/D6)
+- **Status:** Parcialmente substituída pela [ADR 0026](0026-autenticacao-nativa-na-api.md) (Keycloak passa a ser adaptador opcional de SAML)
 - **Data:** 2026-10-14
 - **Prompt:** 1
 

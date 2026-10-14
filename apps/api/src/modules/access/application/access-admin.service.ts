@@ -369,16 +369,14 @@ export class AccessAdminService {
   ): Promise<void> {
     await this.runner.tx.delete(rolePermissions).where(eq(rolePermissions.roleId, roleId));
     if (permissions.length > 0) {
-      await this.runner.tx
-        .insert(rolePermissions)
-        .values(
-          [...new Set(permissions)].map((permissionKey) => ({
-            tenantId: user.tenantId,
-            roleId,
-            permissionKey,
-            createdBy: user.userId,
-          })),
-        );
+      await this.runner.tx.insert(rolePermissions).values(
+        [...new Set(permissions)].map((permissionKey) => ({
+          tenantId: user.tenantId,
+          roleId,
+          permissionKey,
+          createdBy: user.userId,
+        })),
+      );
     }
   }
 

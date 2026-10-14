@@ -11,7 +11,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@cube-track/db": "workspace:*",
     "pg": "^8.16.3"
   },
   "devDependencies": {

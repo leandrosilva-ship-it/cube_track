@@ -1,7 +1,9 @@
 import {
   decodeCursor,
   encodeCursor,
+  isDateToken,
   isFilterGroup,
+  resolveDateToken,
   isUuidV7,
   sortSignature,
   type CursorValue,
@@ -55,6 +57,7 @@ const NUMERIC_TYPES = new Set([
   'formula',
   'mirror',
   'progress',
+  'rollup',
 ]);
 const DATE_TYPES = new Set(['date', 'timeline', 'week']);
 const TEXT_TYPES = new Set([
@@ -66,6 +69,7 @@ const TEXT_TYPES = new Set([
   'country',
   'color',
   'hour',
+  'location',
 ]);
 
 export interface ItemQueryInput {
@@ -80,6 +84,15 @@ export interface ItemQueryInput {
   parentItemId: string | null;
   includeArchived: boolean;
   currentUserId: string;
+  currentUserTeamIds: readonly string[];
+  /** Hoje (AAAA-MM-DD) no fuso do tenant: tokens de data e "atrasados". */
+  today: string;
+  /** Busca textual (nome e colunas de texto). */
+  search: string | undefined;
+  /** Somente itens arquivados (visão de arquivo). */
+  archivedOnly: boolean;
+  /** Inclui contagens de subitens, anexos e atualizações (não lidas) por linha. */
+  withIndicators: boolean;
   /** Escopo de convidado: apenas itens atribuídos (pessoas/times) ou com concessão explícita. */
   assignedScope: {
     userId: string;
@@ -179,6 +192,8 @@ function compare(expr: SQL, type: ValueType, condition: FilterCondition): SQL {
       return sql`${expr} is null`;
     case 'is_not_empty':
       return sql`${expr} is not null`;
+    case 'overdue':
+      return bad(field, 'Operador "overdue" só se aplica a datas.');
     case 'contains':
     case 'not_contains': {
       if (type !== 'text') bad(field, `Operador "${operator}" não se aplica a este campo.`);
@@ -202,7 +217,15 @@ export class ItemQueryBuilder {
       sql`i.board_id = ${this.input.boardId}::uuid`,
       sql`i.deleted_at is null`,
     ];
-    if (!this.input.includeArchived) conditions.push(sql`i.archived_at is null`);
+    if (this.input.archivedOnly) conditions.push(sql`i.archived_at is not null`);
+    else if (!this.input.includeArchived) conditions.push(sql`i.archived_at is null`);
+    const search = this.input.search?.trim() ?? '';
+    if (search !== '') {
+      const like = `%${escapeLike(search.toLowerCase())}%`;
+      conditions.push(
+        sql`(lower(i.name) like ${like} or exists (select 1 from item_field_index fs where fs.item_id = i.id and fs.v_text like ${like}))`,
+      );
+    }
     if (this.input.parentItemId === null) conditions.push(sql`i.parent_item_id is null`);
     else conditions.push(sql`i.parent_item_id = ${this.input.parentItemId}::uuid`);
     if (this.input.groupId !== undefined)
@@ -242,7 +265,9 @@ export class ItemQueryBuilder {
              i.version, i.planned_start_date::text as planned_start_date, i.planned_end_date::text as planned_end_date,
              i.replanned_start_date::text as replanned_start_date, i.replanned_end_date::text as replanned_end_date,
              i.actual_start_date::text as actual_start_date, i.actual_end_date::text as actual_end_date,
-             i.progress::text as progress, i.created_at, i.updated_at, i.archived_at,
+             i.progress::text as progress, i.created_at, i.updated_at, i.created_by, i.updated_by,
+             i.completed_at, i.archived_at,
+             ${this.input.withIndicators ? this.indicatorColumns() : sql``}
              ${sql.join(select, sql`, `)}
       from items i
       join groups g on g.id = i.group_id
@@ -261,7 +286,63 @@ export class ItemQueryBuilder {
     return encodeCursor({ sort: signature, keys, id: String(row.id) });
   }
 
+  /** Contagens por linha para os indicadores da Tabela (índices por item em cada tabela). */
+  private indicatorColumns(): SQL {
+    const userId = this.input.currentUserId;
+    return sql`
+      (select count(*) from items s where s.parent_item_id = i.id and s.deleted_at is null and s.archived_at is null)::int as subitem_count,
+      (select count(*) from attachments a where a.item_id = i.id and a.deleted_at is null)::int as attachment_count,
+      (select count(*) from updates u where u.item_id = i.id and u.deleted_at is null)::int as update_count,
+      (select count(*) from updates u
+         where u.item_id = i.id and u.deleted_at is null and u.author_id is distinct from ${userId}::uuid
+           and u.created_at > coalesce(
+             (select r.last_seen_at from item_reads r where r.item_id = i.id and r.user_id = ${userId}::uuid),
+             '-infinity'::timestamptz))::int as unread_count,`;
+  }
+
   // ---------------------------------------------------------------------------------- filtro ---
+
+  /** Tokens de período ("hoje", "esta semana"…) viram intervalos; "atrasados" exige item aberto. */
+  private dateCondition(expr: SQL, type: ValueType, condition: FilterCondition): SQL {
+    if (condition.operator === 'overdue')
+      return sql`(${expr} < ${this.input.today}::date and i.completed_at is null)`;
+    const first = Array.isArray(condition.value) ? condition.value[0] : condition.value;
+    if (!isDateToken(first)) return compare(expr, type, condition);
+    const range = resolveDateToken(first, this.input.today);
+    const within = sql`${expr} between ${range.from}::date and ${range.to}::date`;
+    switch (condition.operator) {
+      case 'is':
+      case 'any_of':
+      case 'between':
+        return within;
+      case 'is_not':
+      case 'none_of':
+        return sql`not coalesce(${within}, false)`;
+      case 'before':
+      case 'lt':
+        return sql`${expr} < ${range.from}::date`;
+      case 'lte':
+        return sql`${expr} <= ${range.to}::date`;
+      case 'after':
+      case 'gt':
+        return sql`${expr} > ${range.to}::date`;
+      case 'gte':
+        return sql`${expr} >= ${range.from}::date`;
+      default:
+        return compare(expr, type, condition);
+    }
+  }
+
+  private nativeCondition(native: NativeField, condition: FilterCondition): SQL {
+    if (native.type === 'date') return this.dateCondition(native.expr, native.type, condition);
+    if (
+      native.type === 'timestamptz' &&
+      (condition.operator === 'overdue' ||
+        isDateToken(Array.isArray(condition.value) ? condition.value[0] : condition.value))
+    )
+      return this.dateCondition(sql`(${native.expr})::date`, 'date', condition);
+    return compare(native.expr, native.type, condition);
+  }
 
   private compileGroup(group: FilterGroup): SQL {
     if (group.conditions.length === 0) return sql`true`;
@@ -273,11 +354,10 @@ export class ItemQueryBuilder {
 
   private compileCondition(condition: FilterCondition): SQL {
     const native = NATIVE[condition.field];
-    if (native !== undefined) return compare(native.expr, native.type, condition);
+    if (native !== undefined) return this.nativeCondition(native, condition);
     const column = this.column(condition.field);
     const nativeByBinding = this.bindingField(column);
-    if (nativeByBinding !== null)
-      return compare(nativeByBinding.expr, nativeByBinding.type, condition);
+    if (nativeByBinding !== null) return this.nativeCondition(nativeByBinding, condition);
     const key = column.key;
     const present = sql`(i.values ? ${key})`;
     if (condition.operator === 'is_empty') return sql`not ${present}`;
@@ -309,11 +389,15 @@ export class ItemQueryBuilder {
           tags: 'tags',
           board_relation: 'itemIds',
         }[column.type];
-        const any = containment((value) => ({
-          [property]: [
-            column.type === 'people' && value === 'me' ? this.input.currentUserId : value,
-          ],
-        }));
+        const me = column.type === 'people' && list(condition.value).includes('me');
+        const any = me
+          ? sql`(${containment((value) => ({ [property]: [value === 'me' ? this.input.currentUserId : value] }))}${sql.join(
+              this.input.currentUserTeamIds.map(
+                (teamId) => sql` or i.values @> ${json({ [key]: { teamIds: [teamId] } })}`,
+              ),
+              sql``,
+            )})`
+          : containment((value) => ({ [property]: [value] }));
         if (['is', 'any_of', 'contains'].includes(condition.operator)) return any;
         if (['is_not', 'none_of', 'not_contains'].includes(condition.operator))
           return sql`not ${any}`;
@@ -337,11 +421,11 @@ export class ItemQueryBuilder {
                     : String(condition.value).toLowerCase(),
                 }
               : condition;
-          const inner = compare(
-            sql`f.${sql.identifier(projection.column)}`,
-            projection.type,
-            normalized,
-          );
+          const projected = sql`f.${sql.identifier(projection.column)}`;
+          const inner =
+            projection.type === 'date'
+              ? this.dateCondition(projected, 'date', normalized)
+              : compare(projected, projection.type, normalized);
           return sql`exists (select 1 from item_field_index f where f.item_id = i.id and f.column_key = ${key} and ${inner})`;
         }
       }

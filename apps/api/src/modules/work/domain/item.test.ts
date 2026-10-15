@@ -26,6 +26,9 @@ const item: ItemRecord = {
   progress: '10.00',
   createdAt: new Date('2026-10-01T00:00:00Z'),
   updatedAt: new Date('2026-10-02T00:00:00Z'),
+  createdBy: null,
+  updatedBy: null,
+  completedAt: null,
   archivedAt: null,
 };
 

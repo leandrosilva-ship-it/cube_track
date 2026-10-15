@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   COLUMN_TYPE_SPECS,
+  READ_ONLY_COLUMN_TYPES,
   filterDepth,
   isColumnType,
   positionBetween,
@@ -26,13 +27,14 @@ import type { BoardColumn } from '../../access/infrastructure/access.repository.
 import {
   assigneeIds,
   NATIVE_FIELD_BINDINGS,
-  READ_ONLY_COLUMN_TYPES,
   toItemDto,
   type ColumnVisibility,
   type ItemDto,
   type ItemRecord,
   type NativeField,
 } from '../domain/item.js';
+import { todayIn } from '../domain/board-definition.js';
+import { BoardDefinitionRepository } from '../infrastructure/board-definition.repository.js';
 import { ItemQueryBuilder } from '../infrastructure/item-query.js';
 import { ItemsRepository, rowToItem } from '../infrastructure/items.repository.js';
 
@@ -90,6 +92,7 @@ export class ItemsService {
     private readonly repository: ItemsRepository,
     private readonly access: AccessService,
     private readonly events: DomainEvents,
+    private readonly definitions: BoardDefinitionRepository,
   ) {}
 
   // ------------------------------------------------------------------------------- leitura ---
@@ -129,6 +132,11 @@ export class ItemsService {
       parentItemId: query.parentItemId,
       includeArchived: query.includeArchived,
       currentUserId: user.userId,
+      currentUserTeamIds: principal.teamIds,
+      today: todayIn(await this.definitions.tenantTimezone(this.runner.tx, user.tenantId)),
+      search: undefined,
+      archivedOnly: false,
+      withIndicators: false,
       assignedScope:
         board?.itemScope === 'assigned'
           ? { userId: user.userId, teamIds: principal.teamIds, peopleKeys: board.peopleColumnKeys }
@@ -495,7 +503,7 @@ export class ItemsService {
         'column_bound',
       );
     }
-    if (READ_ONLY_COLUMN_TYPES.has(column.type)) {
+    if (isColumnType(column.type) && READ_ONLY_COLUMN_TYPES.has(column.type)) {
       throw new UnprocessableError(
         `A coluna "${key}" é calculada pelo sistema.`,
         'column_read_only',

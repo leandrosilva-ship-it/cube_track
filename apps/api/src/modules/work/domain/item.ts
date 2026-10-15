@@ -1,5 +1,3 @@
-import type { ColumnType } from '@cube-track/shared';
-
 /** Campos nativos editáveis do item e o binding de coluna correspondente. */
 export const NATIVE_DATE_FIELDS = {
   plannedStartDate: 'item.planned_start_date',
@@ -16,19 +14,6 @@ export const NATIVE_FIELD_BINDINGS: Record<NativeDateField | 'progress', string>
   progress: 'item.progress',
 };
 export type NativeField = keyof typeof NATIVE_FIELD_BINDINGS;
-
-/** Colunas cujo valor é gerado pelo sistema (não aceitam escrita via API). */
-export const READ_ONLY_COLUMN_TYPES: ReadonlySet<string> = new Set<ColumnType>([
-  'auto_id',
-  'formula',
-  'mirror',
-  'progress',
-  'dependency',
-  'button',
-  'creation_log',
-  'last_updated',
-  'item_id',
-]);
 
 export interface ItemRecord {
   id: string;
@@ -50,7 +35,18 @@ export interface ItemRecord {
   progress: string | null;
   createdAt: Date;
   updatedAt: Date;
+  createdBy: string | null;
+  updatedBy: string | null;
+  completedAt: Date | null;
   archivedAt: Date | null;
+}
+
+/** Indicadores da linha na Tabela (somente nas listagens). */
+export interface ItemIndicators {
+  subitems: number;
+  attachments: number;
+  updates: number;
+  unreadUpdates: number;
 }
 
 export interface ItemDto {
@@ -72,7 +68,10 @@ export interface ItemDto {
   progress: string | null;
   createdAt: string;
   updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
   archivedAt: string | null;
+  indicators?: ItemIndicators;
   /** Campos ocultados por permissão de coluna (valor retornado como null). */
   redactedFields: string[];
 }
@@ -96,7 +95,11 @@ export function redactValues(
   return result;
 }
 
-export function toItemDto(item: ItemRecord, visibility: ColumnVisibility): ItemDto {
+export function toItemDto(
+  item: ItemRecord,
+  visibility: ColumnVisibility,
+  indicators?: ItemIndicators,
+): ItemDto {
   const redactedFields: string[] = [];
   const native = (field: NativeField, value: string | null): string | null => {
     if (visibility.hiddenBindings.has(NATIVE_FIELD_BINDINGS[field])) {
@@ -128,7 +131,10 @@ export function toItemDto(item: ItemRecord, visibility: ColumnVisibility): ItemD
     progress: native('progress', item.progress),
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString(),
+    createdBy: item.createdBy,
+    updatedBy: item.updatedBy,
     archivedAt: item.archivedAt?.toISOString() ?? null,
+    ...(indicators === undefined ? {} : { indicators }),
     redactedFields,
   };
 }

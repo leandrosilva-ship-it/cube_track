@@ -26,6 +26,9 @@ const itemColumns = {
   progress: items.progress,
   createdAt: items.createdAt,
   updatedAt: items.updatedAt,
+  createdBy: items.createdBy,
+  updatedBy: items.updatedBy,
+  completedAt: items.completedAt,
   archivedAt: items.archivedAt,
 };
 
@@ -52,6 +55,12 @@ export function rowToItem(row: Record<string, unknown>): ItemRecord {
     progress: date(row.progress),
     createdAt: new Date(row.created_at as string),
     updatedAt: new Date(row.updated_at as string),
+    createdBy: typeof row.created_by === 'string' ? row.created_by : null,
+    updatedBy: typeof row.updated_by === 'string' ? row.updated_by : null,
+    completedAt:
+      row.completed_at === null || row.completed_at === undefined
+        ? null
+        : new Date(row.completed_at as string),
     archivedAt: row.archived_at === null ? null : new Date(row.archived_at as string),
   };
 }

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { initialPositions, newId } from '@cube-track/shared';
+import { eq } from 'drizzle-orm';
 
 import { appendAuditLog } from '../audit.js';
 import {
@@ -303,13 +304,6 @@ export async function seedPmspBoard(
         position: columnPositions[index] ?? `a${index}`,
         width: spec.width,
         isRequired: spec.key === 'c_orgao' || spec.key === 'c_frente',
-        requiredWhen:
-          spec.key === 'c_termino_realizado'
-            ? {
-                op: 'and',
-                conditions: [{ columnKey: 'c_status', operator: 'is', value: ['Concluído'] }],
-              }
-            : null,
         permissions:
           spec.key === 'c_ust' || spec.key === 'c_faturamento'
             ? { editors: { userIds: [userId(ctx, 'carlos'), userId(ctx, 'ana')] } }
@@ -353,6 +347,22 @@ export async function seedPmspBoard(
   const tipoLabelIds = await insertLabels('c_tipo', TIPOS);
   const solicitadaIds = await insertLabels('c_os_solicitada', SIM_NAO);
   const emitidaIds = await insertLabels('c_os_emitida', SIM_NAO);
+  // Término realizado obrigatório quando o Status passa a "Concluído" (obrigatoriedade condicional).
+  await tx
+    .update(columnDefinitions)
+    .set({
+      requiredWhen: {
+        op: 'and',
+        conditions: [
+          { field: 'c_status', operator: 'is', value: statusLabelIds['Concluído'] ?? '' },
+        ],
+      },
+    })
+    .where(eq(columnDefinitions.id, columnIds.c_termino_realizado ?? ''));
+  await tx
+    .update(boards)
+    .set({ settings: { statusColumnKey: 'c_status' } })
+    .where(eq(boards.id, boardId));
 
   const orgaoOptionIds: Record<string, string> = {};
   const orgaoPositions = initialPositions(ORGAOS.length);

@@ -9,6 +9,7 @@ export * from './reset.js';
 export * as schema from './schema/index.js';
 export { DEMO_PASSWORD, seedDemoCredentials } from './seed/credentials.js';
 export { seedDemo, type DemoSeedResult } from './seed/demo.js';
+export { LARGE_BOARD_NAME, seedLargeBoard } from './seed/large.js';
 export {
   DEMO_FORM_TOKEN,
   DEMO_SHARE_TOKEN,

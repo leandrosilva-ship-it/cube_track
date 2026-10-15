@@ -18,7 +18,8 @@
     "db:seed": "pnpm --filter @cube-track/db db:seed",
     "db:reset": "pnpm --filter @cube-track/db db:reset",
     "infra:up": "docker compose up -d",
-    "infra:down": "docker compose down"
+    "infra:down": "docker compose down",
+    "db:seed:large": "pnpm --filter @cube-track/db db:seed:large"
   },
   "devDependencies": {
     "@cube-track/config": "workspace:*",

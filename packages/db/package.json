@@ -16,7 +16,8 @@
     "db:migrate": "tsx src/scripts/migrate.ts",
     "db:seed": "tsx src/scripts/seed.ts",
     "db:reset": "tsx src/scripts/reset.ts",
-    "db:bench": "tsx src/scripts/benchmark.ts"
+    "db:bench": "tsx src/scripts/benchmark.ts",
+    "db:seed:large": "tsx src/scripts/seed-large.ts"
   },
   "dependencies": {
     "@cube-track/shared": "workspace:*",

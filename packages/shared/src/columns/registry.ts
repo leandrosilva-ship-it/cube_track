@@ -38,6 +38,46 @@ export const COLUMN_STORAGES = ['values', 'relation', 'system'] as const;
 export type ColumnStorage = (typeof COLUMN_STORAGES)[number];
 
 const labelSettings = z.object({ defaultLabelId: uuid.optional() }).strict();
+
+/** Formato de exibição numérico (número, fórmula, rollup): unidade (UST, R$, h, %…) e casas. */
+const numberFormat = {
+  unit: z.string().max(16).optional(),
+  unitPosition: z.enum(['prefix', 'suffix']).optional(),
+  decimals: z.number().int().min(0).max(4).optional(),
+};
+
+/** Unidades sugeridas na configuração de colunas numéricas (a unidade é livre). */
+export const NUMBER_UNIT_PRESETS = [
+  { unit: 'UST', unitPosition: 'suffix', decimals: 2 },
+  { unit: 'R$', unitPosition: 'prefix', decimals: 2 },
+  { unit: 'h', unitPosition: 'suffix', decimals: 1 },
+  { unit: '%', unitPosition: 'suffix', decimals: 0 },
+] as const;
+
+export const ROLLUP_AGGREGATES = [
+  'sum',
+  'avg',
+  'min',
+  'max',
+  'count',
+  'count_non_empty',
+  'earliest',
+  'latest',
+  'done_percent',
+] as const;
+export type RollupAggregate = (typeof ROLLUP_AGGREGATES)[number];
+
+export const MIRROR_AGGREGATES = [
+  'list',
+  'sum',
+  'avg',
+  'min',
+  'max',
+  'count',
+  'earliest',
+  'latest',
+] as const;
+export type MirrorAggregate = (typeof MIRROR_AGGREGATES)[number];
 const noSettings = z.object({}).strict();
 
 interface ColumnTypeSpec {
@@ -56,14 +96,18 @@ function spec(
   return { value, settings, projection, storage };
 }
 
-const computedValue = z
+/** Valor de coluna calculada: número, data ou texto do resultado; `error` traz o código (#DIV/0!…). */
+export const ComputedValueSchema = z
   .object({
     n: decimal.optional(),
     d: isoDate.optional(),
     text: z.string().max(10_000).optional(),
+    error: z.string().max(16).optional(),
     computedAt: z.iso.datetime(),
   })
   .strict();
+export type ComputedValue = z.infer<typeof ComputedValueSchema>;
+const computedValue = ComputedValueSchema;
 
 export const COLUMN_TYPE_SPECS = {
   text: spec(
@@ -71,14 +115,22 @@ export const COLUMN_TYPE_SPECS = {
     z.object({ maxLength: z.number().int().positive().max(2_000).optional() }).strict(),
     'text',
   ),
-  long_text: spec(z.object({ text: z.string().max(100_000) }).strict(), noSettings, 'text'),
+  /** Texto longo com rich text opcional: `doc` é o JSON do editor (Tiptap); `text` é o texto plano. */
+  long_text: spec(
+    z
+      .object({
+        text: z.string().max(100_000),
+        doc: z.record(z.string(), z.unknown()).optional(),
+      })
+      .strict(),
+    noSettings,
+    'text',
+  ),
   number: spec(
     z.object({ n: decimal }).strict(),
     z
       .object({
-        unit: z.string().max(16).optional(),
-        unitPosition: z.enum(['prefix', 'suffix']).optional(),
-        decimals: z.number().int().min(0).max(4).optional(),
+        ...numberFormat,
         aggregate: z.enum(['sum', 'avg', 'min', 'max', 'count', 'none']).optional(),
       })
       .strict(),
@@ -161,25 +213,59 @@ export const COLUMN_TYPE_SPECS = {
     z.object({ boardIds: z.array(uuid).min(1), allowMultiple: z.boolean().optional() }).strict(),
     null,
   ),
+  /** Espelho (lookup): valores de uma coluna dos itens ligados por uma coluna de relação. */
   mirror: spec(
     computedValue,
     z
       .object({
         relationColumnKey: z.string(),
         targetColumnKey: z.string(),
-        aggregate: z.string().optional(),
+        aggregate: z.enum(MIRROR_AGGREGATES).default('list'),
       })
       .strict(),
     'computed',
   ),
+  /** Fórmula (sintaxe tipo Excel, `{c_chave}` referencia colunas — docs/columns.md). */
   formula: spec(
     computedValue,
-    z.object({ expression: z.string().min(1).max(4_000) }).strict(),
+    z
+      .object({
+        expression: z.string().min(1).max(4_000),
+        ...numberFormat,
+      })
+      .strict(),
     'computed',
   ),
+  /**
+   * Progresso calculado: percentual de colunas de status concluídas (`status_columns`) ou de
+   * subitens concluídos (`subitems`, pela primeira coluna de status listada).
+   */
   progress: spec(
     computedValue,
-    z.object({ sourceColumnKeys: z.array(z.string()).optional() }).strict(),
+    z
+      .object({
+        mode: z.enum(['status_columns', 'subitems']).default('status_columns'),
+        sourceColumnKeys: z.array(z.string()).max(20).optional(),
+      })
+      .strict(),
+    'computed',
+  ),
+  /** Rollup: agrega uma coluna dos subitens ou dos itens relacionados. */
+  rollup: spec(
+    computedValue,
+    z
+      .object({
+        source: z.enum(['subitems', 'relation']),
+        relationColumnKey: z.string().optional(),
+        targetColumnKey: z.string(),
+        aggregate: z.enum(ROLLUP_AGGREGATES),
+        ...numberFormat,
+      })
+      .strict()
+      .refine((value) => value.source === 'subitems' || value.relationColumnKey !== undefined, {
+        message: 'Rollup por relação exige a coluna de relação.',
+        path: ['relationColumnKey'],
+      }),
     'computed',
   ),
   dependency: spec(z.object({}).strict(), noSettings, null, 'relation'),
@@ -191,9 +277,9 @@ export const COLUMN_TYPE_SPECS = {
   location: spec(
     z
       .object({
-        address: z.string().max(500),
-        lat: z.number().min(-90).max(90),
-        lng: z.number().min(-180).max(180),
+        address: z.string().min(1).max(500),
+        lat: z.number().min(-90).max(90).optional(),
+        lng: z.number().min(-180).max(180).optional(),
       })
       .strict(),
     noSettings,
@@ -223,6 +309,46 @@ export const COLUMN_TYPES = Object.keys(COLUMN_TYPE_SPECS) as ColumnType[];
 
 export function isColumnType(value: string): value is ColumnType {
   return Object.hasOwn(COLUMN_TYPE_SPECS, value);
+}
+
+/** Tipos calculados pelo sistema a partir de outros valores (somente leitura). */
+export const COMPUTED_COLUMN_TYPES: ReadonlySet<ColumnType> = new Set<ColumnType>([
+  'formula',
+  'mirror',
+  'progress',
+  'rollup',
+]);
+
+/** Tipos sem valor editável pelo usuário (gerados pelo sistema ou com fluxo próprio). */
+export const READ_ONLY_COLUMN_TYPES: ReadonlySet<ColumnType> = new Set<ColumnType>([
+  ...COMPUTED_COLUMN_TYPES,
+  'auto_id',
+  'dependency',
+  'button',
+  'creation_log',
+  'last_updated',
+  'item_id',
+  'time_tracking',
+]);
+
+/** Tipos que dependem de outros itens (recalculados pelo worker quando os itens de origem mudam). */
+export const CROSS_ITEM_COLUMN_TYPES: ReadonlySet<ColumnType> = new Set<ColumnType>([
+  'mirror',
+  'rollup',
+]);
+
+export function isReadOnlyColumnType(type: string): boolean {
+  return isColumnType(type) && READ_ONLY_COLUMN_TYPES.has(type);
+}
+
+/** Como o rodapé de agregação trata a coluna (Tabela). */
+export type ColumnAggregation = 'numeric' | 'status' | 'count';
+
+export function columnAggregation(type: string): ColumnAggregation {
+  if (['number', 'rating', 'time_tracking', 'formula', 'rollup', 'progress'].includes(type))
+    return 'numeric';
+  if (type === 'status') return 'status';
+  return 'count';
 }
 
 /** Valida e normaliza o valor de uma coluna. Lança `ZodError` se inválido. */

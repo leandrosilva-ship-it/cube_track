@@ -99,6 +99,8 @@ export const boards = tenantTable(
     kind: boardKind('kind').notNull().default('board'),
     name: text('name').notNull(),
     description: text('description'),
+    /** Ícone do board (nome de ícone do catálogo da interface, ex.: `briefcase`). */
+    icon: text('icon'),
     visibility: boardVisibility('visibility').notNull().default('main'),
     ownerId: uuid('owner_id').references(() => users.id, { onDelete: 'set null' }),
     terminology: jsonb('terminology')
@@ -239,6 +241,10 @@ export const items = tenantTable(
       .on(t.boardId, t.archivedAt)
       .where(sql`${t.archivedAt} is not null and ${t.deletedAt} is null`),
     index('items_board_updated_idx').on(t.boardId, t.updatedAt),
+    // Lixeira: itens excluídos por board (restauração em 30 dias e expurgo).
+    index('items_board_deleted_idx')
+      .on(t.boardId, t.deletedAt)
+      .where(sql`${t.deletedAt} is not null`),
     index('items_board_planned_end_idx')
       .on(t.boardId, t.plannedEndDate)
       .where(sql`${t.deletedAt} is null and ${t.archivedAt} is null`),

@@ -37,6 +37,8 @@ export const columnDefinitions = tenantTable(
     binding: text('binding'),
     isRequired: boolean('is_required').notNull().default(false),
     requiredWhen: jsonb('required_when').$type<Record<string, unknown>>(),
+    /** Valor aplicado a itens novos (mesmo formato de `items.values[key]`). */
+    defaultValue: jsonb('default_value').$type<Record<string, unknown>>(),
     permissions: jsonb('permissions').$type<ColumnPermissions>().notNull().default({}),
     position: position('position').notNull(),
     width: integer('width'),

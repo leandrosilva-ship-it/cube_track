@@ -37,6 +37,8 @@ export const FILTER_OPERATORS = [
   'after',
   'is_empty',
   'is_not_empty',
+  /** Datas: anterior a hoje e item não concluído. */
+  'overdue',
 ] as const;
 export type FilterOperator = (typeof FILTER_OPERATORS)[number];
 

@@ -36,18 +36,37 @@ const ItemSnapshotSchema = z.object({
   actualStartDate: z.string().nullable(),
   actualEndDate: z.string().nullable(),
   progress: z.string().nullable(),
+  createdAt: z.string().optional(),
+  createdBy: z.uuid().nullable().optional(),
+  updatedBy: z.uuid().nullable().optional(),
   updatedAt: z.string(),
 });
 export type ItemSnapshot = z.infer<typeof ItemSnapshotSchema>;
 
 export const EVENT_PAYLOADS = {
-  'item.created': z.object({ item: ItemSnapshotSchema }),
+  /** Item passou a existir na lista ativa do board (criado, duplicado, restaurado ou movido para cá). */
+  'item.created': z.object({
+    item: ItemSnapshotSchema,
+    reason: z.enum(['created', 'duplicated', 'restored', 'moved', 'imported']).optional(),
+  }),
   'item.updated': z.object({
     itemId: z.uuid(),
     version: z.number().int(),
     changes: z.array(ItemFieldChangeSchema),
   }),
-  'item.deleted': z.object({ itemId: z.uuid() }),
+  /** Item saiu da lista ativa do board (lixeira, arquivo ou movido para outro board). */
+  'item.deleted': z.object({
+    itemId: z.uuid(),
+    reason: z.enum(['deleted', 'archived', 'moved']).optional(),
+  }),
+  /** Grupos do board mudaram: o cliente recarrega a estrutura do board. */
+  'group.changed': z.object({
+    groupId: z.uuid(),
+    change: z.enum(['created', 'updated', 'deleted', 'archived', 'restored', 'moved']),
+    changes: z.record(z.string(), z.unknown()).optional(),
+  }),
+  'column.created': z.object({ columnId: z.uuid(), key: z.string() }),
+  'column.deleted': z.object({ columnId: z.uuid(), key: z.string() }),
   'column.updated': z.object({
     columnId: z.uuid(),
     key: z.string(),

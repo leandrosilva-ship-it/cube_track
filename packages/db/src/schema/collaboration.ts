@@ -241,3 +241,22 @@ export const follows = tenantTable(
     index('follows_entity_idx').on(t.tenantId, t.entityType, t.entityId),
   ],
 );
+
+/**
+ * Última visualização de um item por usuário: base do indicador de atualizações não lidas na
+ * Tabela (atualizações de outras pessoas criadas depois de `last_seen_at`).
+ */
+export const itemReads = tenantTable(
+  'item_reads',
+  {
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    itemId: uuid('item_id').notNull(),
+    lastSeenAt: timestamp('last_seen_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    tenantFk('item_reads', t.tenantId, t.itemId, items),
+    uniqueIndex('item_reads_user_item_key').on(t.tenantId, t.userId, t.itemId),
+  ],
+);

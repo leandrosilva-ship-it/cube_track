@@ -8,6 +8,8 @@ export const QUEUES = {
   schedule: 'schedule',
   searchIndex: 'search-index',
   fileScan: 'file-scan',
+  computed: 'computed',
+  maintenance: 'maintenance',
   deadLetter: 'dead-letter',
 } as const;
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
@@ -61,6 +63,28 @@ export const ScheduleJobSchema = z.object({
 });
 export type ScheduleJob = z.infer<typeof ScheduleJobSchema>;
 
+/**
+ * Recálculo de colunas calculadas que dependem de outros itens (espelho, rollup, progresso por
+ * subitens) ou do dia (fórmulas com TODAY). `itemIds` vazio com `boardId` = board inteiro.
+ */
+export const ComputedJobSchema = z.object({
+  tenantId: z.uuid(),
+  boardId: z.uuid(),
+  itemIds: z.array(z.uuid()).max(5_000),
+  /** Só colunas que dependem do dia (fórmulas voláteis). */
+  volatileOnly: z.boolean().default(false),
+  causationId: z.uuid().nullable(),
+  depth: z.number().int().min(0).default(0),
+});
+export type ComputedJob = z.infer<typeof ComputedJobSchema>;
+
+/** Rotinas periódicas de manutenção (repeatable jobs do BullMQ). */
+export const MAINTENANCE_JOBS = ['purge-trash', 'recompute-volatile'] as const;
+export type MaintenanceJob = (typeof MAINTENANCE_JOBS)[number];
+
+/** Itens e grupos na lixeira são excluídos definitivamente após este prazo. */
+export const TRASH_RETENTION_DAYS = 30;
+
 export const SearchIndexJobSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('entity'),
@@ -94,9 +118,11 @@ export type DeadLetterJob = z.infer<typeof DeadLetterJobSchema>;
 
 /** Tipos de evento que cada consumidor recebe do relay. */
 export const EVENT_CONSUMERS: Record<string, readonly QueueName[]> = {
-  'item.created': [QUEUES.searchIndex, QUEUES.automations],
-  'item.updated': [QUEUES.searchIndex, QUEUES.automations, QUEUES.schedule],
-  'item.deleted': [QUEUES.searchIndex],
+  'item.created': [QUEUES.searchIndex, QUEUES.automations, QUEUES.computed],
+  'item.updated': [QUEUES.searchIndex, QUEUES.automations, QUEUES.schedule, QUEUES.computed],
+  'item.deleted': [QUEUES.searchIndex, QUEUES.computed],
+  'column.created': [QUEUES.computed],
+  'column.updated': [QUEUES.computed],
   'board.updated': [QUEUES.searchIndex],
   'update.created': [QUEUES.searchIndex, QUEUES.notifications],
 };

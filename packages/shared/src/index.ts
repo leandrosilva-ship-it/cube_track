@@ -2,6 +2,7 @@ export * from './business-days.js';
 export * from './columns/index.js';
 export * from './display-id.js';
 export * from './events.js';
+export * from './formula/index.js';
 export * from './fractional-index.js';
 export * from './ids.js';
 export * from './jobs.js';

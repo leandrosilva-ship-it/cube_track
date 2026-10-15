@@ -97,10 +97,20 @@ export class StructureController {
     await this.structure.deleteFolder(user, params.id);
   }
 
+  @Get('board-templates')
+  @Endpoint({
+    summary: 'Templates de board (embutidos e boards marcados como template)',
+    tags: ['boards'],
+    response: S.BoardTemplatesResponse,
+  })
+  templates(@CurrentPrincipal() user: AuthPrincipal) {
+    return this.structure.templates(user);
+  }
+
   @Post('workspaces/:workspaceId/boards')
   @Audited({ action: 'board.create', entityType: 'board' })
   @Endpoint({
-    summary: 'Criar board (grupo, colunas Status/Responsável/Prazo e view Tabela)',
+    summary: 'Criar board do zero ou de template (embutido ou board-template)',
     tags: ['boards'],
     status: 201,
     params: S.WorkspaceParams,

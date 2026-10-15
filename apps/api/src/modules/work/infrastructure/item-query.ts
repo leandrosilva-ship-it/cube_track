@@ -217,8 +217,12 @@ export class ItemQueryBuilder {
       sql`i.board_id = ${this.input.boardId}::uuid`,
       sql`i.deleted_at is null`,
     ];
-    if (this.input.archivedOnly) conditions.push(sql`i.archived_at is not null`);
-    else if (!this.input.includeArchived) conditions.push(sql`i.archived_at is null`);
+    conditions.push(sql`g.deleted_at is null`);
+    // Arquivo: itens arquivados ou de grupos arquivados.
+    if (this.input.archivedOnly)
+      conditions.push(sql`(i.archived_at is not null or g.archived_at is not null)`);
+    else if (!this.input.includeArchived)
+      conditions.push(sql`i.archived_at is null and g.archived_at is null`);
     const search = this.input.search?.trim() ?? '';
     if (search !== '') {
       const like = `%${escapeLike(search.toLowerCase())}%`;

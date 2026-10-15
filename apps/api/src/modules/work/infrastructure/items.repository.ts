@@ -105,7 +105,12 @@ export class ItemsRepository {
     return row?.position ?? null;
   }
 
-  async neighborAfter(tx: Transaction, groupId: string, position: string): Promise<string | null> {
+  async neighborAfter(
+    tx: Transaction,
+    groupId: string,
+    position: string,
+    parentItemId: string | null = null,
+  ): Promise<string | null> {
     const [row] = await tx
       .select({ position: items.position })
       .from(items)
@@ -114,7 +119,7 @@ export class ItemsRepository {
           eq(items.groupId, groupId),
           gt(items.position, position),
           isNull(items.deletedAt),
-          isNull(items.parentItemId),
+          parentItemId === null ? isNull(items.parentItemId) : eq(items.parentItemId, parentItemId),
         ),
       )
       .orderBy(asc(items.position))
@@ -122,7 +127,12 @@ export class ItemsRepository {
     return row?.position ?? null;
   }
 
-  async neighborBefore(tx: Transaction, groupId: string, position: string): Promise<string | null> {
+  async neighborBefore(
+    tx: Transaction,
+    groupId: string,
+    position: string,
+    parentItemId: string | null = null,
+  ): Promise<string | null> {
     const [row] = await tx
       .select({ position: items.position })
       .from(items)
@@ -131,7 +141,7 @@ export class ItemsRepository {
           eq(items.groupId, groupId),
           lt(items.position, position),
           isNull(items.deletedAt),
-          isNull(items.parentItemId),
+          parentItemId === null ? isNull(items.parentItemId) : eq(items.parentItemId, parentItemId),
         ),
       )
       .orderBy(desc(items.position))
@@ -200,6 +210,66 @@ export class ItemsRepository {
       .from(items)
       .where(and(inArray(items.id, itemIds), isNull(items.deletedAt)));
     return new Set(rows.map((row) => row.id));
+  }
+
+  /** Itens existentes entre `itemIds` que pertencem a um dos boards (qualquer board se vazio). */
+  async itemsOnBoards(
+    tx: Transaction,
+    itemIds: string[],
+    boardIds: string[],
+  ): Promise<Set<string>> {
+    if (itemIds.length === 0) return new Set();
+    const rows = await tx
+      .select({ id: items.id })
+      .from(items)
+      .where(
+        and(
+          inArray(items.id, itemIds),
+          isNull(items.deletedAt),
+          boardIds.length === 0 ? undefined : inArray(items.boardId, boardIds),
+        ),
+      );
+    return new Set(rows.map((row) => row.id));
+  }
+
+  /** Item mesmo na lixeira (restauração). */
+  async findAny(
+    tx: Transaction,
+    itemId: string,
+  ): Promise<(ItemRecord & { deletedAt: Date | null }) | null> {
+    const [row] = await tx
+      .select({ ...itemColumns, deletedAt: items.deletedAt })
+      .from(items)
+      .where(eq(items.id, itemId))
+      .for('update');
+    return row ?? null;
+  }
+
+  /** Subitens ativos (ou excluídos no mesmo instante, para restaurar juntos). */
+  async children(
+    tx: Transaction,
+    parentId: string,
+    deletedAt: Date | null = null,
+  ): Promise<ItemRecord[]> {
+    return tx
+      .select(itemColumns)
+      .from(items)
+      .where(
+        and(
+          eq(items.parentItemId, parentId),
+          deletedAt === null ? isNull(items.deletedAt) : eq(items.deletedAt, deletedAt),
+        ),
+      )
+      .orderBy(asc(items.position));
+  }
+
+  async updateMany(
+    tx: Transaction,
+    itemIds: string[],
+    values: Partial<typeof items.$inferInsert>,
+  ): Promise<void> {
+    if (itemIds.length === 0) return;
+    await tx.update(items).set(values).where(inArray(items.id, itemIds));
   }
 
   async runList(

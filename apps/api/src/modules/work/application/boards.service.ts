@@ -1,16 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { outboxRowToMessage, schema } from '@cube-track/db';
-import {
-  ColumnPermissionsSchema,
-  type ColumnPermissions,
-  type RealtimeEvent,
-} from '@cube-track/shared';
+import type { RealtimeEvent } from '@cube-track/shared';
 import { and, asc, eq, gt, inArray, isNull } from 'drizzle-orm';
 
 import type { AuthPrincipal } from '../../../core/context/request-context.js';
 import { TransactionRunner } from '../../../core/database/transaction-runner.js';
 import { NotFoundError } from '../../../core/errors/problems.js';
-import { DomainEvents } from '../../../core/events/domain-events.js';
 import { AccessService } from '../../access/application/access.service.js';
 import { redactEventFor } from '../domain/event-redaction.js';
 import { ItemsService } from './items.service.js';
@@ -25,15 +20,6 @@ const {
   outboxEvents,
 } = schema;
 
-export interface ColumnUpdateInput {
-  title?: string | undefined;
-  description?: string | null | undefined;
-  width?: number | null | undefined;
-  isRequired?: boolean | undefined;
-  isHidden?: boolean | undefined;
-  permissions?: ColumnPermissions | undefined;
-}
-
 const REPLAY_LIMIT = 500;
 
 /** Leitura de workspaces/boards (filtrada por permissão) e administração de colunas. */
@@ -43,7 +29,6 @@ export class BoardsService {
     private readonly runner: TransactionRunner,
     private readonly access: AccessService,
     private readonly items: ItemsService,
-    private readonly domainEvents: DomainEvents,
   ) {}
 
   async listWorkspaces(user: AuthPrincipal) {
@@ -118,8 +103,11 @@ export class BoardsService {
         kind: boards.kind,
         name: boards.name,
         description: boards.description,
+        icon: boards.icon,
         visibility: boards.visibility,
         terminology: boards.terminology,
+        settings: boards.settings,
+        isTemplate: boards.isTemplate,
         seq: boards.seq,
       })
       .from(boards)
@@ -157,6 +145,9 @@ export class BoardsService {
               settings: columnDefinitions.settings,
               binding: columnDefinitions.binding,
               isRequired: columnDefinitions.isRequired,
+              requiredWhen: columnDefinitions.requiredWhen,
+              defaultValue: columnDefinitions.defaultValue,
+              isHidden: columnDefinitions.isHidden,
               position: columnDefinitions.position,
               width: columnDefinitions.width,
               permissions: columnDefinitions.permissions,
@@ -211,63 +202,6 @@ export class BoardsService {
       permissions: [...(access?.permissions ?? [])],
       itemScope: access?.itemScope ?? 'all',
     };
-  }
-
-  async updateColumn(
-    user: AuthPrincipal,
-    boardId: string,
-    columnId: string,
-    input: ColumnUpdateInput,
-  ) {
-    await this.access.assert(user, 'column.manage', { type: 'board', id: boardId }, 'Board');
-    const tx = this.runner.tx;
-    const [column] = await tx
-      .select()
-      .from(columnDefinitions)
-      .where(
-        and(
-          eq(columnDefinitions.id, columnId),
-          eq(columnDefinitions.boardId, boardId),
-          isNull(columnDefinitions.deletedAt),
-        ),
-      );
-    if (column === undefined) throw new NotFoundError('Coluna');
-    const changes: Record<string, unknown> = {};
-    const before: Record<string, unknown> = {};
-    const set: Partial<typeof columnDefinitions.$inferInsert> = {};
-    if (input.title !== undefined) set.title = input.title;
-    if (input.description !== undefined) set.description = input.description;
-    if (input.width !== undefined) set.width = input.width;
-    if (input.isRequired !== undefined) set.isRequired = input.isRequired;
-    if (input.isHidden !== undefined) set.isHidden = input.isHidden;
-    if (input.permissions !== undefined)
-      set.permissions = ColumnPermissionsSchema.parse(input.permissions);
-    for (const [key, value] of Object.entries(set)) {
-      before[key] = (column as Record<string, unknown>)[key];
-      changes[key] = value;
-    }
-    if (Object.keys(set).length === 0) return { id: columnId, key: column.key, changes };
-    await tx.update(columnDefinitions).set(set).where(eq(columnDefinitions.id, columnId));
-    this.domainEvents.recordChange({
-      action: 'column.updated',
-      entityType: 'column',
-      entityId: columnId,
-      boardId,
-      before,
-      after: changes,
-    });
-    // Colunas (inclusive permissões) ficam no cache de acesso: invalida após o commit.
-    await this.access.invalidate(user.tenantId);
-    await this.domainEvents.emit({
-      tenantId: user.tenantId,
-      type: 'column.updated',
-      aggregateType: 'column',
-      aggregateId: columnId,
-      boardId,
-      payload: { columnId, key: column.key, changes },
-      actorId: user.userId,
-    });
-    return { id: columnId, key: column.key, changes };
   }
 
   /** Replay de eventos do board após `afterSeq` (reconexão), já redigidos para o usuário. */

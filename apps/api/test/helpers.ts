@@ -128,11 +128,34 @@ export async function demoIds(api: ApiClient, token: string) {
     { token },
   );
   const boardId = boards.body.data.find((board) => board.name === 'PMSP')?.id ?? '';
-  const board = await api.get<{
-    groups: { id: string; name: string }[];
-    columns: { id: string; key: string; labels: { id: string; label: string }[] }[];
-  }>(`/v1/boards/${boardId}`, { token });
+  const board = await api.get<BoardDetailFixture>(`/v1/boards/${boardId}`, { token });
   return { workspaceId, boardId, board: board.body };
+}
+
+export interface BoardDetailFixture {
+  groups: { id: string; name: string }[];
+  columns: {
+    id: string;
+    key: string;
+    type: string;
+    title: string;
+    isRequired: boolean;
+    labels: { id: string; label: string; category: string }[];
+    options: { id: string; label: string }[];
+  }[];
+}
+
+/** Valores para as colunas obrigatórias do board (o seed exige Órgão e Frente de Trabalho). */
+export function requiredValues(board: BoardDetailFixture): Record<string, unknown> {
+  const values: Record<string, unknown> = {};
+  for (const column of board.columns.filter((entry) => entry.isRequired)) {
+    if (column.type === 'status' && column.labels[0] !== undefined)
+      values[column.key] = { labelId: column.labels[0].id };
+    else if (column.type === 'dropdown' && column.options[0] !== undefined)
+      values[column.key] = { optionIds: [column.options[0].id] };
+    else if (column.type === 'text') values[column.key] = { text: 'valor de teste' };
+  }
+  return values;
 }
 
 export async function waitFor<T>(

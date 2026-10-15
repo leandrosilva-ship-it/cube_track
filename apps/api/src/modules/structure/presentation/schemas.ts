@@ -59,18 +59,57 @@ export const UpdateFolderBody = z.object({
   ...neighbors,
 });
 
+const icon = z.string().regex(/^[a-z0-9-]{1,40}$/);
 export const CreateBoardBody = z.object({
   name,
   description: z.string().max(2_000).optional(),
+  icon: icon.nullable().optional(),
   folderId: z.uuid().nullable().optional(),
   kind: z.enum(['board', 'project', 'process', 'backlog']).optional(),
   visibility: z.enum(['main', 'private', 'shareable']).optional(),
+  template: z
+    .discriminatedUnion('kind', [
+      z.object({ kind: z.literal('builtin'), key: z.string().min(1).max(40) }),
+      z.object({
+        kind: z.literal('board'),
+        boardId: z.uuid(),
+        includeItems: z.boolean().optional(),
+      }),
+    ])
+    .optional(),
 });
 export const UpdateBoardBody = z.object({
   name: name.optional(),
   description: z.string().max(2_000).nullable().optional(),
+  icon: icon.nullable().optional(),
+  visibility: z.enum(['main', 'private', 'shareable']).optional(),
+  isTemplate: z.boolean().optional(),
   folderId: z.uuid().nullable().optional(),
   ...neighbors,
+});
+export const BoardTemplatesResponse = z.object({
+  builtin: z.array(
+    z.object({
+      kind: z.literal('builtin'),
+      key: z.string(),
+      name: z.string(),
+      description: z.string(),
+      icon: z.string(),
+      boardKind: z.string(),
+      groups: z.array(z.string()),
+      columns: z.array(z.object({ title: z.string(), type: z.string() })),
+    }),
+  ),
+  boards: z.array(
+    z.object({
+      kind: z.literal('board'),
+      boardId: z.uuid(),
+      name: z.string(),
+      description: z.string().nullable(),
+      icon: z.string().nullable(),
+      boardKind: z.string(),
+    }),
+  ),
 });
 export const ChangesResponse = z.object({
   id: z.uuid(),

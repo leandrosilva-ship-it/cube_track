@@ -1,13 +1,7 @@
+import { boardTemplates } from '@cube-track/shared';
 import { describe, expect, it } from 'vitest';
 
-import {
-  addDays,
-  boardTemplate,
-  createsCycle,
-  normalizeLocale,
-  positionAmong,
-  weekStart,
-} from './structure.js';
+import { addDays, createsCycle, normalizeLocale, positionAmong, weekStart } from './structure.js';
 
 const siblings = [
   { id: 'a', position: 'a0' },
@@ -56,21 +50,32 @@ describe('createsCycle', () => {
   });
 });
 
-describe('modelo de board', () => {
+describe('modelos de board', () => {
   it('usa o idioma do tenant e vincula o prazo ao término planejado', () => {
-    const template = boardTemplate(normalizeLocale('pt-BR'));
-    expect(template.columns.map((column) => column.title)).toEqual([
+    const [blank] = boardTemplates(normalizeLocale('pt-BR'));
+    expect(blank?.columns.map((column) => column.title)).toEqual([
       'Status',
       'Responsável',
       'Prazo',
     ]);
-    expect(template.columns.find((column) => column.key === 'c_due')?.binding).toBe(
+    expect(blank?.columns.find((column) => column.key === 'c_due')?.binding).toBe(
       'item.planned_end_date',
     );
-    expect(template.labels.filter((label) => label.isDefault)).toHaveLength(1);
-    expect(boardTemplate(normalizeLocale('en-US')).view.name).toBe('Main table');
-    expect(boardTemplate(normalizeLocale('es')).group.name).toBe('Nuevo grupo');
+    expect(boardTemplates(normalizeLocale('en-US'))[0]?.viewName).toBe('Main table');
+    expect(boardTemplates(normalizeLocale('es'))[0]?.groups[0]?.name).toBe('Nuevo grupo');
     expect(normalizeLocale(null)).toBe('pt-BR');
+  });
+
+  it('template de OS: Processo SEI obrigatório quando "OS emitida" = Sim e valor por fórmula', () => {
+    const orders = boardTemplates('pt-BR').find((template) => template.key === 'service_orders');
+    const sei = orders?.columns.find((column) => column.key === 'c_sei');
+    expect(sei?.requiredWhenLabel).toEqual({ columnKey: 'c_os_emitida', labelIndex: 0 });
+    expect(
+      orders?.columns.find((column) => column.key === 'c_os_emitida')?.labels?.[0]?.label,
+    ).toBe('Sim');
+    expect(
+      orders?.columns.find((column) => column.type === 'formula')?.settings?.expression,
+    ).toContain('{c_ust}');
   });
 });
 

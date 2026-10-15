@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { FIRST_POSITION, schema } from '@cube-track/db';
-import { initialPositions, newId } from '@cube-track/shared';
+import { schema } from '@cube-track/db';
+import { boardTemplates, newId, type BoardTemplate } from '@cube-track/shared';
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 
 import type { AuthPrincipal } from '../../../core/context/request-context.js';
@@ -8,26 +8,15 @@ import { TransactionRunner } from '../../../core/database/transaction-runner.js'
 import { NotFoundError, ValidationError } from '../../../core/errors/problems.js';
 import { DomainEvents } from '../../../core/events/domain-events.js';
 import { AccessService } from '../../access/application/access.service.js';
+import { BoardBlueprintWriter } from './board-blueprint.js';
 import {
-  boardTemplate,
   createsCycle,
   normalizeLocale,
   positionAmong,
+  type SupportedLocale,
 } from '../domain/structure.js';
 
-const {
-  workspaces,
-  folders,
-  boards,
-  groups,
-  columnDefinitions,
-  statusLabels,
-  views,
-  favorites,
-  roles,
-  accessGrants,
-  tenants,
-} = schema;
+const { workspaces, folders, boards, views, favorites, roles, accessGrants, tenants } = schema;
 
 export interface Neighbors {
   afterId?: string | null | undefined;
@@ -53,17 +42,26 @@ export interface UpdateFolderInput extends Neighbors {
   parentId?: string | null | undefined;
 }
 
+export type BoardTemplateInput =
+  | { kind: 'builtin'; key: string }
+  | { kind: 'board'; boardId: string; includeItems?: boolean | undefined };
+
 export interface CreateBoardInput {
   name: string;
   description?: string | undefined;
+  icon?: string | null | undefined;
   folderId?: string | null | undefined;
   kind?: 'board' | 'project' | 'process' | 'backlog' | undefined;
   visibility?: 'main' | 'private' | 'shareable' | undefined;
+  template?: BoardTemplateInput | undefined;
 }
 
 export interface UpdateBoardInput extends Neighbors {
   name?: string | undefined;
   description?: string | null | undefined;
+  icon?: string | null | undefined;
+  visibility?: 'main' | 'private' | 'shareable' | undefined;
+  isTemplate?: boolean | undefined;
   folderId?: string | null | undefined;
 }
 
@@ -115,7 +113,85 @@ export class StructureService {
     private readonly runner: TransactionRunner,
     private readonly access: AccessService,
     private readonly domainEvents: DomainEvents,
+    private readonly blueprints: BoardBlueprintWriter,
   ) {}
+
+  // ------------------------------------------------------------------------ Templates ---
+
+  /** Templates disponíveis: embutidos (idioma do tenant) e boards marcados como template. */
+  async templates(user: AuthPrincipal) {
+    const [tenant] = await this.runner.tx
+      .select({ locale: tenants.locale })
+      .from(tenants)
+      .where(eq(tenants.id, user.tenantId));
+    const builtin = boardTemplates(normalizeLocale(tenant?.locale)).map((template) => ({
+      kind: 'builtin' as const,
+      key: template.key,
+      name: template.name,
+      description: template.description,
+      icon: template.icon,
+      boardKind: template.kind,
+      groups: template.groups.map((group) => group.name),
+      columns: template.columns.map((column) => ({ title: column.title, type: column.type })),
+    }));
+    const rows = await this.runner.tx
+      .select({
+        id: boards.id,
+        name: boards.name,
+        description: boards.description,
+        icon: boards.icon,
+        kind: boards.kind,
+      })
+      .from(boards)
+      .where(and(eq(boards.isTemplate, true), isNull(boards.deletedAt)))
+      .orderBy(asc(boards.name));
+    const readable = await Promise.all(
+      rows.map(async (row) => ((await this.access.board(user, row.id)) === null ? null : row)),
+    );
+    return {
+      builtin,
+      boards: readable
+        .filter((row) => row !== null)
+        .map((row) => ({
+          kind: 'board' as const,
+          boardId: row.id,
+          name: row.name,
+          description: row.description,
+          icon: row.icon,
+          boardKind: row.kind,
+        })),
+    };
+  }
+
+  private async resolveTemplate(
+    user: AuthPrincipal,
+    input: BoardTemplateInput | undefined,
+    locale: SupportedLocale,
+  ): Promise<
+    | { kind: 'builtin'; blueprint: BoardTemplate }
+    | { kind: 'board'; boardId: string; includeItems: boolean }
+  > {
+    const catalog = boardTemplates(locale);
+    if (input === undefined || input.kind === 'builtin') {
+      const key = input?.key ?? 'blank';
+      const blueprint = catalog.find((template) => template.key === key);
+      if (blueprint === undefined)
+        throw new ValidationError([
+          { path: 'body.template.key', message: 'Template inexistente.' },
+        ]);
+      return { kind: 'builtin', blueprint };
+    }
+    await this.access.assert(user, 'board.read', { type: 'board', id: input.boardId }, 'Template');
+    const [source] = await this.runner.tx
+      .select({ isTemplate: boards.isTemplate })
+      .from(boards)
+      .where(and(eq(boards.id, input.boardId), isNull(boards.deletedAt)));
+    if (source?.isTemplate !== true)
+      throw new ValidationError([
+        { path: 'body.template.boardId', message: 'O board não é um template.' },
+      ]);
+    return { kind: 'board', boardId: input.boardId, includeItems: input.includeItems ?? false };
+  }
 
   // ------------------------------------------------------------------------ Workspaces ---
 
@@ -351,66 +427,30 @@ export class StructureService {
       .select({ locale: tenants.locale })
       .from(tenants)
       .where(eq(tenants.id, user.tenantId));
-    const template = boardTemplate(normalizeLocale(tenant?.locale));
+    const template = await this.resolveTemplate(
+      user,
+      input.template,
+      normalizeLocale(tenant?.locale),
+    );
     const boardId = newId();
-    const common = { tenantId: user.tenantId, createdBy: user.userId };
     await tx.insert(boards).values({
-      ...common,
+      tenantId: user.tenantId,
+      createdBy: user.userId,
       id: boardId,
       workspaceId,
       folderId,
       name: input.name,
       description: input.description ?? null,
-      kind: input.kind ?? 'board',
+      icon: input.icon ?? (template.kind === 'builtin' ? template.blueprint.icon : null),
+      kind: input.kind ?? (template.kind === 'builtin' ? template.blueprint.kind : 'board'),
       visibility: input.visibility ?? 'main',
       ownerId: user.userId,
+      sourceTemplateId: template.kind === 'board' ? template.boardId : null,
       position: positionAmong(siblings, {}),
     });
-    await tx.insert(groups).values({
-      ...common,
-      boardId,
-      name: template.group.name,
-      color: template.group.color,
-      position: FIRST_POSITION,
-    });
-    const columnPositions = initialPositions(template.columns.length);
-    const columnIds = template.columns.map(() => newId());
-    await tx.insert(columnDefinitions).values(
-      template.columns.map((column, index) => ({
-        ...common,
-        id: columnIds[index],
-        boardId,
-        key: column.key,
-        type: column.type,
-        title: column.title,
-        width: column.width,
-        binding: column.binding,
-        position: columnPositions[index] ?? FIRST_POSITION,
-      })),
-    );
-    const statusColumnId =
-      columnIds[template.columns.findIndex((column) => column.type === 'status')];
-    if (statusColumnId === undefined) throw new Error('Modelo de board sem coluna de status');
-    const labelPositions = initialPositions(template.labels.length);
-    await tx.insert(statusLabels).values(
-      template.labels.map((label, index) => ({
-        ...common,
-        columnId: statusColumnId,
-        label: label.label,
-        color: label.color,
-        category: label.category,
-        isDefault: label.isDefault,
-        position: labelPositions[index] ?? FIRST_POSITION,
-      })),
-    );
-    await tx.insert(views).values({
-      ...common,
-      boardId,
-      name: template.view.name,
-      type: template.view.type,
-      isDefault: true,
-      position: FIRST_POSITION,
-    });
+    if (template.kind === 'builtin')
+      await this.blueprints.fromTemplate(user, boardId, template.blueprint);
+    else await this.blueprints.fromBoard(user, boardId, template.boardId, template.includeItems);
     await this.grant(user, 'board', boardId, 'board', 'board_owner');
     this.domainEvents.recordChange({
       action: 'board.create',
@@ -440,6 +480,24 @@ export class StructureService {
     const set: Partial<typeof boards.$inferInsert> = {};
     const before: Record<string, unknown> = {};
     const details: Record<string, unknown> = {};
+    const managed = {
+      icon: input.icon,
+      visibility: input.visibility,
+      isTemplate: input.isTemplate,
+    } as const;
+    if (Object.values(managed).some((value) => value !== undefined)) {
+      await this.access.assert(user, 'board.manage', { type: 'board', id: boardId }, 'Board');
+      const [current] = await tx
+        .select({ icon: boards.icon, visibility: boards.visibility, isTemplate: boards.isTemplate })
+        .from(boards)
+        .where(eq(boards.id, boardId));
+      for (const [key, value] of Object.entries(managed) as [keyof typeof managed, unknown][]) {
+        if (value === undefined || current?.[key] === value) continue;
+        before[key] = current?.[key];
+        (set as Record<string, unknown>)[key] = value;
+        details[key] = value;
+      }
+    }
     if (input.name !== undefined || input.description !== undefined) {
       await this.access.assert(user, 'board.manage', { type: 'board', id: boardId }, 'Board');
       if (input.name !== undefined && input.name !== board.name) {

@@ -57,85 +57,10 @@ export function createsCycle(
 
 export type SupportedLocale = 'pt-BR' | 'en' | 'es';
 
-const TEMPLATE_TEXT: Record<
-  SupportedLocale,
-  {
-    group: string;
-    view: string;
-    status: string;
-    owner: string;
-    due: string;
-    labels: [string, string, string, string];
-  }
-> = {
-  'pt-BR': {
-    group: 'Novo grupo',
-    view: 'Tabela principal',
-    status: 'Status',
-    owner: 'Responsável',
-    due: 'Prazo',
-    labels: ['A fazer', 'Em andamento', 'Parado', 'Concluído'],
-  },
-  en: {
-    group: 'New group',
-    view: 'Main table',
-    status: 'Status',
-    owner: 'Owner',
-    due: 'Due date',
-    labels: ['To do', 'Working on it', 'Stuck', 'Done'],
-  },
-  es: {
-    group: 'Nuevo grupo',
-    view: 'Tabla principal',
-    status: 'Estado',
-    owner: 'Responsable',
-    due: 'Fecha límite',
-    labels: ['Por hacer', 'En curso', 'Detenido', 'Listo'],
-  },
-};
-
-export interface BoardTemplate {
-  group: { name: string; color: string };
-  view: { name: string; type: 'table' };
-  columns: {
-    key: string;
-    type: 'status' | 'people' | 'date';
-    title: string;
-    width: number;
-    binding: string | null;
-  }[];
-  labels: {
-    label: string;
-    color: string;
-    category: 'not_started' | 'in_progress' | 'stuck' | 'done';
-    isDefault: boolean;
-  }[];
-}
-
 export function normalizeLocale(locale: string | null | undefined): SupportedLocale {
   if (locale === 'en' || locale?.startsWith('en-') === true) return 'en';
   if (locale === 'es' || locale?.startsWith('es-') === true) return 'es';
   return 'pt-BR';
-}
-
-/** Modelo inicial de um board: 1 grupo, colunas Status/Responsável/Prazo e a view Tabela. */
-export function boardTemplate(locale: SupportedLocale): BoardTemplate {
-  const text = TEMPLATE_TEXT[locale];
-  return {
-    group: { name: text.group, color: '#579bfc' },
-    view: { name: text.view, type: 'table' },
-    columns: [
-      { key: 'c_status', type: 'status', title: text.status, width: 140, binding: null },
-      { key: 'c_owner', type: 'people', title: text.owner, width: 140, binding: null },
-      { key: 'c_due', type: 'date', title: text.due, width: 130, binding: 'item.planned_end_date' },
-    ],
-    labels: [
-      { label: text.labels[0], color: '#c4c4c4', category: 'not_started', isDefault: true },
-      { label: text.labels[1], color: '#fdab3d', category: 'in_progress', isDefault: false },
-      { label: text.labels[2], color: '#df2f4a', category: 'stuck', isDefault: false },
-      { label: text.labels[3], color: '#00c875', category: 'done', isDefault: false },
-    ],
-  };
 }
 
 /** Início (segunda-feira) da semana ISO que contém `date` (YYYY-MM-DD). */

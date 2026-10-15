@@ -6,6 +6,7 @@ import {
   adminDb,
   client,
   demoIds,
+  requiredValues,
   resetRateLimits,
   startApi,
   USERS,
@@ -40,10 +41,11 @@ describe('Auditoria e log de atividade', () => {
   });
 
   it('mutação grava auditoria (quem, o quê, antes/depois, IP, user agent), atividade e outbox na mesma transação', async () => {
-    const groupId = (await demoIds(api, token)).board.groups[0]?.id ?? '';
+    const { board } = await demoIds(api, token);
+    const groupId = board.groups[0]?.id ?? '';
     const created = await api.post<{ id: string }>(`/v1/boards/${boardId}/items`, {
       token,
-      body: { groupId, name: 'Item auditado' },
+      body: { groupId, name: 'Item auditado', values: requiredValues(board) },
       headers: { 'user-agent': 'cube-track-tests/1.0', 'x-request-id': 'req-auditoria-0001' },
     });
     expect(created.status).toBe(201);

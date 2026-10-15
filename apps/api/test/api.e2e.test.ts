@@ -4,6 +4,7 @@ import { listRoutes } from '../src/openapi/openapi.js';
 import {
   client,
   demoIds,
+  requiredValues,
   startApi,
   USERS,
   type ApiClient,
@@ -157,7 +158,7 @@ describe('API REST — contrato, paginação, erros, rate limit e idempotência'
     const { board } = await demoIds(api, token);
     const groupId = board.groups[0]?.id ?? '';
     const key = `teste-idem-${Date.now()}`;
-    const body = { groupId, name: 'Item idempotente' };
+    const body = { groupId, name: 'Item idempotente', values: requiredValues(board) };
     const first = await api.post<{ id: string }>(`/v1/boards/${boardId}/items`, {
       token,
       body,

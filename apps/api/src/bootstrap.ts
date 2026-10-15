@@ -5,6 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import { json, urlencoded } from 'express';
 import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module.js';
@@ -18,6 +19,7 @@ export async function createApp(
 ): Promise<NestExpressApplication> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     bufferLogs: true,
+    bodyParser: false,
     ...(options.logger === false ? { logger: false } : {}),
   });
   const config = app.get<AppConfig>(APP_CONFIG);
@@ -25,6 +27,10 @@ export async function createApp(
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
   app.use(cookieParser());
+  // Corpo JSON: 15 MB só para o upload de planilhas (base64); 2 MB no restante (edição em massa).
+  app.use(/^\/v1\/boards\/[^/]+\/imports$/, json({ limit: '15mb' }));
+  app.use(json({ limit: '2mb' }));
+  app.use(urlencoded({ extended: false, limit: '100kb' }));
   app.enableCors({
     origin: config.CORS_ORIGINS.split(',').map((origin) => origin.trim()),
     credentials: true,

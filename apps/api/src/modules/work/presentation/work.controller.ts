@@ -57,22 +57,6 @@ export class WorkController {
     return this.boards.getBoard(user, params.boardId);
   }
 
-  @Patch('boards/:boardId/columns/:columnId')
-  @Audited({ action: 'column.update', entityType: 'column' })
-  @Endpoint({
-    summary: 'Atualizar coluna (título, largura, obrigatoriedade, permissões)',
-    tags: ['boards'],
-    params: S.ColumnParams,
-    body: S.UpdateColumnBody,
-  })
-  updateColumn(
-    @CurrentPrincipal() user: AuthPrincipal,
-    @Input('params') params: z.infer<typeof S.ColumnParams>,
-    @Input('body') body: z.infer<typeof S.UpdateColumnBody>,
-  ) {
-    return this.boards.updateColumn(user, params.boardId, params.columnId, body);
-  }
-
   @Get('boards/:boardId/events')
   @Endpoint({
     summary: 'Replay de eventos do board após uma sequência (reconexão)',
@@ -112,6 +96,9 @@ export class WorkController {
       groupId: query.groupId,
       parentItemId: query.parentItemId ?? null,
       includeArchived: query.includeArchived ?? false,
+      search: query.search,
+      archivedOnly: query.archivedOnly ?? false,
+      withIndicators: query.indicators ?? false,
     });
   }
 

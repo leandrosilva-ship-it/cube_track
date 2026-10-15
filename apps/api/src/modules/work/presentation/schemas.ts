@@ -22,7 +22,17 @@ export const ItemSchema = z.object({
   progress: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  createdBy: z.uuid().nullable(),
+  updatedBy: z.uuid().nullable(),
   archivedAt: z.string().nullable(),
+  indicators: z
+    .object({
+      subitems: z.number().int(),
+      attachments: z.number().int(),
+      updates: z.number().int(),
+      unreadUpdates: z.number().int(),
+    })
+    .optional(),
   redactedFields: z.array(z.string()),
 });
 export const ItemPageSchema = pageSchema(ItemSchema);
@@ -61,6 +71,15 @@ export const ListItemsQuery = PageQuerySchema.extend({
   groupId: z.uuid().optional(),
   parentItemId: z.uuid().optional(),
   includeArchived: z
+    .enum(['true', 'false'])
+    .transform((value) => value === 'true')
+    .optional(),
+  search: z.string().max(200).optional(),
+  archivedOnly: z
+    .enum(['true', 'false'])
+    .transform((value) => value === 'true')
+    .optional(),
+  indicators: z
     .enum(['true', 'false'])
     .transform((value) => value === 'true')
     .optional(),
@@ -115,34 +134,6 @@ export const BoardParams = z.object({ boardId: z.uuid() });
 export const WorkspaceParams = z.object({ workspaceId: z.uuid() });
 export const ColumnParams = z.object({ boardId: z.uuid(), columnId: z.uuid() });
 
-export const UpdateColumnBody = z
-  .object({
-    title: z.string().trim().min(1).max(120).optional(),
-    description: z.string().max(1000).nullable().optional(),
-    width: z.number().int().min(40).max(2000).nullable().optional(),
-    isRequired: z.boolean().optional(),
-    isHidden: z.boolean().optional(),
-    permissions: z
-      .object({
-        viewers: z
-          .object({
-            roleIds: z.array(z.uuid()).optional(),
-            userIds: z.array(z.uuid()).optional(),
-            teamIds: z.array(z.uuid()).optional(),
-          })
-          .optional(),
-        editors: z
-          .object({
-            roleIds: z.array(z.uuid()).optional(),
-            userIds: z.array(z.uuid()).optional(),
-            teamIds: z.array(z.uuid()).optional(),
-          })
-          .optional(),
-      })
-      .optional(),
-  })
-  .strict();
-
 export const EventsQuery = z.object({ after: z.coerce.number().int().nonnegative() });
 
 export const WorkspaceSchema = z.object({
@@ -173,8 +164,11 @@ export const BoardDetailSchema = z.object({
   kind: z.string(),
   name: z.string(),
   description: z.string().nullable(),
+  icon: z.string().nullable(),
   visibility: z.string(),
   terminology: z.object({ singular: z.string(), plural: z.string() }),
+  settings: z.record(z.string(), z.unknown()),
+  isTemplate: z.boolean(),
   seq: z.number().int(),
   permissions: z.array(z.string()),
   itemScope: z.enum(['all', 'assigned']),
@@ -197,6 +191,9 @@ export const BoardDetailSchema = z.object({
       settings: z.record(z.string(), z.unknown()),
       binding: z.string().nullable(),
       isRequired: z.boolean(),
+      requiredWhen: z.record(z.string(), z.unknown()).nullable(),
+      defaultValue: z.record(z.string(), z.unknown()).nullable(),
+      isHidden: z.boolean(),
       position: z.string(),
       width: z.number().nullable(),
       permissions: z.record(z.string(), z.unknown()),
@@ -230,4 +227,237 @@ export const EventsResponse = z.object({
   events: z.array(z.record(z.string(), z.unknown())),
   resyncRequired: z.boolean(),
   seq: z.number().int(),
+});
+
+// ------------------------------------------------------------------- Prompt 5: Tabela e colunas ---
+
+const color = z.string().regex(/^#[0-9a-fA-F]{6}$/);
+const principalList = z
+  .object({
+    roleIds: z.array(z.uuid()).max(100).optional(),
+    userIds: z.array(z.uuid()).max(1000).optional(),
+    teamIds: z.array(z.uuid()).max(100).optional(),
+  })
+  .strict();
+const ColumnPermissionsBody = z
+  .object({ viewers: principalList.optional(), editors: principalList.optional() })
+  .strict();
+const ColumnPositionBody = z
+  .object({ afterKey: z.string().optional(), beforeKey: z.string().optional() })
+  .strict();
+const LabelBody = z
+  .object({
+    id: z.uuid().optional(),
+    label: z.string().trim().min(1).max(60),
+    color,
+    category: z.enum(['not_started', 'in_progress', 'done', 'stuck']),
+  })
+  .strict();
+const OptionBody = z
+  .object({
+    id: z.uuid().optional(),
+    label: z.string().trim().min(1).max(120),
+    color: color.nullable().optional(),
+  })
+  .strict();
+
+export const CreateColumnBody = z
+  .object({
+    type: z.string().min(1).max(40),
+    title: z.string().trim().min(1).max(120),
+    description: z.string().max(1000).nullable().optional(),
+    settings: z.record(z.string(), z.unknown()).optional(),
+    width: z.number().int().min(40).max(2000).nullable().optional(),
+    position: ColumnPositionBody.optional(),
+    labels: z
+      .array(LabelBody.omit({ id: true }))
+      .max(40)
+      .optional(),
+    options: z
+      .array(OptionBody.omit({ id: true }))
+      .max(500)
+      .optional(),
+    isRequired: z.boolean().optional(),
+    requiredWhen: FilterGroupSchema.nullable().optional(),
+    permissions: ColumnPermissionsBody.optional(),
+  })
+  .strict();
+
+export const UpdateColumnBody = z
+  .object({
+    title: z.string().trim().min(1).max(120).optional(),
+    description: z.string().max(1000).nullable().optional(),
+    settings: z.record(z.string(), z.unknown()).optional(),
+    width: z.number().int().min(40).max(2000).nullable().optional(),
+    position: ColumnPositionBody.optional(),
+    isRequired: z.boolean().optional(),
+    isHidden: z.boolean().optional(),
+    requiredWhen: FilterGroupSchema.nullable().optional(),
+    defaultValue: z.record(z.string(), z.unknown()).nullable().optional(),
+    permissions: ColumnPermissionsBody.optional(),
+  })
+  .strict();
+
+export const ColumnRefResponse = z.object({ id: z.uuid(), key: z.string() });
+export const ReplaceLabelsBody = z.object({ labels: z.array(LabelBody).min(1).max(40) }).strict();
+export const ReplaceOptionsBody = z.object({ options: z.array(OptionBody).max(500) }).strict();
+export const DuplicateColumnBody = z.object({ includeValues: z.boolean().default(true) }).strict();
+export const StatusColumnBody = z.object({ statusColumnKey: z.string().min(1) }).strict();
+
+const GroupPositionBody = z
+  .object({ afterId: z.uuid().optional(), beforeId: z.uuid().optional() })
+  .strict();
+export const GroupSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  color: z.string(),
+  position: z.string(),
+  isCollapsed: z.boolean(),
+  archivedAt: z.string().nullable().optional(),
+});
+export const CreateGroupBody = z
+  .object({
+    name: z.string().trim().min(1).max(200),
+    color: color.optional(),
+    position: GroupPositionBody.optional(),
+  })
+  .strict();
+export const UpdateGroupBody = z
+  .object({
+    name: z.string().trim().min(1).max(200).optional(),
+    color: color.optional(),
+    isCollapsed: z.boolean().optional(),
+    archived: z.boolean().optional(),
+    position: GroupPositionBody.optional(),
+  })
+  .strict();
+export const DuplicateGroupBody = z.object({ includeItems: z.boolean().default(true) }).strict();
+const ColumnMapping = z.record(z.string(), z.string().nullable());
+export const MoveGroupBody = z.object({ boardId: z.uuid(), columnMapping: ColumnMapping }).strict();
+export const GroupParams = z.object({ groupId: z.uuid() });
+
+export const BulkUpdateBody = z
+  .object({
+    items: z
+      .array(UpdateItemBody.extend({ id: z.uuid() }))
+      .min(1)
+      .max(500),
+  })
+  .strict();
+export const ItemListResponse = z.object({ data: z.array(ItemSchema) });
+
+const itemIds = z.array(z.uuid()).min(1).max(500);
+export const ItemActionBody = z.discriminatedUnion('action', [
+  z
+    .object({ action: z.literal('duplicate'), itemIds, includeSubitems: z.boolean().optional() })
+    .strict(),
+  z.object({ action: z.enum(['archive', 'unarchive', 'delete', 'restore']), itemIds }).strict(),
+  z
+    .object({
+      action: z.literal('move'),
+      itemIds,
+      target: z
+        .object({ boardId: z.uuid(), groupId: z.uuid(), columnMapping: ColumnMapping.optional() })
+        .strict(),
+    })
+    .strict(),
+]);
+export const ItemActionResponse = z.object({ items: z.array(ItemSchema) });
+
+export const TrashResponse = z.object({
+  items: z.array(
+    z.object({
+      id: z.uuid(),
+      name: z.string(),
+      groupId: z.uuid(),
+      groupName: z.string(),
+      parentItemId: z.uuid().nullable(),
+      deletedAt: z.string().nullable(),
+      deletedBy: z.uuid().nullable(),
+      expiresAt: z.string().nullable(),
+    }),
+  ),
+  groups: z.array(
+    z.object({
+      id: z.uuid(),
+      name: z.string(),
+      color: z.string(),
+      deletedAt: z.string().nullable(),
+      expiresAt: z.string().nullable(),
+    }),
+  ),
+});
+
+export const TimerParams = z.object({ id: z.uuid(), columnKey: z.string().min(1).max(64) });
+export const TimerBody = z.object({ action: z.enum(['start', 'stop']) }).strict();
+export const DependenciesResponse = z.object({
+  data: z.array(
+    z.object({
+      id: z.uuid(),
+      predecessorId: z.uuid(),
+      successorId: z.uuid(),
+      type: z.enum(['FS', 'SS', 'FF', 'SF']),
+      lagDays: z.number().int(),
+    }),
+  ),
+});
+export const SetDependenciesBody = z
+  .object({
+    predecessors: z
+      .array(
+        z
+          .object({
+            itemId: z.uuid(),
+            type: z.enum(['FS', 'SS', 'FF', 'SF']).default('FS'),
+            lagDays: z.number().int().min(-3650).max(3650).default(0),
+          })
+          .strict(),
+      )
+      .max(100),
+  })
+  .strict();
+
+const locale = z.enum(['pt-BR', 'en', 'es']).default('pt-BR');
+export const ImportUploadBody = z
+  .object({
+    fileName: z.string().trim().min(1).max(255),
+    contentBase64: z.string().min(1).max(14_000_000),
+  })
+  .strict();
+const ImportTarget = z.union([
+  z.literal('name'),
+  z.literal('group'),
+  z.templateLiteral(['column:', z.string()]),
+  z.null(),
+]);
+export const ImportPreviewResponse = z.object({
+  importId: z.uuid(),
+  fileName: z.string(),
+  headers: z.array(z.string()),
+  sample: z.array(z.array(z.string())),
+  totalRows: z.number().int(),
+  suggestedMapping: z.record(z.string(), ImportTarget),
+});
+export const ImportParams = z.object({ boardId: z.uuid(), importId: z.uuid() });
+export const ImportCommitBody = z
+  .object({
+    mapping: z.record(z.string(), ImportTarget),
+    groupId: z.uuid(),
+    createMissing: z.boolean().default(false),
+    locale,
+  })
+  .strict();
+export const ImportResultResponse = z.object({
+  created: z.number().int(),
+  skipped: z.number().int(),
+  errors: z.array(
+    z.object({ row: z.number().int(), column: z.string().nullable(), message: z.string() }),
+  ),
+});
+export const ExportQuery = z.object({
+  format: z.enum(['csv', 'xlsx']).default('xlsx'),
+  locale,
+  filter: jsonFilter.optional(),
+  sort: sortParam.optional(),
+  search: z.string().max(200).optional(),
 });

@@ -160,3 +160,70 @@ describe('applyRealtimeEvent', () => {
     expect(ctx.onNotification).toHaveBeenCalledWith('Você foi mencionado');
   });
 });
+
+describe('Prompt 5: subitens, estrutura e destaque', () => {
+  it('subitem entra só na lista do pai e incrementa o indicador; eco de outra pessoa destaca a célula', async () => {
+    const { highlightStore } = await import('./highlight');
+    const queryClient = new QueryClient();
+    const parent = makeItem({
+      id: 'p1',
+      indicators: { subitems: 0, attachments: 0, updates: 0, unreadUpdates: 0 },
+    });
+    seed(queryClient, {}, pagesOf([parent]));
+    seed(queryClient, { parentItemId: 'p1' }, pagesOf([]));
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('item.created', {
+        item: {
+          id: 's1',
+          boardId: BOARD_ID,
+          groupId: parent.groupId,
+          parentItemId: 'p1',
+          name: 'Sub',
+          position: 'a0',
+          values: {},
+        },
+      }),
+      context(),
+    );
+    const main = queryClient.getQueryData<ItemPages>(qk.itemList(BOARD_ID, {}));
+    const subs = queryClient.getQueryData<ItemPages>(qk.itemList(BOARD_ID, { parentItemId: 'p1' }));
+    expect(main?.pages[0]?.data.map((item) => item.id)).toEqual(['p1']);
+    expect(main?.pages[0]?.data[0]?.indicators?.subitems).toBe(1);
+    expect(subs?.pages[0]?.data.map((item) => item.id)).toEqual(['s1']);
+
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('item.updated', {
+        itemId: 'p1',
+        version: 2,
+        changes: [{ field: 'c_ust', kind: 'column', value: { n: '3' }, version: 1 }],
+      }),
+      context(),
+    );
+    expect(highlightStore.getState().cells['p1:c_ust']).toBeGreaterThan(Date.now());
+  });
+
+  it('mudanças de estrutura invalidam o board; colunas só cosméticas recarregam só a estrutura', () => {
+    const queryClient = new QueryClient();
+    const spy = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('group.changed', { groupId: 'g', change: 'deleted' }),
+      context(),
+    );
+    expect(spy).toHaveBeenLastCalledWith({ queryKey: qk.board(BOARD_ID) });
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('column.updated', { columnId: 'c', key: 'c_x', changes: { width: 200 } }),
+      context(),
+    );
+    expect(spy).toHaveBeenLastCalledWith({ queryKey: qk.boardDetail(BOARD_ID) });
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('column.created', { columnId: 'c', key: 'c_y' }),
+      context(),
+    );
+    expect(spy).toHaveBeenLastCalledWith({ queryKey: qk.board(BOARD_ID) });
+  });
+});

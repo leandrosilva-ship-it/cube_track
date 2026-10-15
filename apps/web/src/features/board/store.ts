@@ -4,13 +4,21 @@ import { useStore } from 'zustand';
 import type { ItemListParams } from '@/lib/query/keys';
 
 export interface BoardViewState extends ItemListParams {
-  /** Colunas ocultas nesta sessão (a view salva com colunas ocultas chega no Prompt 6). */
+  /** Colunas ocultas (a configuração salva por view chega no Prompt 6). */
   hiddenColumnKeys: string[];
-  /** `group` ou a chave de uma coluna de status. */
-  groupBy: string;
+  /** Níveis de agrupamento (até 3): `group` ou chaves de coluna. */
+  groupBy: string[];
+  /** Ordem das colunas definida arrastando os cabeçalhos. */
+  columnOrder?: string[];
+  /** Larguras ajustadas pelo usuário (px). */
+  columnWidths?: Record<string, number>;
+  /** Colunas fixadas à esquerda (além do nome). */
+  pinnedColumnKeys?: string[];
+  /** Baldes recolhidos (caminho `nível=chave/...`). */
+  collapsed?: string[];
 }
 
-const DEFAULT_STATE: BoardViewState = { hiddenColumnKeys: [], groupBy: 'group' };
+const DEFAULT_STATE: BoardViewState = { hiddenColumnKeys: [], groupBy: ['group'] };
 
 /** Estado de UI da barra de ferramentas por board (Zustand, efêmero). */
 export const boardViewStore = createStore<Record<string, BoardViewState>>(() => ({}));
@@ -36,7 +44,14 @@ export function updateBoardView(boardId: string, patch: BoardViewPatch): void {
 export function resetBoardFilters(boardId: string): void {
   boardViewStore.setState((state) => {
     const current = state[boardId] ?? DEFAULT_STATE;
-    return { [boardId]: { hiddenColumnKeys: current.hiddenColumnKeys, groupBy: current.groupBy } };
+    const {
+      search: _search,
+      personId: _personId,
+      statusLabelIds: _statusLabelIds,
+      filter: _filter,
+      ...layout
+    } = current;
+    return { [boardId]: layout };
   });
 }
 
@@ -48,6 +63,7 @@ export function listParams(state: BoardViewState): ItemListParams {
       : { search: state.search.trim() }),
     ...(state.personId === undefined ? {} : { personId: state.personId }),
     ...((state.statusLabelIds?.length ?? 0) === 0 ? {} : { statusLabelIds: state.statusLabelIds }),
+    ...((state.filter?.conditions.length ?? 0) === 0 ? {} : { filter: state.filter }),
     ...(state.sort === undefined ? {} : { sort: state.sort }),
   };
 }

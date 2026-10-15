@@ -16,9 +16,13 @@ function flatten(tree: Tree, prefix = ''): Map<string, string> {
   return entries;
 }
 
-/** Nomes de argumentos ICU (`{name}`, `{count, plural, …}`). */
+/**
+ * Nomes de argumentos ICU (`{name}`, `{count, plural, …}`). Ignora o corpo de ramos de
+ * plural/select com uma só palavra (`one {Duplicar}`, `=0 {Restaurar}`), que não é argumento.
+ */
 function argumentsOf(text: string): string[] {
-  return [...new Set([...text.matchAll(/\{(\w+)\s*[,}]/g)].map((match) => match[1] ?? ''))].sort();
+  const pattern = /(?<!(?:zero|one|two|few|many|other|=\d+)\s*)\{(\w+)\s*[,}]/g;
+  return [...new Set([...text.matchAll(pattern)].map((match) => match[1] ?? ''))].sort();
 }
 
 const base = flatten(MESSAGES['pt-BR']);

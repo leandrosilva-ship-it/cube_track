@@ -2,3 +2,22 @@
 
 /* Classes usadas pelo app (o design system registra as próprias). */
 @source '../';
+
+/* Destaque de célula alterada por outra pessoa em tempo real (some em 2,5 s). */
+@keyframes ct-remote-fade {
+  0%,
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.ct-remote-highlight {
+  animation: ct-remote-fade 2.5s ease-out forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ct-remote-highlight {
+    animation: none;
+  }
+}

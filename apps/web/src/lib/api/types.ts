@@ -1,5 +1,7 @@
 /** Tipos das respostas da API REST v1 consumidas pela interface (contrato em docs/openapi.json). */
 
+import type { FilterGroup } from '@cube-track/shared';
+
 export interface SessionUser {
   id: string;
   email: string;
@@ -119,16 +121,28 @@ export interface StatusLabel {
   position: string;
 }
 
+export interface ColumnPrincipals {
+  roleIds?: string[];
+  userIds?: string[];
+  teamIds?: string[];
+}
+
 export interface BoardColumn {
   id: string;
   key: string;
   type: string;
   title: string;
   description: string | null;
+  settings: Record<string, unknown>;
   binding: string | null;
   isRequired: boolean;
+  /** Obrigatória quando o item casa com esta condição (AST de filtro; ADR 0039). */
+  requiredWhen: FilterGroup | null;
+  defaultValue: Record<string, unknown> | null;
+  isHidden: boolean;
   position: string;
   width: number | null;
+  permissions: { viewers?: ColumnPrincipals; editors?: ColumnPrincipals };
   canEdit: boolean;
   labels: StatusLabel[];
   options: {
@@ -148,6 +162,12 @@ export interface BoardGroup {
   isCollapsed: boolean;
 }
 
+export interface BoardSettings {
+  /** Coluna de status principal (conclusão, atrasados). */
+  statusColumnKey?: string;
+  [key: string]: unknown;
+}
+
 export interface BoardDetail {
   id: string;
   workspaceId: string;
@@ -155,7 +175,11 @@ export interface BoardDetail {
   kind: BoardKind;
   name: string;
   description: string | null;
+  icon: string | null;
   visibility: BoardVisibility;
+  terminology: { singular: string; plural: string };
+  settings: BoardSettings;
+  isTemplate: boolean;
   seq: number;
   permissions: string[];
   itemScope: 'all' | 'assigned';
@@ -214,8 +238,19 @@ export interface Item {
   progress: string | null;
   createdAt: string;
   updatedAt: string;
+  createdBy: string | null;
+  updatedBy: string | null;
   archivedAt: string | null;
+  /** Indicadores da linha (pedidos com `indicators=true`). */
+  indicators?: ItemIndicators;
   redactedFields: string[];
+}
+
+export interface ItemIndicators {
+  subitems: number;
+  attachments: number;
+  updates: number;
+  unreadUpdates: number;
 }
 
 export interface Page<T> {
@@ -294,4 +329,72 @@ export interface InvitationPreview {
   kind: 'member' | 'guest';
   expiresAt: string;
   accountExists: boolean;
+}
+
+export interface TrashEntry {
+  id: string;
+  name: string;
+  groupId: string;
+  groupName: string;
+  parentItemId: string | null;
+  deletedAt: string | null;
+  deletedBy: string | null;
+  expiresAt: string | null;
+}
+
+export interface Trash {
+  items: TrashEntry[];
+  groups: {
+    id: string;
+    name: string;
+    color: string;
+    deletedAt: string | null;
+    expiresAt: string | null;
+  }[];
+}
+
+export type ImportTarget = 'name' | 'group' | `column:${string}` | null;
+
+export interface ImportPreview {
+  importId: string;
+  fileName: string;
+  headers: string[];
+  sample: string[][];
+  totalRows: number;
+  suggestedMapping: Record<string, ImportTarget>;
+}
+
+export interface ImportResult {
+  created: number;
+  skipped: number;
+  errors: { row: number; column: string | null; message: string }[];
+}
+
+export interface BoardTemplates {
+  builtin: {
+    kind: 'builtin';
+    key: string;
+    name: string;
+    description: string;
+    icon: string;
+    boardKind: string;
+    groups: string[];
+    columns: { title: string; type: string }[];
+  }[];
+  boards: {
+    kind: 'board';
+    boardId: string;
+    name: string;
+    description: string | null;
+    icon: string | null;
+    boardKind: string;
+  }[];
+}
+
+export interface Dependency {
+  id: string;
+  predecessorId: string;
+  successorId: string;
+  type: 'FS' | 'SS' | 'FF' | 'SF';
+  lagDays: number;
 }

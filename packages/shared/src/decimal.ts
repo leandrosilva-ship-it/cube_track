@@ -6,7 +6,7 @@ import type { Decimal as DecimalInstance } from 'decimal.js-light';
  * O default import entrega o construtor no Node (CJS) e em bundlers (ESM); sob NodeNext a tipagem
  * o descreve como namespace do módulo.
  */
-const BaseDecimal = DecimalModule as unknown as typeof DecimalModule.Decimal;
+const BaseDecimal = DecimalModule as unknown as typeof DecimalInstance;
 
 export const Decimal = BaseDecimal.clone({
   precision: 40,

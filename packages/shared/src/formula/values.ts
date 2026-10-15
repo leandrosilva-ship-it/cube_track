@@ -10,7 +10,7 @@ import { datetimeToDate, datetimeToMs, dateToMs, isValidDate, parseDateText } fr
 
 // O default import entrega o construtor tanto no Node (CJS) quanto em bundlers (ESM);
 // a tipagem sob NodeNext o descreve como o namespace do módulo.
-const BaseDecimal = DecimalModule as unknown as typeof DecimalModule.Decimal;
+const BaseDecimal = DecimalModule as unknown as typeof DecimalInstance;
 
 /** Construtor local: 40 dígitos significativos internos e arredondamento "metade para longe do zero". */
 export const Dec = BaseDecimal.clone({

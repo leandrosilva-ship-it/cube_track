@@ -76,6 +76,25 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
   return (type.includes('json') ? await response.json() : undefined) as T;
 }
 
+/** Download autenticado (exportações): devolve o arquivo e o nome sugerido pelo servidor. */
+export async function apiBlob(
+  path: string,
+  options: RequestOptions = {},
+): Promise<{ blob: Blob; fileName: string | null }> {
+  let response = await send(path, options);
+  if (response.status === 401 && options.auth !== false && (await refreshSession())) {
+    response = await send(path, options);
+  }
+  if (!response.ok) throw new ApiError(response.status, await problemOf(response));
+  const disposition = response.headers.get('content-disposition') ?? '';
+  const encoded = /filename\*=UTF-8''([^;]+)/i.exec(disposition)?.[1];
+  const plain = /filename="?([^";]+)"?/i.exec(disposition)?.[1];
+  return {
+    blob: await response.blob(),
+    fileName: encoded === undefined ? (plain ?? null) : decodeURIComponent(encoded),
+  };
+}
+
 export function newMutationId(): string {
   return crypto.randomUUID();
 }

@@ -4,6 +4,8 @@ import type { InfiniteData, QueryClient } from '@tanstack/react-query';
 import type { BoardDetail, Item, Page, WorkspaceTree } from '@/lib/api/types';
 import { isFiltered, qk, type ItemListParams } from '@/lib/query/keys';
 
+import { markRemoteChanges } from './highlight';
+
 export type ItemPages = InfiniteData<Page<Item>, string | null>;
 
 interface ItemChange {
@@ -96,6 +98,41 @@ export function patchItem(
   );
 }
 
+/** Procura um item em qualquer lista do board (cache). */
+export function findCachedItem(
+  queryClient: QueryClient,
+  boardId: string,
+  itemId: string,
+): Item | undefined {
+  for (const [, data] of queryClient.getQueriesData<ItemPages>({ queryKey: qk.items(boardId) })) {
+    for (const page of data?.pages ?? []) {
+      const found = page.data.find((entry) => entry.id === itemId);
+      if (found !== undefined) return found;
+    }
+  }
+  return undefined;
+}
+
+/** Ajusta o contador de subitens do item pai (indicador da linha). */
+export function bumpSubitemCount(
+  queryClient: QueryClient,
+  boardId: string,
+  parentItemId: string,
+  delta: number,
+): void {
+  patchItem(queryClient, boardId, parentItemId, (parent) =>
+    parent.indicators === undefined
+      ? parent
+      : {
+          ...parent,
+          indicators: {
+            ...parent.indicators,
+            subitems: Math.max(0, parent.indicators.subitems + delta),
+          },
+        },
+  );
+}
+
 export function removeItem(queryClient: QueryClient, boardId: string, itemId: string): void {
   queryClient.setQueriesData<ItemPages>({ queryKey: qk.items(boardId) }, (data) =>
     mapPages(data, (items) =>
@@ -112,7 +149,10 @@ export function removeItem(queryClient: QueryClient, boardId: string, itemId: st
  */
 export function insertItem(queryClient: QueryClient, boardId: string, item: Item): void {
   for (const query of queryClient.getQueryCache().findAll({ queryKey: qk.items(boardId) })) {
-    if (isFiltered(paramsOf(query.queryKey))) {
+    const params = paramsOf(query.queryKey);
+    // Subitens só entram na lista do pai; itens de primeiro nível só nas listas principais.
+    if ((params.parentItemId ?? null) !== item.parentItemId) continue;
+    if (isFiltered(params)) {
       void queryClient.invalidateQueries({ queryKey: query.queryKey, exact: true });
       continue;
     }
@@ -148,13 +188,31 @@ function snapshotToItem(snapshot: Record<string, unknown>): Item {
     actualEndDate: (snapshot.actualEndDate as string | null | undefined) ?? null,
     progress: (snapshot.progress as string | null | undefined) ?? null,
     createdAt:
-      typeof snapshot.updatedAt === 'string' ? snapshot.updatedAt : new Date().toISOString(),
+      typeof snapshot.createdAt === 'string'
+        ? snapshot.createdAt
+        : typeof snapshot.updatedAt === 'string'
+          ? snapshot.updatedAt
+          : new Date().toISOString(),
     updatedAt:
       typeof snapshot.updatedAt === 'string' ? snapshot.updatedAt : new Date().toISOString(),
+    createdBy: (snapshot.createdBy as string | null | undefined) ?? null,
+    updatedBy: (snapshot.updatedBy as string | null | undefined) ?? null,
     archivedAt: null,
+    indicators: { subitems: 0, attachments: 0, updates: 0, unreadUpdates: 0 },
     redactedFields: [],
   };
 }
+
+const COSMETIC_COLUMN_CHANGES = new Set([
+  'title',
+  'width',
+  'position',
+  'description',
+  'isRequired',
+  'requiredWhen',
+  'defaultValue',
+  'permissions',
+]);
 
 export interface ApplyContext {
   /** Mutações otimistas desta aba ainda pendentes (o eco é ignorado; a resposta HTTP confirma). */
@@ -177,15 +235,29 @@ export function applyRealtimeEvent(
     case 'item.created': {
       if (boardId === null || context.isOwnPendingMutation(event.clientMutationId)) return;
       const { item } = event.payload as { item: Record<string, unknown> };
-      insertItem(queryClient, boardId, snapshotToItem(item));
+      const created = snapshotToItem(item);
+      if (findCachedItem(queryClient, boardId, created.id) !== undefined) return;
+      insertItem(queryClient, boardId, created);
+      if (created.parentItemId !== null)
+        bumpSubitemCount(queryClient, boardId, created.parentItemId, 1);
       return;
     }
     case 'item.updated': {
       if (boardId === null || context.isOwnPendingMutation(event.clientMutationId)) return;
       const payload = event.payload as { itemId: string; version: number; changes: ItemChange[] };
-      patchItem(queryClient, boardId, payload.itemId, (item) =>
-        applyItemChanges(item, payload.changes, payload.version),
-      );
+      const applied: string[] = [];
+      patchItem(queryClient, boardId, payload.itemId, (item) => {
+        const next = applyItemChanges(item, payload.changes, payload.version);
+        if (next !== item)
+          for (const change of payload.changes)
+            if ((next.fieldVersions[change.field] ?? 0) === change.version)
+              applied.push(change.field);
+        return next;
+      });
+      // Destaque visual nas células alteradas por outra pessoa (Gherkin do Prompt 5).
+      markRemoteChanges(payload.itemId, applied);
+      if (payload.changes.some((change) => change.field === 'dependencies'))
+        void queryClient.invalidateQueries({ queryKey: qk.dependencies(boardId) });
       // Listas filtradas/ordenadas podem ganhar ou perder o item: o servidor decide.
       for (const query of queryClient.getQueryCache().findAll({ queryKey: qk.items(boardId) })) {
         if (isFiltered(paramsOf(query.queryKey))) {
@@ -196,17 +268,38 @@ export function applyRealtimeEvent(
     }
     case 'item.deleted': {
       if (boardId === null) return;
-      removeItem(queryClient, boardId, (event.payload as { itemId: string }).itemId);
+      const { itemId } = event.payload as { itemId: string };
+      const parentItemId = findCachedItem(queryClient, boardId, itemId)?.parentItemId ?? null;
+      removeItem(queryClient, boardId, itemId);
+      if (parentItemId !== null) bumpSubitemCount(queryClient, boardId, parentItemId, -1);
+      void queryClient.invalidateQueries({ queryKey: qk.trash(boardId) });
       return;
     }
+    case 'group.changed': {
+      if (boardId === null) return;
+      const { change } = event.payload as { change: string };
+      // Renomear/colorir/recolher só muda a estrutura; os demais movem ou ocultam itens.
+      void queryClient.invalidateQueries({
+        queryKey: change === 'updated' ? qk.boardDetail(boardId) : qk.board(boardId),
+      });
+      return;
+    }
+    case 'column.created':
+    case 'column.deleted':
+      if (boardId !== null) void queryClient.invalidateQueries({ queryKey: qk.board(boardId) });
+      return;
     case 'board.updated': {
       if (boardId === null) return;
-      const changes = (
-        event.payload as { changes: Partial<Pick<BoardDetail, 'name' | 'description'>> }
-      ).changes;
+      const all = (event.payload as { changes: Record<string, unknown> }).changes;
+      const changes: Partial<Pick<BoardDetail, 'name' | 'description' | 'icon'>> = {};
+      for (const key of ['name', 'description', 'icon'] as const)
+        if (key in all) (changes as Record<string, unknown>)[key] = all[key];
       queryClient.setQueryData<BoardDetail>(qk.boardDetail(boardId), (board) =>
         board === undefined ? board : { ...board, ...changes },
       );
+      // Configurações (coluna de status principal, privacidade, template) vêm do servidor.
+      if (Object.keys(all).some((key) => !(key in changes)))
+        void queryClient.invalidateQueries({ queryKey: qk.boardDetail(boardId) });
       queryClient.setQueriesData<WorkspaceTree>({ queryKey: ['workspaces'] }, (tree) =>
         tree?.boards === undefined
           ? tree
@@ -219,9 +312,16 @@ export function applyRealtimeEvent(
       );
       return;
     }
-    case 'column.updated':
-      if (boardId !== null) void queryClient.invalidateQueries({ queryKey: qk.board(boardId) });
+    case 'column.updated': {
+      if (boardId === null) return;
+      const changes = Object.keys((event.payload as { changes?: object }).changes ?? {});
+      // Título, largura, posição e descrição não alteram valores: basta recarregar a estrutura.
+      const cosmetic = changes.every((key) => COSMETIC_COLUMN_CHANGES.has(key));
+      void queryClient.invalidateQueries({
+        queryKey: cosmetic && changes.length > 0 ? qk.boardDetail(boardId) : qk.board(boardId),
+      });
       return;
+    }
     case 'view.changed':
       void queryClient.invalidateQueries({
         queryKey: qk.views((event.payload as { boardId: string }).boardId),

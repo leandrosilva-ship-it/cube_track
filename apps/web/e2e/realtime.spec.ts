@@ -38,7 +38,7 @@ test('item criado em um navegador aparece no outro em menos de 300 ms (p95 medid
   await openBoard(juliana, 'Melhorias internas');
 
   const name = `Realtime ${Date.now().toString(36)}`;
-  const groupInput = ana.getByLabel(/Adicionar item em/).first();
+  const groupInput = ana.getByRole('textbox', { name: 'Adicionar item', exact: true }).first();
   await groupInput.fill(name);
   const started = Date.now();
   await groupInput.press('Enter');
@@ -48,8 +48,8 @@ test('item criado em um navegador aparece no outro em menos de 300 ms (p95 medid
   // Ponta a ponta no navegador inclui HTTP + render; a meta de 300 ms é medida no backend (ADR 0027).
   expect(elapsed).toBeLessThan(3_000);
 
-  // Renomear também propaga (LWW por campo).
-  await ana.getByRole('button', { name, exact: true }).click();
+  // Renomear também propaga (LWW por campo): duplo clique na célula do nome.
+  await ana.getByRole('row').filter({ hasText: name }).getByText(name, { exact: true }).dblclick();
   const editor = ana.getByRole('textbox', { name: 'Renomear' });
   await editor.fill(`${name} editado`);
   await editor.press('Enter');

@@ -35,7 +35,11 @@ export interface CellContext {
   isDone: (item: Item) => boolean;
   onTimer: (item: Item, column: BoardColumn, action: 'start' | 'stop') => void;
   onVote: (item: Item, column: BoardColumn) => void;
+  /** Tradutor de `table.cells`, criado uma vez (evita um hook por célula ao rolar). */
+  t: CellTranslator;
 }
+
+export type CellTranslator = ReturnType<typeof useTranslations<'table.cells'>>;
 
 function Empty() {
   return <span className="text-fg-subtle" aria-hidden="true" />;
@@ -109,7 +113,7 @@ export const CellDisplay = memo(function CellDisplay({
   column: BoardColumn;
   context: CellContext;
 }): ReactNode {
-  const t = useTranslations('table.cells');
+  const t = context.t;
   if (item.redactedFields.includes(column.key)) {
     return (
       <span className="inline-flex items-center gap-1 text-xs text-fg-subtle">

@@ -28,7 +28,14 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from 'react';
+import {
+  memo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+} from 'react';
 
 import { MAX_COLUMN_WIDTH, MIN_COLUMN_WIDTH, clampWidth, type GridColumn } from './model';
 import { ADD_COLUMN_WIDTH, SELECT_COLUMN_WIDTH, type RowLayout } from './grid-rows';
@@ -392,7 +399,7 @@ function HeaderCell({
 }
 
 /** Linha de cabeçalho fixa no topo (sticky) com o mesmo layout virtual das linhas. */
-export function GridHeader({
+export const GridHeader = memo(function GridHeader({
   layout,
   sort,
   mainStatusKey,
@@ -474,6 +481,8 @@ export function GridHeader({
         })}
         {actions.canManageColumns ? (
           <div
+            role="columnheader"
+            aria-colindex={layout.columns.length + 2}
             className="absolute top-0 flex h-full items-center justify-center border-b border-border"
             style={{ left: layout.totalWidth - ADD_COLUMN_WIDTH, width: ADD_COLUMN_WIDTH }}
           >
@@ -490,4 +499,4 @@ export function GridHeader({
       </div>
     </div>
   );
-}
+});

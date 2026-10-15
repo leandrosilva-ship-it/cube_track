@@ -1,5 +1,11 @@
-import { defaultStatusLabels, initialPositions, newId, positionsBetween } from '@cube-track/shared';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import {
+  defaultStatusLabels,
+  initialPositions,
+  newId,
+  positionBetween,
+  positionsBetween,
+} from '@cube-track/shared';
+import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 
 import { withTenant, type Database } from '../client.js';
 import {
@@ -43,6 +49,19 @@ export async function seedLargeBoard(
       .select({ userId: memberships.userId })
       .from(memberships)
       .where(and(eq(memberships.kind, 'member'), isNull(memberships.deletedAt)));
+    // Último na raiz do workspace (posição fracionária válida, depois dos boards existentes).
+    const [last] = await tx
+      .select({ position: boards.position })
+      .from(boards)
+      .where(
+        and(
+          eq(boards.workspaceId, workspace.id),
+          isNull(boards.folderId),
+          isNull(boards.deletedAt),
+        ),
+      )
+      .orderBy(desc(boards.position))
+      .limit(1);
     const boardId = newId();
     await tx.insert(boards).values({
       id: boardId,
@@ -52,7 +71,7 @@ export async function seedLargeBoard(
       description: 'Board de carga para medir rolagem e filtros com 50 mil itens.',
       icon: 'gauge',
       settings: { statusColumnKey: 'c_status' },
-      position: 'zz',
+      position: positionBetween(last?.position ?? null, null),
     });
     const groupIds = Array.from({ length: GROUP_COUNT }, () => newId());
     const groupPositions = initialPositions(GROUP_COUNT);

@@ -3,18 +3,12 @@
 import { toast } from '@cube-track/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import type {
-  BoardKind,
-  BoardVisibility,
-  Favorite,
-  FavoriteType,
-  WorkspaceTree,
-} from '@/lib/api/types';
+import type { Favorite, FavoriteType, WorkspaceTree } from '@/lib/api/types';
 import { useErrorMessage } from '@/lib/errors/use-error-message';
 import { qk } from '@/lib/query/keys';
-import { useAuthenticated } from '@/stores/session';
+import { useAuthenticated, useSession } from '@/stores/session';
 
-import { workspaceApi } from './api';
+import { workspaceApi, type CreateBoardInput } from './api';
 import { applyMove, type MoveIntent } from './tree-model';
 
 export function useWorkspaces() {
@@ -56,12 +50,7 @@ export function useCreateFolder(workspaceId: string) {
 export function useCreateBoard(workspaceId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (input: {
-      name: string;
-      folderId?: string | null;
-      kind?: BoardKind;
-      visibility?: BoardVisibility;
-    }) => workspaceApi.createBoard(workspaceId, input),
+    mutationFn: (input: CreateBoardInput) => workspaceApi.createBoard(workspaceId, input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.tree(workspaceId) }),
   });
 }
@@ -157,5 +146,15 @@ export function useToggleFavorite() {
       toast.error(errorMessage(error));
     },
     onSettled: () => queryClient.invalidateQueries({ queryKey: qk.favorites() }),
+  });
+}
+
+export function useBoardTemplates(enabled: boolean) {
+  const authenticated = useSession((state) => state.status === 'authenticated');
+  return useQuery({
+    queryKey: qk.boardTemplates(),
+    queryFn: () => workspaceApi.templates(),
+    enabled: enabled && authenticated,
+    staleTime: 5 * 60_000,
   });
 }

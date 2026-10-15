@@ -87,10 +87,12 @@ describe('Tempo real (Socket.IO)', () => {
     const tipo = ids.board.columns.find((column) => column.key === 'c_tipo');
     tipoColumnId = tipo?.id ?? '';
     tipoLabels = tipo?.labels.map((label) => label.id) ?? [];
+    // Rótulos não concluídos: "Concluído" exige "Término realizado" (obrigatória condicional).
     statusLabels =
       ids.board.columns
         .find((column) => column.key === 'c_status')
-        ?.labels.map((label) => label.id) ?? [];
+        ?.labels.filter((label) => label.category !== 'done')
+        .map((label) => label.id) ?? [];
     const items = await api.get<{ data: { id: string }[] }>(
       `/v1/boards/${boardId}/items?limit=1&sort=name:desc`,
       { token: owner },

@@ -296,7 +296,7 @@ export function TableGrid(props: TableGridProps) {
       return row === undefined ? 36 : rowHeight(row);
     },
     getItemKey: getRowKey,
-    overscan: 12,
+    overscan: 6,
     scrollPaddingStart: HEADER_HEIGHT,
   });
   const getColumnKey = useCallback(
@@ -780,7 +780,19 @@ export function TableGrid(props: TableGridProps) {
   const activeItem = activeNav === undefined ? undefined : navItems[activeNav];
   const activeDescendant =
     active !== null && activeItem !== undefined ? cellDomId(activeItem.id, active.col) : undefined;
-  const allSelected = navItems.length > 0 && navItems.every((item) => selectedIds.has(item.id));
+  const allSelected = useMemo(
+    () =>
+      navItems.length > 0 &&
+      selectedIds.size >= navItems.length &&
+      navItems.every((item) => selectedIds.has(item.id)),
+    [navItems, selectedIds],
+  );
+  const selectAll = useCallback(
+    (selected: boolean) => {
+      onSelectionChange(selected ? new Set(navItems.map((item) => item.id)) : new Set());
+    },
+    [navItems, onSelectionChange],
+  );
 
   return (
     <div
@@ -789,10 +801,10 @@ export function TableGrid(props: TableGridProps) {
       tabIndex={0}
       aria-label={t('gridLabel', { board: board.name })}
       aria-rowcount={rows.length + 1}
-      aria-colcount={columns.length + 1}
+      aria-colcount={columns.length + (props.headerActions.canManageColumns ? 2 : 1)}
       aria-multiselectable="true"
       aria-activedescendant={activeDescendant}
-      className="relative h-full overflow-auto overscroll-contain bg-background outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
+      className="relative h-full overflow-auto [contain:strict] overscroll-contain bg-background outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
       onKeyDown={onKeyDown}
       onCopy={onCopy}
       onCut={onCut}
@@ -809,13 +821,11 @@ export function TableGrid(props: TableGridProps) {
         actions={props.headerActions}
         allSelected={allSelected}
         someSelected={selectedIds.size > 0}
-        onSelectAll={(selected) => {
-          onSelectionChange(selected ? new Set(navItems.map((item) => item.id)) : new Set());
-        }}
+        onSelectAll={selectAll}
       />
       <div
         role="rowgroup"
-        className="relative"
+        className="relative [contain:size_layout_style]"
         style={{ height: rowVirtualizer.getTotalSize(), width: totalWidth }}
       >
         {rowVirtualizer.getVirtualItems().map((virtual) => {

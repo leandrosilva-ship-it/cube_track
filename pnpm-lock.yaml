@@ -107,6 +107,9 @@ importers:
       cookie-parser:
         specifier: ^1.4.7
         version: 1.4.7
+      decimal.js-light:
+        specifier: 2.5.1
+        version: 2.5.1
       dotenv:
         specifier: ^17.2.3
         version: 17.4.2
@@ -206,7 +209,7 @@ importers:
         version: 5.9.3
       unplugin-swc:
         specifier: ^1.5.8
-        version: 1.6.0(@swc/core@1.16.18(@swc/helpers@0.5.23))(esbuild@0.27.7)(rollup@4.64.6)(vite@7.3.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1))
+        version: 1.6.0(@swc/core@1.16.18(@swc/helpers@0.5.23))(esbuild@0.28.2)(rollup@4.64.6)(vite@7.3.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1))
       vitest:
         specifier: ^3.2.4
         version: 3.2.7(@types/node@22.20.5)(jiti@2.7.0)(jsdom@27.4.0(@noble/hashes@1.8.0))(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1)
@@ -346,6 +349,9 @@ importers:
       '@cube-track/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@node-rs/argon2':
+        specifier: ^2.2.2
+        version: 2.2.2
       '@opentelemetry/api':
         specifier: ^1.9.0
         version: 1.9.1
@@ -370,6 +376,9 @@ importers:
       bullmq:
         specifier: ^5.61.0
         version: 5.81.5
+      decimal.js-light:
+        specifier: 2.5.1
+        version: 2.5.1
       dotenv:
         specifier: ^17.2.3
         version: 17.4.2
@@ -16499,12 +16508,12 @@ snapshots:
 
   unpipe@1.0.0: {}
 
-  unplugin-swc@1.6.0(@swc/core@1.16.18(@swc/helpers@0.5.23))(esbuild@0.27.7)(rollup@4.64.6)(vite@7.3.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1)):
+  unplugin-swc@1.6.0(@swc/core@1.16.18(@swc/helpers@0.5.23))(esbuild@0.28.2)(rollup@4.64.6)(vite@7.3.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1)):
     dependencies:
       '@rollup/pluginutils': 5.4.0(rollup@4.64.6)
       '@swc/core': 1.16.18(@swc/helpers@0.5.23)
       load-tsconfig: 0.2.5
-      unplugin: 3.4.0(esbuild@0.27.7)(rollup@4.64.6)(vite@7.3.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1))
+      unplugin: 3.4.0(esbuild@0.28.2)(rollup@4.64.6)(vite@7.3.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1))
     transitivePeerDependencies:
       - '@farmfe/core'
       - '@rsbuild/core'
@@ -16524,13 +16533,13 @@ snapshots:
       picomatch: 4.0.7
       webpack-virtual-modules: 0.6.2
 
-  unplugin@3.4.0(esbuild@0.27.7)(rollup@4.64.6)(vite@7.3.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1)):
+  unplugin@3.4.0(esbuild@0.28.2)(rollup@4.64.6)(vite@7.3.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1)):
     dependencies:
       '@jridgewell/remapping': 2.3.5
       picomatch: 4.0.7
       webpack-virtual-modules: 0.6.2
     optionalDependencies:
-      esbuild: 0.27.7
+      esbuild: 0.28.2
       rollup: 4.64.6
       vite: 7.3.7(@types/node@22.20.5)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15)(yaml@2.9.1)
 

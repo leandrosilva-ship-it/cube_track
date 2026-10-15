@@ -96,19 +96,23 @@ export function parseLocaleNumber(text: string, locale: CellTextLocale = 'pt-BR'
   return DECIMAL_PATTERN.test(value) ? value : null;
 }
 
-/** Decimal → texto do idioma, sem separador de milhar (colável no Excel e reimportável). */
+/**
+ * Decimal → texto do idioma. Sem separador de milhar por padrão (colável no Excel e reimportável);
+ * `grouping` agrupa milhares para exibição (`1.505,00`), formato que o parser também aceita.
+ */
 export function formatDecimalText(
   value: string,
   locale: CellTextLocale = 'pt-BR',
   decimals?: number,
+  grouping = false,
 ): string {
-  let text = value;
-  if (decimals !== undefined && /^-?\d+(\.\d+)?$/.test(value)) {
-    const [integer = '0', fraction = ''] = value.split('.');
-    text =
-      decimals === 0 ? integer : `${integer}.${fraction.padEnd(decimals, '0').slice(0, decimals)}`;
-  }
-  return locale === 'en' ? text : text.replace('.', ',');
+  if (!/^-?\d+(\.\d+)?$/.test(value)) return value;
+  const negative = value.startsWith('-');
+  let [integer = '0', fraction = ''] = (negative ? value.slice(1) : value).split('.');
+  if (decimals !== undefined) fraction = fraction.padEnd(decimals, '0').slice(0, decimals);
+  if (grouping) integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, locale === 'en' ? ',' : '.');
+  const separator = locale === 'en' ? '.' : ',';
+  return `${negative ? '-' : ''}${integer}${fraction === '' ? '' : `${separator}${fraction}`}`;
 }
 
 // -------------------------------------------------------------------------------------- datas ---
@@ -345,7 +349,7 @@ function personName(directory: CellTextDirectory, id: string | null | undefined)
 function formatNumber(column: CellTextColumn, n: string, options: FormatCellOptions): string {
   const decimals =
     typeof column.settings.decimals === 'number' ? column.settings.decimals : undefined;
-  const text = formatDecimalText(n, options.locale, decimals);
+  const text = formatDecimalText(n, options.locale, decimals, options.withUnit === true);
   const unit = typeof column.settings.unit === 'string' ? column.settings.unit : '';
   if (options.withUnit !== true || unit === '') return text;
   return column.settings.unitPosition === 'prefix' ? `${unit} ${text}` : `${text} ${unit}`;

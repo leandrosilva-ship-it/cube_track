@@ -215,7 +215,7 @@ function GridCell({
       data-row={rowIndex}
       data-col={col}
       className={cn(
-        'absolute top-0 flex h-full items-center border-e border-b border-border text-sm',
+        'absolute top-0 flex h-full items-center border-e border-b border-border text-sm [contain:layout_style]',
         fullBleed ? 'p-0.5' : 'px-2',
         column.column?.type === 'checkbox' ||
           column.column?.type === 'vote' ||
@@ -290,8 +290,10 @@ export const ItemRow = memo(
         role="row"
         aria-rowindex={rowIndex + 2}
         aria-selected={selected}
-        aria-level={row.depth + 1}
-        className={cn('group/row absolute start-0 bg-surface', selected && 'bg-primary-soft')}
+        className={cn(
+          'group/row absolute start-0 bg-surface [contain:size_layout_style]',
+          selected && 'bg-primary-soft',
+        )}
         style={{ ...style, width: layout.totalWidth }}
         onContextMenu={(event) => {
           event.preventDefault();
@@ -316,10 +318,14 @@ export const ItemRow = memo(
               style={{ backgroundColor: row.color }}
               aria-hidden="true"
             />
-            <Checkbox
+            {/* Checkbox nativo: dezenas montam por quadro ao rolar rápido. */}
+            <input
+              type="checkbox"
               tabIndex={-1}
               checked={selected}
               aria-label={t('select', { name: row.item.name })}
+              className="size-4 cursor-pointer accent-[var(--ct-primary)]"
+              onChange={() => undefined}
               onClick={(event) => {
                 event.stopPropagation();
                 props.onSelect(row.item, event.shiftKey);
@@ -377,121 +383,136 @@ export interface GroupHeaderRowProps {
   style: CSSProperties;
 }
 
-export const GroupHeaderRow = memo(function GroupHeaderRow({
-  row,
-  rowIndex,
-  layout,
-  viewportWidth,
-  canRename,
-  allSelected,
-  onToggle,
-  onRename,
-  onSelectAll,
-  menu,
-  style,
-}: GroupHeaderRowProps) {
-  const t = useTranslations('table.groups');
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(row.bucket.label);
-  const groupId = row.bucket.groupId;
-  const commit = () => {
-    setEditing(false);
-    const name = draft.trim();
-    if (groupId !== null && name !== '' && name !== row.bucket.label) onRename(groupId, name);
-  };
-  return (
-    <div
-      role="row"
-      aria-rowindex={rowIndex + 2}
-      aria-level={row.level + 1}
-      aria-expanded={!row.collapsed}
-      className="absolute start-0 bg-background"
-      style={{ ...style, width: layout.totalWidth }}
-    >
+export const GroupHeaderRow = memo(
+  function GroupHeaderRow({
+    row,
+    rowIndex,
+    layout,
+    viewportWidth,
+    canRename,
+    allSelected,
+    onToggle,
+    onRename,
+    onSelectAll,
+    menu,
+    style,
+  }: GroupHeaderRowProps) {
+    const t = useTranslations('table.groups');
+    const [editing, setEditing] = useState(false);
+    const [draft, setDraft] = useState(row.bucket.label);
+    const groupId = row.bucket.groupId;
+    const commit = () => {
+      setEditing(false);
+      const name = draft.trim();
+      if (groupId !== null && name !== '' && name !== row.bucket.label) onRename(groupId, name);
+    };
+    return (
       <div
-        role="rowheader"
-        aria-colspan={layout.columns.length + 1}
-        className="sticky start-0 flex h-full items-end gap-2 pb-1.5"
-        style={{
-          width: Math.min(viewportWidth, layout.totalWidth),
-          paddingInlineStart: 8 + row.level * 20,
-        }}
+        role="row"
+        aria-rowindex={rowIndex + 2}
+        className="absolute start-0 bg-background"
+        style={{ ...style, width: layout.totalWidth }}
       >
-        <button
-          type="button"
-          aria-expanded={!row.collapsed}
-          aria-label={
-            row.collapsed
-              ? t('expand', { name: row.bucket.label })
-              : t('collapse', { name: row.bucket.label })
-          }
-          className="inline-flex size-6 items-center justify-center rounded-sm hover:bg-surface-hover"
-          style={{ color: row.color }}
-          onClick={() => {
-            onToggle(row.path);
+        <div
+          role="rowheader"
+          aria-colspan={layout.columns.length + 1}
+          className="sticky start-0 flex h-full items-end gap-2 pb-1.5"
+          style={{
+            width: Math.min(viewportWidth, layout.totalWidth),
+            paddingInlineStart: 8 + row.level * 20,
           }}
         >
-          {row.collapsed ? (
-            <ChevronRight className="size-4" aria-hidden="true" />
-          ) : (
-            <ChevronDown className="size-4" aria-hidden="true" />
-          )}
-        </button>
-        <Checkbox
-          checked={allSelected && row.bucket.items.length > 0}
-          disabled={row.bucket.items.length === 0}
-          aria-label={t('selectAll', { name: row.bucket.label })}
-          onCheckedChange={(next) => {
-            onSelectAll(row.bucket.items, next === true);
-          }}
-        />
-        {editing ? (
-          <Input
-            value={draft}
-            maxLength={200}
-            aria-label={t('rename')}
-            className="h-7 w-64 text-base font-semibold"
-            onChange={(event) => {
-              setDraft(event.target.value);
+          <button
+            type="button"
+            aria-expanded={!row.collapsed}
+            aria-label={
+              row.collapsed
+                ? t('expand', { name: row.bucket.label })
+                : t('collapse', { name: row.bucket.label })
+            }
+            className="inline-flex size-6 items-center justify-center rounded-sm hover:bg-surface-hover"
+            style={{ color: row.color }}
+            onClick={() => {
+              onToggle(row.path);
             }}
-            onBlur={commit}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') commit();
-              if (event.key === 'Escape') {
-                setDraft(row.bucket.label);
-                setEditing(false);
-              }
-            }}
-            // eslint-disable-next-line jsx-a11y/no-autofocus -- edição iniciada pelo usuário
-            autoFocus
-          />
-        ) : (
-          <h2 className="truncate text-base font-semibold" style={{ color: row.color }}>
-            {canRename && groupId !== null ? (
-              <button
-                type="button"
-                className="rounded-sm hover:underline"
-                title={t('rename')}
-                onClick={() => {
-                  setDraft(row.bucket.label);
-                  setEditing(true);
-                }}
-              >
-                {row.bucket.label}
-              </button>
+          >
+            {row.collapsed ? (
+              <ChevronRight className="size-4" aria-hidden="true" />
             ) : (
-              row.bucket.label
+              <ChevronDown className="size-4" aria-hidden="true" />
             )}
-          </h2>
-        )}
-        <span className="shrink-0 text-xs text-fg-muted">
-          {t('count', { count: row.bucket.items.length })}
-        </span>
-        {menu}
+          </button>
+          <Checkbox
+            checked={allSelected && row.bucket.items.length > 0}
+            disabled={row.bucket.items.length === 0}
+            aria-label={t('selectAll', { name: row.bucket.label })}
+            onCheckedChange={(next) => {
+              onSelectAll(row.bucket.items, next === true);
+            }}
+          />
+          {editing ? (
+            <Input
+              value={draft}
+              maxLength={200}
+              aria-label={t('rename')}
+              className="h-7 w-64 text-base font-semibold"
+              onChange={(event) => {
+                setDraft(event.target.value);
+              }}
+              onBlur={commit}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') commit();
+                if (event.key === 'Escape') {
+                  setDraft(row.bucket.label);
+                  setEditing(false);
+                }
+              }}
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- edição iniciada pelo usuário
+              autoFocus
+            />
+          ) : (
+            <h2 className="flex min-w-0 items-center gap-2 truncate text-base font-semibold">
+              <span
+                className="h-4 w-1 shrink-0 rounded-full"
+                style={{ backgroundColor: row.color }}
+                aria-hidden="true"
+              />
+              {canRename && groupId !== null ? (
+                <button
+                  type="button"
+                  className="rounded-sm hover:underline"
+                  title={t('rename')}
+                  onClick={() => {
+                    setDraft(row.bucket.label);
+                    setEditing(true);
+                  }}
+                >
+                  {row.bucket.label}
+                </button>
+              ) : (
+                row.bucket.label
+              )}
+            </h2>
+          )}
+          <span className="shrink-0 text-xs text-fg-muted">
+            {t('count', { count: row.bucket.items.length })}
+          </span>
+          {menu}
+        </div>
       </div>
-    </div>
-  );
-});
+    );
+  },
+  (previous, next) =>
+    previous.row === next.row &&
+    previous.rowIndex === next.rowIndex &&
+    previous.layout.key === next.layout.key &&
+    previous.layout.totalWidth === next.layout.totalWidth &&
+    previous.viewportWidth === next.viewportWidth &&
+    previous.canRename === next.canRename &&
+    previous.allSelected === next.allSelected &&
+    previous.style.transform === next.style.transform &&
+    previous.style.height === next.style.height,
+);
 
 // ------------------------------------------------------------------------- adicionar item ---
 
@@ -571,7 +592,7 @@ export function AddRow({
 function formatAggregate(value: string, column: GridColumn, locale: CellTextLocale): string {
   const settings = column.column?.settings ?? {};
   const decimals = typeof settings.decimals === 'number' ? settings.decimals : 2;
-  const text = formatDecimalText(value, locale, decimals);
+  const text = formatDecimalText(value, locale, decimals, true);
   const unit = typeof settings.unit === 'string' ? settings.unit : '';
   if (unit === '') return column.column?.type === 'progress' ? `${text}%` : text;
   return settings.unitPosition === 'prefix' ? `${unit} ${text}` : `${text} ${unit}`;

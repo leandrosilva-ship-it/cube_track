@@ -136,6 +136,7 @@ export function TableView({
 }) {
   const t = useTranslations('table');
   const tb = useTranslations('board.items');
+  const tCells = useTranslations('table.cells');
   const queryClient = useQueryClient();
   const errorMessage = useErrorMessage();
   const state = useBoardViewState(board.id);
@@ -250,6 +251,7 @@ export function TableView({
       locale,
       today,
       currentUserId: userId,
+      t: tCells,
       itemNames,
       predecessors,
       isDone: (item) => isItemDone(board, item.values),
@@ -268,7 +270,7 @@ export function TableView({
         );
       },
     }),
-    [board, directory, itemNames, locale, predecessors, t, timer, today, userId, write],
+    [board, directory, itemNames, locale, predecessors, t, tCells, timer, today, userId, write],
   );
 
   const selectedItems = useMemo(

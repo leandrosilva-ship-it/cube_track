@@ -9,6 +9,8 @@ import {
   Kbd,
   Modal,
   Select,
+  Switch,
+  Textarea,
   toast,
 } from '@cube-track/ui';
 import { useTranslations } from 'next-intl';
@@ -20,7 +22,9 @@ import { useErrorMessage } from '@/lib/errors/use-error-message';
 import { closeDialog, useShell, type ShellDialog } from '@/stores/shell';
 import { updatePreferences } from '@/stores/preferences';
 
+import { IconPicker } from '../board/board-icon';
 import {
+  useBoardTemplates,
   useCreateBoard,
   useCreateFolder,
   useCreateWorkspace,
@@ -198,11 +202,28 @@ function NewBoardDialog({ dialog }: { dialog: Extract<ShellDialog, { type: 'newB
   const router = useRouter();
   const create = useCreateBoard(dialog.workspaceId);
   const tree = useTree(dialog.workspaceId);
+  const templates = useBoardTemplates(true);
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [icon, setIcon] = useState<string | null>(null);
   const [kind, setKind] = useState<BoardKind>('board');
   const [visibility, setVisibility] = useState<BoardVisibility>('main');
   const [folderId, setFolderId] = useState(dialog.folderId ?? '');
+  const [template, setTemplate] = useState('builtin:blank');
+  const [includeItems, setIncludeItems] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [templateKind, templateId = ''] = template.split(':');
+  const builtin = (templates.data?.builtin ?? []).find((entry) => entry.key === templateId);
+  const templateOptions = [
+    ...(templates.data?.builtin ?? []).map((entry) => ({
+      value: `builtin:${entry.key}`,
+      label: entry.name,
+    })),
+    ...(templates.data?.boards ?? []).map((entry) => ({
+      value: `board:${entry.boardId}`,
+      label: t('fromBoard', { name: entry.name }),
+    })),
+  ];
   return (
     <FormModal
       title={t('title')}
@@ -214,7 +235,18 @@ function NewBoardDialog({ dialog }: { dialog: Extract<ShellDialog, { type: 'newB
           return;
         }
         create.mutate(
-          { name: name.trim(), kind, visibility, folderId: folderId === '' ? null : folderId },
+          {
+            name: name.trim(),
+            kind,
+            visibility,
+            folderId: folderId === '' ? null : folderId,
+            ...(description.trim() === '' ? {} : { description: description.trim() }),
+            ...(icon === null ? {} : { icon }),
+            template:
+              templateKind === 'board'
+                ? { kind: 'board', boardId: templateId, includeItems }
+                : { kind: 'builtin', key: templateId },
+          },
           {
             onSuccess: (board) => {
               closeDialog();
@@ -228,7 +260,59 @@ function NewBoardDialog({ dialog }: { dialog: Extract<ShellDialog, { type: 'newB
         );
       }}
     >
-      <NameField value={name} onChange={setName} error={error} />
+      <div className="flex items-end gap-2">
+        <IconPicker
+          value={icon ?? builtin?.icon ?? null}
+          onChange={(next) => {
+            setIcon(next);
+          }}
+        />
+        <div className="min-w-0 flex-1">
+          <NameField value={name} onChange={setName} error={error} />
+        </div>
+      </div>
+      <Field label={t('template')} hint={builtin?.description ?? t('templateHint')}>
+        <Select
+          value={template}
+          options={
+            templateOptions.length === 0
+              ? [{ value: 'builtin:blank', label: t('blank') }]
+              : templateOptions
+          }
+          onValueChange={(value) => {
+            setTemplate(value);
+            const next = (templates.data?.builtin ?? []).find(
+              (entry) => `builtin:${entry.key}` === value,
+            );
+            if (next !== undefined) setKind(next.boardKind as BoardKind);
+          }}
+        />
+      </Field>
+      {builtin !== undefined && builtin.columns.length > 0 ? (
+        <p className="-mt-2 text-xs text-fg-muted">
+          {t('templateColumns', {
+            columns: builtin.columns.map((column) => column.title).join(', '),
+          })}
+        </p>
+      ) : null}
+      {templateKind === 'board' ? (
+        <div className="flex items-center gap-2">
+          <Switch id="ct-include-items" checked={includeItems} onCheckedChange={setIncludeItems} />
+          <label htmlFor="ct-include-items" className="text-sm">
+            {t('includeItems')}
+          </label>
+        </div>
+      ) : null}
+      <Field label={tc('description')}>
+        <Textarea
+          value={description}
+          rows={2}
+          maxLength={2000}
+          onChange={(event) => {
+            setDescription(event.target.value);
+          }}
+        />
+      </Field>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label={t('kind')}>
           <Select

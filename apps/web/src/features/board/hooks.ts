@@ -31,8 +31,12 @@ export function useUpdateBoardDetails(boardId: string) {
   const queryClient = useQueryClient();
   const errorMessage = useErrorMessage();
   return useMutation({
-    mutationFn: (input: { name?: string; description?: string | null; icon?: string | null }) =>
-      api<unknown>(`/v1/boards/${boardId}`, { method: 'PATCH', body: input }),
+    mutationFn: (input: {
+      name?: string;
+      description?: string | null;
+      icon?: string | null;
+      isTemplate?: boolean;
+    }) => api<unknown>(`/v1/boards/${boardId}`, { method: 'PATCH', body: input }),
     onMutate: (input) => {
       const previous = queryClient.getQueryData<BoardDetail>(qk.boardDetail(boardId));
       queryClient.setQueryData<BoardDetail>(qk.boardDetail(boardId), (board) =>

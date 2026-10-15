@@ -97,3 +97,25 @@ export async function expectAccessible(
   }, options.exclude ?? []);
   expect(violations, violations.join('\n')).toEqual([]);
 }
+
+/** Célula da Tabela pelo nome do item e título da coluna (ARIA grid). */
+export async function tableCell(page: Page, itemName: string, columnTitle: string) {
+  const header = page
+    .getByRole('columnheader')
+    .filter({ has: page.getByText(columnTitle, { exact: true }) })
+    .first();
+  const index = await header.getAttribute('aria-colindex');
+  return page
+    .getByRole('row')
+    .filter({ hasText: itemName })
+    .first()
+    .locator(`[role="gridcell"][aria-colindex="${index ?? ''}"]`);
+}
+
+/** Linha de "adicionar item" do primeiro grupo visível. */
+export async function addItem(page: Page, name: string): Promise<void> {
+  const input = page.getByRole('textbox', { name: 'Adicionar item', exact: true }).first();
+  await input.fill(name);
+  await input.press('Enter');
+  await expect(page.getByRole('row').filter({ hasText: name })).toBeVisible();
+}

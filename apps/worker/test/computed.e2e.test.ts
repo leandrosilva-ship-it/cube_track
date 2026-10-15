@@ -153,7 +153,9 @@ describe('colunas calculadas entre itens (worker)', () => {
     const [event] = await admin.db
       .execute<{
         payload: { changes: { field: string }[] };
-      }>(sql`select payload from outbox_events where item_id = ${parent.id}::uuid order by created_at desc limit 1`)
+      }>(
+        sql`select payload from outbox_events where item_id = ${parent.id}::uuid order by created_at desc limit 1`,
+      )
       .then((result) => result.rows);
     expect(event?.payload.changes.map((change) => change.field)).toContain(KEYS.rollup);
   });

@@ -1,6 +1,7 @@
 import { api } from '@/lib/api/client';
 import type {
   BoardKind,
+  BoardTemplates,
   BoardVisibility,
   Favorite,
   FavoriteType,
@@ -9,6 +10,18 @@ import type {
   Workspace,
   WorkspaceTree,
 } from '@/lib/api/types';
+
+export interface CreateBoardInput {
+  name: string;
+  description?: string;
+  icon?: string | null;
+  folderId?: string | null;
+  kind?: BoardKind;
+  visibility?: BoardVisibility;
+  template?:
+    | { kind: 'builtin'; key: string }
+    | { kind: 'board'; boardId: string; includeItems?: boolean };
+}
 
 export interface Neighbors {
   afterId?: string | null;
@@ -28,15 +41,9 @@ export const workspaceApi = {
   ) => api<{ id: string }>(`/v1/folders/${folderId}`, { method: 'PATCH', body: input }),
   deleteFolder: (folderId: string) =>
     api<undefined>(`/v1/folders/${folderId}`, { method: 'DELETE' }),
-  createBoard: (
-    workspaceId: string,
-    input: {
-      name: string;
-      folderId?: string | null;
-      kind?: BoardKind;
-      visibility?: BoardVisibility;
-    },
-  ) => api<TreeBoard>(`/v1/workspaces/${workspaceId}/boards`, { method: 'POST', body: input }),
+  createBoard: (workspaceId: string, input: CreateBoardInput) =>
+    api<TreeBoard>(`/v1/workspaces/${workspaceId}/boards`, { method: 'POST', body: input }),
+  templates: () => api<BoardTemplates>('/v1/board-templates'),
   updateBoard: (
     boardId: string,
     input: { name?: string; description?: string | null; folderId?: string | null } & Neighbors,

@@ -24,6 +24,7 @@ import {
   Star,
   UserPlus,
   Zap,
+  LayoutTemplate,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
@@ -35,6 +36,7 @@ import { useSession } from '@/stores/session';
 import { useFavorites, useToggleFavorite } from '../workspace/hooks';
 import { InviteDialog, ShareDialog } from './board-dialogs';
 import { useUpdateBoardDetails } from './hooks';
+import { IconPicker } from './board-icon';
 import { useBoardPresence } from './presence';
 
 /** Botão de módulo ainda não habilitado: focável, com explicação (aria-disabled, não some). */
@@ -88,6 +90,13 @@ export function BoardHeader({ board }: { board: BoardDetail }) {
   return (
     <header className="flex flex-col gap-2 px-4 pt-4 sm:px-6">
       <div className="flex flex-wrap items-center gap-2">
+        <IconPicker
+          value={board.icon}
+          disabled={!canManage}
+          onChange={(icon) => {
+            update.mutate({ icon });
+          }}
+        />
         <h1 className="min-w-0 truncate text-xl font-semibold sm:text-2xl">{board.name}</h1>
         <IconButton
           label={isFavorite ? t('unfavorite') : t('favorite')}
@@ -143,6 +152,22 @@ export function BoardHeader({ board }: { board: BoardDetail }) {
                 }}
               >
                 {t('editDescription')}
+              </DropdownMenuItem>
+            ) : null}
+            {canManage ? (
+              <DropdownMenuItem
+                icon={<LayoutTemplate aria-hidden="true" />}
+                onSelect={() => {
+                  update.mutate(
+                    { isTemplate: !board.isTemplate },
+                    {
+                      onSuccess: () =>
+                        toast.success(board.isTemplate ? t('templateRemoved') : t('templateSaved')),
+                    },
+                  );
+                }}
+              >
+                {board.isTemplate ? t('unmarkTemplate') : t('markTemplate')}
               </DropdownMenuItem>
             ) : null}
             <DropdownMenuItem

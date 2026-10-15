@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseCsv, toCsv } from '../csv.js';
 import { remapColumnValue, suggestColumnMapping, type MappableColumn } from './mapping.js';
 import {
+  formatDecimalText,
   formatCellText,
   parseCellText,
   parseLocaleDate,
@@ -242,5 +243,14 @@ describe('mapeamento entre boards', () => {
       text: 'urgente',
     });
     expect(remapColumnValue(obs, id, { text: 'x' }, directory)).toBeNull();
+  });
+});
+
+describe('formatDecimalText com agrupamento de milhares', () => {
+  it('agrupa só na exibição e o parser lê de volta', () => {
+    expect(formatDecimalText('1505', 'pt-BR', 2)).toBe('1505,00');
+    expect(formatDecimalText('1505', 'pt-BR', 2, true)).toBe('1.505,00');
+    expect(formatDecimalText('-1234567.5', 'en', 2, true)).toBe('-1,234,567.50');
+    expect(parseLocaleNumber('1.505,00', 'pt-BR')).toBe('1505');
   });
 });

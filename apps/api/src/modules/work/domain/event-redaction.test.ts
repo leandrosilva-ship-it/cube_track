@@ -105,4 +105,22 @@ describe('redactEventFor', () => {
       'sequence.skipped',
     );
   });
+
+  it('criação e exclusão de coluna oculta não são reveladas', () => {
+    const columnEvent = (
+      type: 'column.created' | 'column.deleted',
+      key: string,
+    ): RealtimeTransportMessage => ({
+      event: { ...message('item.updated', []).event, type, payload: { columnId: 'c', key } },
+      routing: {},
+    });
+    expect(
+      redactEventFor(columnEvent('column.created', 'c_ust'), principal, board('all'), visibility)
+        .type,
+    ).toBe('sequence.skipped');
+    expect(
+      redactEventFor(columnEvent('column.deleted', 'c_status'), principal, board('all'), visibility)
+        .type,
+    ).toBe('column.deleted');
+  });
 });

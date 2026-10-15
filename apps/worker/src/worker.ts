@@ -12,8 +12,10 @@ import type { WorkerConfig } from './config.js';
 import type { Logger } from './logger.js';
 import { OutboxRelay } from './outbox-relay.js';
 import { automationsProcessor } from './processors/automations.js';
+import { computedProcessor } from './processors/computed.js';
 import { createMailer, emailProcessor } from './processors/email.js';
 import { fileScanProcessor } from './processors/file-scan.js';
+import { maintenanceProcessor, scheduleMaintenance } from './processors/maintenance.js';
 import { notificationsProcessor } from './processors/notifications.js';
 import { scheduleProcessor } from './processors/schedule.js';
 import { ensureSearchIndexes, searchIndexProcessor } from './processors/search-index.js';
@@ -84,6 +86,16 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
       concurrency: 1,
     }),
     createWorker(QUEUES.searchIndex, searchIndexProcessor({ database: appDb, meili }), common),
+    // Colunas calculadas entre itens: serializado por simplicidade de ordem (ADR 0038).
+    createWorker(QUEUES.computed, computedProcessor({ database: appDb, redis }), {
+      ...common,
+      concurrency: 1,
+    }),
+    createWorker(
+      QUEUES.maintenance,
+      maintenanceProcessor({ database: appDb, computedQueue: queues[QUEUES.computed], logger }),
+      { ...common, concurrency: 1 },
+    ),
     createWorker(
       QUEUES.fileScan,
       fileScanProcessor({ database: appDb, s3, bucket: config.S3_BUCKET, scanner }),
@@ -100,6 +112,7 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
     retentionDays: config.OUTBOX_RETENTION_DAYS,
   });
   relay.start();
+  await scheduleMaintenance(queues[QUEUES.maintenance]);
 
   const credentials =
     config.BULL_BOARD_USER !== undefined && config.BULL_BOARD_PASSWORD !== undefined

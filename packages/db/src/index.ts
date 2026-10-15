@@ -1,4 +1,5 @@
 export * from './audit.js';
+export * from './board-definition.js';
 export * from './calendar.js';
 export * from './client.js';
 export * from './migrate.js';

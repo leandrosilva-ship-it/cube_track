@@ -85,8 +85,10 @@ export function redactEventFor(
       });
       return { ...event, payload: { ...payload, changes } };
     }
-    case 'column.updated': {
-      const payload = event.payload as RealtimeEvent<'column.updated'>['payload'];
+    case 'column.updated':
+    case 'column.created':
+    case 'column.deleted': {
+      const payload = event.payload as { key: string };
       return visibility.hidden.has(payload.key) ? skipped(event) : event;
     }
     default:

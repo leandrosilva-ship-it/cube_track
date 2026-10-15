@@ -46,24 +46,27 @@ interface RealtimeEvent {
 
 ## 4. Tipos de evento
 
-| Tipo                          | Room                 | Payload                                                                               | Origem                                                         |
-| ----------------------------- | -------------------- | ------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `item.created`                | board                | `{ item: ItemSnapshot }`                                                              | `POST /v1/boards/:id/items`                                    |
-| `item.updated`                | board + item         | `{ itemId, version, changes: [{ field, kind: 'column'\|'native', value, version }] }` | `PATCH /v1/items/:id`, automações, cronograma                  |
-| `item.deleted`                | board + item         | `{ itemId }`                                                                          | `DELETE /v1/items/:id`                                         |
-| `column.updated`              | board                | `{ columnId, key, changes }`                                                          | `PATCH /v1/boards/:id/columns/:columnId`                       |
-| `board.updated`               | board                | `{ boardId, changes }`                                                                | alterações de board                                            |
-| `update.created`              | board + item         | `{ updateId, itemId, authorId, bodyText }`                                            | comentários                                                    |
-| `workspace.structure_changed` | tenant               | `{ workspaceId }`. O cliente recarrega a árvore (já filtrada por permissão)           | pastas, boards, ordem (ADR 0035)                               |
-| `view.changed`                | board                | `{ boardId, viewId }`                                                                 | criar, editar ou excluir views                                 |
-| `favorites.changed`           | usuário              | `{}`                                                                                  | adicionar ou remover favoritos (sincroniza as abas do usuário) |
-| `notification.created`        | usuário              | `{ notificationId, type, title, itemId, boardId }`                                    | worker (menções, automações)                                   |
-| `permission.changed`          | tenant               | `{ scope, resourceId }`                                                               | papéis, concessões, membros                                    |
-| `session.revoked`             | usuário (sessão)     | `{ sessionId }`. O socket da sessão é desconectado                                    | logout, revogação, reuso de refresh token                      |
-| `presence.joined`             | board/item/dashboard | `{ room, userId, state }`                                                             | heartbeat                                                      |
-| `presence.updated`            | board/item/dashboard | `{ room, userId, state }`                                                             | heartbeat com estado alterado                                  |
-| `presence.left`               | board/item/dashboard | `{ room, userId }`                                                                    | unsubscribe, desconexão ou TTL                                 |
-| `sequence.skipped`            | board                | `{}` (mantém a continuidade de `seq`)                                                 | evento não visível para o destinatário                         |
+| Tipo                          | Room                 | Payload                                                                                            | Origem                                                                                                            |
+| ----------------------------- | -------------------- | -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `item.created`                | board                | `{ item: ItemSnapshot, reason? }` (`created`, `duplicated`, `restored`, `moved`, `imported`)       | criar, duplicar, restaurar, mover para o board, importar                                                          |
+| `item.updated`                | board + item         | `{ itemId, version, changes: [{ field, kind: 'column'\|'native', value, version }] }`              | `PATCH /v1/items/:id`, automações, cronograma                                                                     |
+| `item.deleted`                | board + item         | `{ itemId, reason? }` (`deleted`, `archived`, `moved`)                                             | excluir (lixeira), arquivar, mover para outro board                                                               |
+| `group.changed`               | board                | `{ groupId, change, changes? }` (`created`, `updated`, `deleted`, `archived`, `restored`, `moved`) | CRUD de grupos; o cliente recarrega a estrutura (e os itens, exceto em `updated`)                                 |
+| `column.created`              | board                | `{ columnId, key }`                                                                                | `POST /v1/boards/:id/columns` e duplicar coluna                                                                   |
+| `column.deleted`              | board                | `{ columnId, key }`                                                                                | `DELETE /v1/boards/:id/columns/:columnId`                                                                         |
+| `column.updated`              | board                | `{ columnId, key, changes }`                                                                       | `PATCH …/columns/:columnId`, rótulos, opções; mudanças só de título/largura/posição recarregam apenas a estrutura |
+| `board.updated`               | board                | `{ boardId, changes }`                                                                             | alterações de board                                                                                               |
+| `update.created`              | board + item         | `{ updateId, itemId, authorId, bodyText }`                                                         | comentários                                                                                                       |
+| `workspace.structure_changed` | tenant               | `{ workspaceId }`. O cliente recarrega a árvore (já filtrada por permissão)                        | pastas, boards, ordem (ADR 0035)                                                                                  |
+| `view.changed`                | board                | `{ boardId, viewId }`                                                                              | criar, editar ou excluir views                                                                                    |
+| `favorites.changed`           | usuário              | `{}`                                                                                               | adicionar ou remover favoritos (sincroniza as abas do usuário)                                                    |
+| `notification.created`        | usuário              | `{ notificationId, type, title, itemId, boardId }`                                                 | worker (menções, automações)                                                                                      |
+| `permission.changed`          | tenant               | `{ scope, resourceId }`                                                                            | papéis, concessões, membros                                                                                       |
+| `session.revoked`             | usuário (sessão)     | `{ sessionId }`. O socket da sessão é desconectado                                                 | logout, revogação, reuso de refresh token                                                                         |
+| `presence.joined`             | board/item/dashboard | `{ room, userId, state }`                                                                          | heartbeat                                                                                                         |
+| `presence.updated`            | board/item/dashboard | `{ room, userId, state }`                                                                          | heartbeat com estado alterado                                                                                     |
+| `presence.left`               | board/item/dashboard | `{ room, userId }`                                                                                 | unsubscribe, desconexão ou TTL                                                                                    |
+| `sequence.skipped`            | board                | `{}` (mantém a continuidade de `seq`)                                                              | evento não visível para o destinatário                                                                            |
 
 ## 5. Redação por destinatário
 
@@ -94,6 +97,8 @@ Worker (OutboxRelay): SELECT … FOR UPDATE SKIP LOCKED ► PUBLISH (garantia) �
 Nós realtime: SUBSCRIBE ► dedupe por eventId ► redação por socket ► emit('event')
 ```
 
+- `item.updated` também é emitido pelo worker ao recalcular espelhos, rollups e progresso por subitens (ADR 0038), e por `dependencies` ao alterar predecessores.
+- Na Tabela, células alteradas por outra pessoa recebem destaque visual por 2,5 s.
 - Latência medida no teste automatizado (`apps/api/test/realtime.e2e.test.ts`, dois clientes): p95 de cerca de 64 ms, abaixo da meta de 300 ms.
 - Métricas Prometheus: `cube_realtime_events_delivered_total`, `cube_realtime_propagation_ms` e `cube_realtime_connections`.
 

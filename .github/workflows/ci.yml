@@ -139,7 +139,7 @@ jobs:
           cp .env.example .env
           psql postgres://cubetrack:cubetrack@localhost:5432/cubetrack -f infra/docker/postgres/init/01-roles.sql
       - name: Banco de demonstração
-        run: pnpm db:reset && pnpm db:seed
+        run: pnpm db:reset && pnpm db:seed && pnpm db:seed:large
       - run: pnpm build
       - name: Navegador do Playwright
         run: pnpm --filter @cube-track/web exec playwright install --with-deps chromium

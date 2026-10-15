@@ -38,3 +38,10 @@
 | [0034](0034-design-system-tokens-tailwind4.md)                  | Design system: tokens, Tailwind 4, Radix, Storybook    | Aceita                          |
 | [0035](0035-api-de-estrutura-de-navegacao.md)                   | API de estrutura de navegação                          | Aceita                          |
 | [0036](0036-pwa-e-orcamento-de-performance-do-frontend.md)      | PWA e orçamento de performance do frontend             | Aceita                          |
+| [0037](0037-motor-de-formulas.md)                               | Motor de fórmulas próprio, decimal e compartilhado     | Aceita                          |
+| [0038](0038-colunas-calculadas.md)                              | Colunas calculadas: transação ou worker                | Aceita                          |
+| [0039](0039-obrigatoriedade-condicional.md)                     | Obrigatoriedade simples e condicional                  | Aceita                          |
+| [0040](0040-templates-de-board-e-privacidade.md)                | Templates de board e privacidade                       | Aceita                          |
+| [0041](0041-ciclo-de-vida-dos-itens.md)                         | Arquivar, lixeira de 30 dias, mover e desfazer         | Aceita                          |
+| [0042](0042-importacao-e-exportacao.md)                         | Importação e exportação CSV/Excel                      | Aceita                          |
+| [0043](0043-tabela-virtualizada.md)                             | Tabela virtualizada (TanStack Virtual)                 | Aceita                          |

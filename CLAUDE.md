@@ -72,6 +72,7 @@ Estrutura completa em `docs/architecture.md` §5. Modelo de dados em `docs/data-
 cp .env.example .env && pnpm install
 pnpm infra:up                     # PostgreSQL, Redis, MinIO, Meilisearch, Mailpit (docker compose)
 pnpm db:migrate | db:seed | db:reset
+pnpm db:seed:large                # board "Carga — 50 mil itens" (performance da Tabela, E2E)
 pnpm build                        # tsup + SWC (api, worker)
 pnpm --filter @cube-track/api dev     # API em :3001 (OpenAPI em /v1/docs)
 pnpm --filter @cube-track/worker dev  # worker + Bull Board em :3010/admin/queues

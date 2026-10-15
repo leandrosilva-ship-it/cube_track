@@ -110,3 +110,18 @@ A escrita numa coluna sem permissão de edição, ou num campo nativo vinculado 
 | `POST /v1/boards/:id/views`                                       | `view.manage` (compartilhada) ou `board.read` (pessoal)                        |
 | `PATCH/DELETE /v1/views/:id`                                      | `view.update`; a view padrão não pode ser excluída                             |
 | `GET /v1/me/notifications`, `GET /v1/me/week`                     | próprio usuário; "Minha semana" respeita colunas ocultas e escopo de convidado |
+
+### Boards, colunas e itens (Prompt 5, ADRs 0038–0042)
+
+| Operação                                                                  | Permissão exigida                                                                                 |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Criar/editar/excluir/duplicar colunas, rótulos, opções e status principal | `column.manage` no board                                                                          |
+| Editar valor de célula                                                    | `item.update` (ou `item.update_assigned` em itens atribuídos) **e** permissão de edição da coluna |
+| Criar, renomear, colorir, reordenar, duplicar, mover, arquivar grupos     | `group.manage`                                                                                    |
+| Criar e duplicar itens; importar planilha                                 | `item.create` (importar com `createMissing` em status/lista também exige `column.manage`)         |
+| Edição em massa (`PATCH /v1/boards/:id/items`)                            | as mesmas regras por item e por coluna; o lote inteiro falha se um item for negado                |
+| Arquivar, excluir para a lixeira, restaurar, ver a lixeira                | `item.delete`                                                                                     |
+| Mover itens entre grupos                                                  | `item.update`; para outro board, também `item.delete` na origem e `item.create` no destino        |
+| Exportar CSV/Excel                                                        | `board.export` (colunas ocultas ficam de fora)                                                    |
+| Cronômetro e dependências do item                                         | `item.update`                                                                                     |
+| Templates (`GET /v1/board-templates`), marcar board como template         | leitura do board de origem; marcar exige `board.manage`                                           |

@@ -214,7 +214,7 @@ export function BulkBar({
         <Download aria-hidden="true" />
         {t('export')}
       </Button>
-      {canUpdate ? (
+      {canDelete ? (
         <Button size="sm" variant="ghost" onClick={onArchive}>
           <Archive aria-hidden="true" />
           {t('archive')}

@@ -2,24 +2,24 @@
 
 Legenda: ✅ concluído · 🟡 aguardando validação · ⏳ pendente · 🔄 em andamento
 
-| #   | Prompt                                             | Status                  | Entregáveis principais                                                                                                                                                                     | ADRs      |
-| --- | -------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| 1   | Visão do produto e arquitetura                     | ✅ Concluído            | `CLAUDE.md`, `docs/architecture.md`, ADRs 0001–0019, este roadmap                                                                                                                          | 0001–0019 |
-| 2   | Banco de dados e tabelas                           | ✅ Concluído            | Monorepo, docker-compose, `packages/db` (88 tabelas + auditoria particionada), RLS, seed PMSP, testes, benchmark                                                                           | 0020–0025 |
-| 3   | Backend base                                       | ✅ Concluído            | `apps/api` (auth, multi-tenant, RBAC 5 níveis, REST/GraphQL, realtime, auditoria, arquivos, busca), `apps/worker`, `docs/permissions.md`, `docs/realtime-events.md`, `docs/openapi.json`   | 0026–0030 |
-| 4   | Frontend base                                      | 🟡 Aguardando validação | `apps/web` (shell, auth, navegação, board header/abas/toolbar, paleta, PWA), `packages/ui` + Storybook, i18n pt-BR/en/es, cliente realtime, `docs/brand.md`, `docs/frontend-guidelines.md` | 0031–0036 |
-| 5   | Boards, colunas e Tabela                           | ⏳                      | CRUD de boards/grupos/colunas/itens, ~30 tipos de coluna, Tabela virtualizada, edição inline realtime                                                                                      | —         |
-| 6   | Kanban e views salvas                              | ⏳                      | Kanban com raias, filtros/ordenação/agrupamento, views salvas e compartilhadas, link público                                                                                               | —         |
-| 7   | Painel do item                                     | ⏳                      | Atualizações com @menções, respostas, reações, arquivos, log de atividade, subitens, Yjs                                                                                                   | —         |
-| 8   | Calendário, Timeline, Gantt e Formulários          | ⏳                      | Views de tempo, dependências, caminho crítico, baselines, formulários públicos                                                                                                             | —         |
-| 9   | Dashboards                                         | ⏳                      | Widgets, agregações, Project Health, exportação                                                                                                                                            | —         |
-| 10  | Automações, Processos e Notificações               | ⏳                      | Motor de regras, fases com SLA, workflows, inbox, e-mail                                                                                                                                   | —         |
-| 11  | Capacity e Timesheet                               | ⏳                      | Alocação, carga por pessoa, apontamento de horas, aprovações                                                                                                                               | —         |
-| 12  | Portfólio                                          | ⏳                      | Programas, portfólios, scoring, rollups, visão executiva                                                                                                                                   | —         |
-| 13  | Contratos/OS/UST                                   | ⏳                      | Contratos, catálogo, OS, medição UST, faturamento                                                                                                                                          | —         |
-| 14  | IA                                                 | ⏳                      | Assistente, resumos, chatbot do board, sugestões                                                                                                                                           | —         |
-| 15  | API pública, Integrações, Importadores e Templates | ⏳                      | API v1, webhooks, SDK, importador Monday/Jira/Trello/CSV, templates                                                                                                                        | —         |
-| 16  | Segurança, Performance, Testes e Deploy            | ⏳                      | Hardening, testes de carga, CI/CD, Helm, observabilidade, runbooks                                                                                                                         | —         |
+| #   | Prompt                                             | Status                  | Entregáveis principais                                                                                                                                                                                                        | ADRs      |
+| --- | -------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 1   | Visão do produto e arquitetura                     | ✅ Concluído            | `CLAUDE.md`, `docs/architecture.md`, ADRs 0001–0019, este roadmap                                                                                                                                                             | 0001–0019 |
+| 2   | Banco de dados e tabelas                           | ✅ Concluído            | Monorepo, docker-compose, `packages/db` (88 tabelas + auditoria particionada), RLS, seed PMSP, testes, benchmark                                                                                                              | 0020–0025 |
+| 3   | Backend base                                       | ✅ Concluído            | `apps/api` (auth, multi-tenant, RBAC 5 níveis, REST/GraphQL, realtime, auditoria, arquivos, busca), `apps/worker`, `docs/permissions.md`, `docs/realtime-events.md`, `docs/openapi.json`                                      | 0026–0030 |
+| 4   | Frontend base                                      | ✅ Concluído            | `apps/web` (shell, auth, navegação, board header/abas/toolbar, paleta, PWA), `packages/ui` + Storybook, i18n pt-BR/en/es, cliente realtime, `docs/brand.md`, `docs/frontend-guidelines.md`                                    | 0031–0036 |
+| 5   | Boards, colunas e Tabela                           | 🟡 Aguardando validação | 33 tipos de coluna, fórmulas decimais, colunas calculadas, obrigatoriedade condicional, templates, lixeira, importação/exportação, Tabela virtualizada (50 mil itens) com edição de planilha em tempo real, `docs/columns.md` | 0037–0043 |
+| 6   | Kanban e views salvas                              | ⏳                      | Kanban com raias, filtros/ordenação/agrupamento, views salvas e compartilhadas, link público                                                                                                                                  | —         |
+| 7   | Painel do item                                     | ⏳                      | Atualizações com @menções, respostas, reações, arquivos, log de atividade, subitens, Yjs                                                                                                                                      | —         |
+| 8   | Calendário, Timeline, Gantt e Formulários          | ⏳                      | Views de tempo, dependências, caminho crítico, baselines, formulários públicos                                                                                                                                                | —         |
+| 9   | Dashboards                                         | ⏳                      | Widgets, agregações, Project Health, exportação                                                                                                                                                                               | —         |
+| 10  | Automações, Processos e Notificações               | ⏳                      | Motor de regras, fases com SLA, workflows, inbox, e-mail                                                                                                                                                                      | —         |
+| 11  | Capacity e Timesheet                               | ⏳                      | Alocação, carga por pessoa, apontamento de horas, aprovações                                                                                                                                                                  | —         |
+| 12  | Portfólio                                          | ⏳                      | Programas, portfólios, scoring, rollups, visão executiva                                                                                                                                                                      | —         |
+| 13  | Contratos/OS/UST                                   | ⏳                      | Contratos, catálogo, OS, medição UST, faturamento                                                                                                                                                                             | —         |
+| 14  | IA                                                 | ⏳                      | Assistente, resumos, chatbot do board, sugestões                                                                                                                                                                              | —         |
+| 15  | API pública, Integrações, Importadores e Templates | ⏳                      | API v1, webhooks, SDK, importador Monday/Jira/Trello/CSV, templates                                                                                                                                                           | —         |
+| 16  | Segurança, Performance, Testes e Deploy            | ⏳                      | Hardening, testes de carga, CI/CD, Helm, observabilidade, runbooks                                                                                                                                                            | —         |
 
 ## Prompt 1 — Resumo
 
@@ -215,3 +215,57 @@ pnpm --filter @cube-track/web lighthouse       # relatórios em apps/web/lightho
 ```
 
 **Próximos passos:** Prompt 5, com boards, grupos, colunas (cerca de 30 tipos) e a Tabela virtualizada com edição inline em tempo real.
+
+## Prompt 5 — Resumo
+
+**Feito**
+
+- **Colunas** (`packages/shared`, ADRs 0037–0039): 33 tipos com schemas de valor e configuração. Inclui fórmula, espelho, rollup, progresso, dependência, localização, cor, botão, ID automático, última atualização, criado por e controle de tempo.
+  - Configuração: obrigatória e obrigatória quando (condição E/OU), valor padrão, descrição como dica, permissões de ver e editar por papel, formato numérico (unidade, posição, casas), status principal.
+  - **Motor de fórmulas** próprio e decimal: 60 funções, incluindo IF, SUM, DAYS, WORKDAYS, CONCAT, ROUND e TODAY. Referências pelo título, erros tipados e ciclos tratados.
+  - **Colunas calculadas:** fórmula e progresso calculados na transação da API; espelho, rollup e progresso por subitens no worker (profundidade máxima 5); fórmulas voláteis recalculadas diariamente.
+- **API** (ADRs 0040–0042):
+  - CRUD de colunas, rótulos, opções e grupos (cor, recolher, reordenar, duplicar, mover para outro board, arquivar, excluir, restaurar).
+  - Itens: edição em massa, ações em lote (duplicar, arquivar, excluir, restaurar, mover com mapeamento de colunas), lixeira de 30 dias com expurgo diário auditado, cronômetro, dependências FS/SS/FF/SF e indicadores (subitens, anexos, atualizações não lidas).
+  - Importação CSV/XLSX com prévia e mapeamento; exportação CSV/XLSX com filtros.
+  - Templates embutidos (incluindo "Ordens de serviço (UST)") e boards marcados como template; ícone e privacidade.
+- **Tabela** (`apps/web`, ADR 0043):
+  - Virtualização de linhas e colunas; agrupamento em até 3 níveis; subitens.
+  - Colunas fixadas, redimensionáveis, reordenáveis e ocultáveis.
+  - Edição de planilha: teclado completo, copiar e colar TSV, preencher para baixo, desfazer e refazer.
+  - Rodapés com agregados e barra de distribuição; filtros E/OU com tokens ("eu", "hoje", "esta semana", "atrasados"); ordenação múltipla; busca.
+  - Seleção com ações em massa; diálogos de coluna, campos obrigatórios, importar, mover e lixeira.
+  - Destaque de células alteradas por outra pessoa em tempo real.
+  - Criação de board com template, ícone e descrição.
+- **Testes:**
+  - 439 automatizados passando: 139 em `shared`, 39 em `db`, 105 em `api`, 34 em `worker`, 51 em `ui`, 10 em `i18n` e 61 em `web`.
+  - 16 E2E Playwright. Novos: edição de célula entre dois navegadores com destaque e Ctrl+Z, SEI condicional, fórmula, importação de CSV e 50 mil linhas.
+- **Correções encontradas no caminho:** dependências do bundle da API e do worker (`decimal.js-light`, `@node-rs/argon2`) e posição inválida no seed de carga.
+
+**Critérios de aceite**
+
+- ✅ **50 mil linhas a ≥ 50 fps:** mediana de 59,9 fps e média de 56,3 fps, rolando a cerca de 6.000 px/s, com 34 linhas no DOM (Chromium headless, renderização por software).
+- ✅ **"Processo SEI" obrigatório quando "OS emitida" = Sim:** testado na API e no E2E. O diálogo exige o campo e, sem ele, nada é salvo.
+- ✅ **Edição de célula em tempo real com destaque visual no outro navegador:** E2E com dois navegadores.
+
+**Pendências**
+
+- Arquivos na coluna Arquivos e rich text do Texto longo: Prompt 7 (painel do item).
+- O botão dispara automações no Prompt 10. Até lá, a coluna exibe o rótulo com uma dica.
+- Agregados de rodapé e agrupamento por coluna são calculados no cliente sobre os itens carregados. Agregação no servidor para boards muito grandes fica para o Prompt 9.
+- Larguras, ordem, fixação e colunas ocultas ficam na sessão (e, para quem gerencia colunas, como padrão do board) até as views salvas do Prompt 6.
+- O carregamento completo de 50 mil itens leva cerca de 17 s neste ambiente; a primeira página aparece de imediato.
+
+**Como rodar e testar**
+
+```bash
+pnpm infra:up && pnpm db:reset && pnpm db:seed && pnpm db:seed:large
+pnpm build
+pnpm --filter @cube-track/api start      # API :3001
+pnpm --filter @cube-track/worker start   # recálculos, lixeira, relay
+pnpm --filter @cube-track/web start      # web :3000 — ana.ribeiro@empresademo.com.br / CubeTrack@2026
+pnpm lint && pnpm typecheck && pnpm test
+pnpm --filter @cube-track/web test:e2e
+```
+
+**Próximos passos:** Prompt 6, com Kanban customizável e views salvas (pessoais e compartilhadas, link público).

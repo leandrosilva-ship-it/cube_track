@@ -780,13 +780,15 @@ export function TableView({
                 {t('rows.moveToBoard')}
               </DropdownMenuItem>
             ) : null}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              icon={<Archive aria-hidden="true" />}
-              onSelect={() => void runAction({ action: 'archive', itemIds: menuTargets })}
-            >
-              {t('rows.archive', { count: menuTargets.length })}
-            </DropdownMenuItem>
+            {canDelete ? <DropdownMenuSeparator /> : null}
+            {canDelete ? (
+              <DropdownMenuItem
+                icon={<Archive aria-hidden="true" />}
+                onSelect={() => void runAction({ action: 'archive', itemIds: menuTargets })}
+              >
+                {t('rows.archive', { count: menuTargets.length })}
+              </DropdownMenuItem>
+            ) : null}
             {canDelete ? (
               <DropdownMenuItem
                 destructive

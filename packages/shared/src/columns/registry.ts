@@ -37,7 +37,28 @@ export type ProjectionKind = (typeof PROJECTION_KINDS)[number];
 export const COLUMN_STORAGES = ['values', 'relation', 'system'] as const;
 export type ColumnStorage = (typeof COLUMN_STORAGES)[number];
 
-const labelSettings = z.object({ defaultLabelId: uuid.optional() }).strict();
+/**
+ * Transições permitidas entre rótulos de status (ADR 0046, opcional): chave = id do rótulo de
+ * origem, valor = ids de rótulo permitidos como destino. Ausente ou sem a chave de origem = sem
+ * restrição (todo board criado antes desta coluna continua livre). Vazio nos dois lados do mapa
+ * mantém compatibilidade: a chave do estado inicial pode faltar, cobrindo o primeiro rótulo do item.
+ */
+const statusTransitions = z.record(uuid, z.array(uuid).max(50)).optional();
+const labelSettings = z
+  .object({ defaultLabelId: uuid.optional(), transitions: statusTransitions })
+  .strict();
+
+/** A transição de `fromLabelId` para `toLabelId` é permitida pelas regras da coluna? */
+export function isTransitionAllowed(
+  transitions: Record<string, string[]> | undefined,
+  fromLabelId: string | null,
+  toLabelId: string | null,
+): boolean {
+  if (transitions === undefined || fromLabelId === null || toLabelId === null) return true;
+  const allowed = transitions[fromLabelId];
+  if (allowed === undefined) return true;
+  return allowed.includes(toLabelId);
+}
 
 /** Formato de exibição numérico (número, fórmula, rollup): unidade (UST, R$, h, %…) e casas. */
 const numberFormat = {

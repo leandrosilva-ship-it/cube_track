@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { COLUMN_TYPES, isColumnType, parseColumnSettings, parseColumnValue } from './registry.js';
+import {
+  COLUMN_TYPES,
+  isColumnType,
+  isTransitionAllowed,
+  parseColumnSettings,
+  parseColumnValue,
+} from './registry.js';
 
 describe('registro de tipos de coluna', () => {
   it('declara cerca de 30 tipos', () => {
@@ -30,5 +36,38 @@ describe('registro de tipos de coluna', () => {
       applyToSubitems: false,
     });
     expect(() => parseColumnSettings('auto_id', { mask: '{YYYY}' })).toThrow();
+  });
+
+  it('aceita a coluna de status com transições opcionais entre rótulos', () => {
+    const todo = '01a13f00-0000-7000-8000-000000000001';
+    const doing = '01a13f00-0000-7000-8000-000000000002';
+    const done = '01a13f00-0000-7000-8000-000000000003';
+    expect(
+      parseColumnSettings('status', { transitions: { [todo]: [doing], [doing]: [done, todo] } }),
+    ).toEqual({ transitions: { [todo]: [doing], [doing]: [done, todo] } });
+  });
+});
+
+describe('transições de status (ADR 0046)', () => {
+  const todo = '01a13f00-0000-7000-8000-000000000001';
+  const doing = '01a13f00-0000-7000-8000-000000000002';
+  const done = '01a13f00-0000-7000-8000-000000000003';
+  const transitions = { [todo]: [doing], [doing]: [done] };
+
+  it('sem regras configuradas, qualquer transição vale', () => {
+    expect(isTransitionAllowed(undefined, todo, done)).toBe(true);
+  });
+
+  it('rótulo de origem sem entrada no mapa também não é restrito (regra adicionada depois)', () => {
+    expect(isTransitionAllowed(transitions, done, todo)).toBe(true);
+  });
+
+  it('bloqueia pular etapas quando a origem tem regra configurada', () => {
+    expect(isTransitionAllowed(transitions, todo, done)).toBe(false);
+    expect(isTransitionAllowed(transitions, todo, doing)).toBe(true);
+  });
+
+  it('criação (sem valor anterior) nunca é bloqueada pela regra', () => {
+    expect(isTransitionAllowed(transitions, null, done)).toBe(true);
   });
 });

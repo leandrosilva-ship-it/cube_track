@@ -14,3 +14,4 @@ export * from './permissions.js';
 export * from './query.js';
 export * from './scheduling.js';
 export * from './search.js';
+export * from './views.js';

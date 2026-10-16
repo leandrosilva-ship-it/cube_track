@@ -473,7 +473,7 @@ export async function seedPmspExperience(
         op: 'and',
         conditions: [
           {
-            columnKey: 'c_frente',
+            field: 'c_frente',
             operator: 'any_of',
             value: [frenteId('Mapeamento e Redesenho')],
           },
@@ -499,8 +499,8 @@ export async function seedPmspExperience(
       filters: {
         op: 'and',
         conditions: [
-          { columnKey: 'c_termino_planejado', operator: 'before', value: { relative: 'today' } },
-          { columnKey: 'c_status', operator: 'none_of', value: [statusId('Concluído')] },
+          { field: 'c_termino_planejado', operator: 'before', value: 'today' },
+          { field: 'c_status', operator: 'none_of', value: [statusId('Concluído')] },
         ],
       },
     },
@@ -511,8 +511,8 @@ export async function seedPmspExperience(
       filters: {
         op: 'and',
         conditions: [
-          { columnKey: 'c_status', operator: 'any_of', value: [statusId('Concluído')] },
-          { columnKey: 'c_faturamento', operator: 'is_empty' },
+          { field: 'c_status', operator: 'any_of', value: [statusId('Concluído')] },
+          { field: 'c_faturamento', operator: 'is_empty' },
         ],
       },
     },
@@ -543,9 +543,7 @@ export async function seedPmspExperience(
     name: 'Minhas demandas',
     filters: {
       op: 'and',
-      conditions: [
-        { columnKey: 'c_responsaveis', operator: 'contains', value: [{ relative: 'me' }] },
-      ],
+      conditions: [{ field: 'c_responsaveis', operator: 'any_of', value: ['me'] }],
     },
     position: initialPositions(1)[0] ?? 'a0',
     createdBy: userId(ctx, 'juliana'),
@@ -558,8 +556,8 @@ export async function seedPmspExperience(
     filter: {
       op: 'and',
       conditions: [
-        { groupIds: [pmsp.groupIds.andamento] },
-        { columnKey: 'c_termino_replanejado', operator: 'is_empty' },
+        { field: 'group_id', operator: 'any_of', value: [pmsp.groupIds.andamento] },
+        { field: 'c_termino_replanejado', operator: 'is_empty' },
       ],
     },
     isShared: true,
@@ -619,9 +617,7 @@ export async function seedPmspExperience(
       },
       conditions: {
         op: 'and',
-        conditions: [
-          { columnKey: 'c_status', operator: 'none_of', value: [statusId('Concluído')] },
-        ],
+        conditions: [{ field: 'c_status', operator: 'none_of', value: [statusId('Concluído')] }],
       },
       actions: [
         {

@@ -1,4 +1,5 @@
 import type { Messages } from './pt-BR.js';
+import { kanbanEn } from './kanban.en.js';
 import { tableEn } from './table.en.js';
 
 export const en: Messages = {
@@ -226,6 +227,7 @@ export const en: Messages = {
     rename: { title: 'Rename "{name}"' },
   },
   board: {
+    noViews: "This board doesn't have any views yet.",
     icon: 'Board icon',
     markTemplate: 'Use as template',
     unmarkTemplate: 'Stop using as template',
@@ -276,6 +278,42 @@ export const en: Messages = {
       newName: 'New {type}',
       created: 'View "{name}" created.',
       deleteConfirm: 'Delete the view "{name}"?',
+      duplicate: 'Duplicate',
+      duplicated: 'View "{name}" duplicated.',
+      viewActions: 'Actions for view "{name}"',
+      rename: 'Rename',
+      renamePrompt: 'New view name',
+      renamed: 'View renamed.',
+      setDefault: 'Set as default',
+      madeDefault: '"{name}" is now the default view.',
+      dragHint: 'Press space to pick up a tab. Use the arrow keys to reorder. Press space to drop, or Esc to cancel.',
+      moved: '{name} moved.',
+      comingSoon: "This view type doesn't have its own screen yet — available in an upcoming prompt.",
+      shareLink: {
+        title: 'Public link',
+        description: 'Anyone with the link can follow this view without joining the organization, read-only.',
+        create: 'Create public link',
+        active: 'Link active',
+        password: 'Password (optional)',
+        passwordPlaceholder: 'Leave blank to not require a password',
+        expiresAt: 'Expires on (optional)',
+        hiddenColumns: 'Columns hidden in the link',
+        allowSearch: 'Allow search by name',
+        copy: 'Copy link',
+        copied: 'Link copied!',
+        tokenWarning: "Copy it now — for security, we won't show this link again.",
+        regenerate: 'Generate new link',
+        regenerateConfirm: 'Generating a new link invalidates the previous one. Continue?',
+        revoke: 'Revoke link',
+        revokeConfirm: "Revoke this view's public link? Anyone with the link loses access.",
+        revoked: 'Link revoked.',
+        saved: 'Link updated.',
+        requiresPassword: 'Requires password',
+        noPassword: 'No password',
+        accessCount: '{count, plural, one {# access} other {# accesses}}',
+        neverAccessed: 'No accesses yet.',
+        lastAccess: 'Last access: {date}',
+      },
       types: {
         table: 'Table',
         kanban: 'Kanban',
@@ -333,6 +371,7 @@ export const en: Messages = {
     },
   },
   table: tableEn,
+  kanban: kanbanEn,
   palette: {
     title: 'Command palette',
     placeholder: 'Search boards, pages and actions…',

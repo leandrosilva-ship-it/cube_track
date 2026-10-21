@@ -111,6 +111,19 @@ A escrita numa coluna sem permissão de edição, ou num campo nativo vinculado 
 | `PATCH/DELETE /v1/views/:id`                                      | `view.update`; a view padrão não pode ser excluída                             |
 | `GET /v1/me/notifications`, `GET /v1/me/week`                     | próprio usuário; "Minha semana" respeita colunas ocultas e escopo de convidado |
 
+### Views, link público e filtros salvos (Prompt 6, ADRs 0044, 0046, 0047)
+
+| Rota                                                                    | Permissão exigida                                                                  |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `POST /v1/views/:id/duplicate`                                          | `view.read` na origem; `view.manage` (cópia compartilhada) ou `board.read` (pessoal) |
+| `PATCH /v1/views/:id` com `isDefault`/`isLocked`/`isRestricted`         | `view.manage` no board, além de `view.update`                                       |
+| `GET/PUT/DELETE /v1/views/:id/share-link`                               | `board.share` no board da view                                                      |
+| `GET /v1/public/share/:token/info`, `POST /v1/public/share/:token/verify` | nenhuma (link válido, não revogado/expirado; senha se o link exigir)                |
+| `GET /v1/public/share/board`, `GET /v1/public/share/items`               | sessão de link público válida (cabeçalho `X-Share-Session`, 1h)                      |
+| `GET/POST /v1/boards/:id/saved-filters`                                 | `board.read` (pessoal) ou `view.manage` (compartilhado)                             |
+| `DELETE /v1/saved-filters/:id`                                          | dono do filtro ou `view.manage` no board                                           |
+| Transições de status (coluna `status` com `settings.transitions`)      | imposta na escrita do item (`item.update`), não uma permissão própria              |
+
 ### Boards, colunas e itens (Prompt 5, ADRs 0038–0042)
 
 | Operação                                                                  | Permissão exigida                                                                                 |

@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   COLUMN_TYPE_SPECS,
   isColumnType,
+  isTransitionAllowed,
   missingRequiredColumns,
   positionBetween,
   READ_ONLY_COLUMN_TYPES,
@@ -466,6 +467,18 @@ export class ItemWriter {
       }
       const next = values[key] ?? null;
       if (JSON.stringify(previous) === JSON.stringify(next)) continue;
+      if (column.type === 'status') {
+        const fromLabelId = (previous as { labelId?: string } | null)?.labelId ?? null;
+        const toLabelId = (next as { labelId?: string } | null)?.labelId ?? null;
+        const transitions = column.settings.transitions as Record<string, string[]> | undefined;
+        if (!isTransitionAllowed(transitions, fromLabelId, toLabelId)) {
+          throw new UnprocessableError(
+            'Transição de status não permitida para esta coluna.',
+            'invalid_transition',
+            { columnKey: key, fromLabelId, toLabelId },
+          );
+        }
+      }
       touched.add(key);
       before[key] = previous;
       after[key] = next;

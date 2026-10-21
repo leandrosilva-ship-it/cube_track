@@ -45,3 +45,7 @@
 | [0041](0041-ciclo-de-vida-dos-itens.md)                         | Arquivar, lixeira de 30 dias, mover e desfazer         | Aceita                          |
 | [0042](0042-importacao-e-exportacao.md)                         | Importação e exportação CSV/Excel                      | Aceita                          |
 | [0043](0043-tabela-virtualizada.md)                             | Tabela virtualizada (TanStack Virtual)                 | Aceita                          |
+| [0044](0044-views-salvas.md)                                    | Views salvas: registro, pessoal/compartilhada, padrão  | Aceita                          |
+| [0045](0045-kanban-arrastar-e-soltar-e-limite-de-wip.md)        | Kanban: arrastar-e-soltar reaproveita a escrita do item | Aceita                          |
+| [0046](0046-transicoes-de-status.md)                            | Transições controladas na coluna de status             | Aceita                          |
+| [0047](0047-links-publicos-de-view.md)                          | Link público somente leitura de uma view               | Aceita                          |

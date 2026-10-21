@@ -4,7 +4,9 @@ import {
   initialPositions,
   newId,
   type BoardTemplate,
+  type FilterGroup,
   type TemplateColumn,
+  type ViewGroupBy,
 } from '@cube-track/shared';
 import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
 
@@ -267,9 +269,9 @@ export class BoardBlueprintWriter {
         type: view.type,
         name: view.name,
         config: remapIds(view.config) as Record<string, unknown>,
-        filters: view.filters === null ? null : (remapIds(view.filters) as Record<string, unknown>),
+        filters: view.filters === null ? null : (remapIds(view.filters) as FilterGroup),
         sort: view.sort,
-        groupBy: view.groupBy === null ? null : (remapIds(view.groupBy) as Record<string, unknown>),
+        groupBy: view.groupBy === null ? null : (remapIds(view.groupBy) as ViewGroupBy),
         hiddenColumnKeys: view.hiddenColumnKeys,
         isDefault: view.isDefault,
         position: view.position,

@@ -2,6 +2,7 @@
 
 import {
   Badge,
+  Dialog,
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -17,13 +18,18 @@ import {
   BarChart3,
   CalendarDays,
   ChevronDown,
+  Copy,
   FileText,
   FolderOpen,
   GanttChart,
   Kanban,
   LayoutDashboard,
+  Link2,
   Map,
+  MoreHorizontal,
+  Pencil,
   Plus,
+  Star,
   Table2,
   Trash2,
   Users,
@@ -35,7 +41,8 @@ import { useState } from 'react';
 import { Link, useRouter } from '@/i18n/navigation';
 import type { BoardView, ViewType } from '@/lib/api/types';
 
-import { useCreateView, useDeleteView } from './hooks';
+import { useCreateView, useDeleteView, useDuplicateView, useUpdateView } from './hooks';
+import { ShareLinkDialog } from './share-link-dialog';
 
 export const VIEW_ICONS: Record<ViewType, LucideIcon> = {
   table: Table2,
@@ -78,9 +85,40 @@ export function ViewTabs({ workspaceId, boardId, views, activeViewId, canManage 
   const router = useRouter();
   const create = useCreateView(boardId);
   const remove = useDeleteView(boardId);
+  const duplicate = useDuplicateView(boardId);
+  const update = useUpdateView(boardId);
   const [personal, setPersonal] = useState(!canManage);
+  const [shareLinkView, setShareLinkView] = useState<BoardView | null>(null);
   const href = (viewId: string) => `/w/${workspaceId}/b/${boardId}/${viewId}`;
   const visibleTabs = views.slice(0, 6);
+
+  const renameView = (view: BoardView) => {
+    const name = window.prompt(t('renamePrompt'), view.name)?.trim();
+    if (name === undefined || name === '' || name === view.name) return;
+    update.mutate(
+      { viewId: view.id, input: { name } },
+      { onSuccess: () => toast.success(t('renamed')) },
+    );
+  };
+
+  const duplicateView = (view: BoardView) => {
+    duplicate.mutate(
+      { viewId: view.id, input: {} },
+      {
+        onSuccess: (created) => {
+          toast.success(t('duplicated', { name: created.name }));
+          router.push(href(created.id));
+        },
+      },
+    );
+  };
+
+  const makeDefault = (view: BoardView) => {
+    update.mutate(
+      { viewId: view.id, input: { isDefault: true } },
+      { onSuccess: () => toast.success(t('madeDefault', { name: view.name })) },
+    );
+  };
 
   const createView = (type: ViewType) => {
     const name = t('newName', { type: t(`types.${type}`) });
@@ -104,20 +142,73 @@ export function ViewTabs({ workspaceId, boardId, views, activeViewId, canManage 
         {visibleTabs.map((view) => {
           const Icon = VIEW_ICONS[view.type];
           const active = view.id === activeViewId;
+          const canManageView = view.canEdit || canManage;
           return (
-            <Link
-              key={view.id}
-              href={href(view.id)}
-              aria-current={active ? 'page' : undefined}
-              className={cn(
-                'inline-flex h-10 shrink-0 items-center gap-1.5 border-b-2 border-transparent px-3 text-sm font-medium text-fg-muted hover:text-fg',
-                active && 'border-primary text-fg',
-              )}
-            >
-              <Icon className="size-4" aria-hidden="true" />
-              <span className="max-w-40 truncate">{view.name}</span>
-              {view.personal ? <span className="sr-only">({t('personal')})</span> : null}
-            </Link>
+            <div key={view.id} className="group/tab relative flex shrink-0 items-center">
+              <Link
+                href={href(view.id)}
+                aria-current={active ? 'page' : undefined}
+                className={cn(
+                  'inline-flex h-10 shrink-0 items-center gap-1.5 border-b-2 border-transparent ps-3 text-sm font-medium text-fg-muted hover:text-fg',
+                  canManageView ? 'pe-1' : 'pe-3',
+                  active && 'border-primary text-fg',
+                )}
+              >
+                <Icon className="size-4" aria-hidden="true" />
+                <span className="max-w-40 truncate">{view.name}</span>
+                {view.personal ? <span className="sr-only">({t('personal')})</span> : null}
+              </Link>
+              {canManageView ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <IconButton
+                      label={t('viewActions', { name: view.name })}
+                      icon={<MoreHorizontal aria-hidden="true" />}
+                      size="icon-sm"
+                      className="me-1 opacity-0 focus-visible:opacity-100 group-hover/tab:opacity-100"
+                    />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem
+                      icon={<Pencil aria-hidden="true" />}
+                      onSelect={() => {
+                        renameView(view);
+                      }}
+                    >
+                      {t('rename')}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      icon={<Copy aria-hidden="true" />}
+                      onSelect={() => {
+                        duplicateView(view);
+                      }}
+                    >
+                      {t('duplicate')}
+                    </DropdownMenuItem>
+                    {canManage && !view.isDefault ? (
+                      <DropdownMenuItem
+                        icon={<Star aria-hidden="true" />}
+                        onSelect={() => {
+                          makeDefault(view);
+                        }}
+                      >
+                        {t('setDefault')}
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canManage ? (
+                      <DropdownMenuItem
+                        icon={<Link2 aria-hidden="true" />}
+                        onSelect={() => {
+                          setShareLinkView(view);
+                        }}
+                      >
+                        {t('shareLink.title')}
+                      </DropdownMenuItem>
+                    ) : null}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
+            </div>
           );
         })}
       </nav>
@@ -215,6 +306,21 @@ export function ViewTabs({ workspaceId, boardId, views, activeViewId, canManage 
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
+      <Dialog
+        open={shareLinkView !== null}
+        onOpenChange={(open) => {
+          if (!open) setShareLinkView(null);
+        }}
+      >
+        {shareLinkView === null ? null : (
+          <ShareLinkDialog
+            view={shareLinkView}
+            onClose={() => {
+              setShareLinkView(null);
+            }}
+          />
+        )}
+      </Dialog>
     </div>
   );
 }

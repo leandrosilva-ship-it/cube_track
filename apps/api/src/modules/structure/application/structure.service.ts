@@ -1,7 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { schema } from '@cube-track/db';
-import { boardTemplates, newId, type BoardTemplate } from '@cube-track/shared';
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import {
+  boardTemplates,
+  FilterGroupSchema,
+  newId,
+  parseViewConfig,
+  ViewGroupBySchema,
+  ViewSortSchema,
+  type BoardTemplate,
+  type FilterGroup,
+  type ViewGroupBy,
+  type ViewSortTerm,
+} from '@cube-track/shared';
+import { and, asc, eq, inArray, isNull, ne } from 'drizzle-orm';
 
 import type { AuthPrincipal } from '../../../core/context/request-context.js';
 import { TransactionRunner } from '../../../core/database/transaction-runner.js';
@@ -16,7 +27,8 @@ import {
   type SupportedLocale,
 } from '../domain/structure.js';
 
-const { workspaces, folders, boards, views, favorites, roles, accessGrants, tenants } = schema;
+const { workspaces, folders, boards, views, favorites, roles, accessGrants, tenants, savedFilters } =
+  schema;
 
 export interface Neighbors {
   afterId?: string | null | undefined;
@@ -67,14 +79,36 @@ export interface UpdateBoardInput extends Neighbors {
 
 export type ViewType = (typeof views.$inferSelect)['type'];
 
-export interface CreateViewInput {
+export interface ViewConfigInput {
+  config?: Record<string, unknown> | undefined;
+  filters?: FilterGroup | null | undefined;
+  sort?: ViewSortTerm[] | undefined;
+  groupBy?: ViewGroupBy | null | undefined;
+  hiddenColumnKeys?: string[] | undefined;
+}
+
+export interface CreateViewInput extends ViewConfigInput {
   name: string;
   type: ViewType;
   personal?: boolean | undefined;
 }
 
-export interface UpdateViewInput extends Neighbors {
+export interface UpdateViewInput extends Neighbors, ViewConfigInput {
   name?: string | undefined;
+  isDefault?: boolean | undefined;
+  isLocked?: boolean | undefined;
+  isRestricted?: boolean | undefined;
+}
+
+export interface DuplicateViewInput {
+  name?: string | undefined;
+  personal?: boolean | undefined;
+}
+
+export interface CreateSavedFilterInput {
+  name: string;
+  filter: FilterGroup;
+  isShared?: boolean | undefined;
 }
 
 export type FavoriteType = 'workspace' | 'folder' | 'board';
@@ -96,11 +130,43 @@ const VIEW_SUMMARY = {
   name: views.name,
   type: views.type,
   ownerId: views.ownerId,
+  config: views.config,
+  filters: views.filters,
+  sort: views.sort,
+  groupBy: views.groupBy,
+  hiddenColumnKeys: views.hiddenColumnKeys,
   isDefault: views.isDefault,
   isLocked: views.isLocked,
   isRestricted: views.isRestricted,
   position: views.position,
 };
+
+interface ViewRow {
+  id: string;
+  boardId: string;
+  name: string;
+  type: ViewType;
+  ownerId: string | null;
+  config: Record<string, unknown>;
+  filters: FilterGroup | null;
+  sort: ViewSortTerm[];
+  groupBy: ViewGroupBy | null;
+  hiddenColumnKeys: string[];
+  isDefault: boolean;
+  isLocked: boolean;
+  isRestricted: boolean;
+  position: string;
+}
+
+/** Formato de transporte de uma view (igual em listagem, criação, duplicação). */
+function viewPayload(row: ViewRow, extra: { personal: boolean; canEdit: boolean }) {
+  return {
+    ...row,
+    config: parseViewConfig(row.type, row.config),
+    personal: extra.personal,
+    canEdit: extra.canEdit,
+  };
+}
 
 /**
  * Estrutura de navegação: workspaces, árvore de pastas e boards, favoritos e views. Leituras são
@@ -700,11 +766,12 @@ export class StructureService {
     );
     return {
       canManage,
-      data: visible.map((row, index) => ({
-        ...row,
-        personal: row.ownerId !== null,
-        canEdit: editable[index] ?? false,
-      })),
+      data: visible.map((row, index) =>
+        viewPayload(row, {
+          personal: row.ownerId !== null,
+          canEdit: editable[index] ?? false,
+        }),
+      ),
     };
   }
 
@@ -723,6 +790,11 @@ export class StructureService {
       .where(and(eq(views.boardId, boardId), isNull(views.deletedAt)));
     const id = newId();
     const position = positionAmong(siblings, {});
+    const config = parseViewConfig(input.type, input.config ?? {});
+    const filters = FilterGroupSchema.nullable().parse(input.filters ?? null);
+    const sort = ViewSortSchema.parse(input.sort ?? []);
+    const groupBy = ViewGroupBySchema.nullable().parse(input.groupBy ?? null);
+    const hiddenColumnKeys = input.hiddenColumnKeys ?? [];
     await tx.insert(views).values({
       id,
       tenantId: user.tenantId,
@@ -730,6 +802,11 @@ export class StructureService {
       ownerId: personal ? user.userId : null,
       name: input.name,
       type: input.type,
+      config,
+      filters,
+      sort,
+      groupBy,
+      hiddenColumnKeys,
       position,
       createdBy: user.userId,
     });
@@ -741,29 +818,80 @@ export class StructureService {
       after: { name: input.name, type: input.type, personal },
     });
     await this.viewChanged(user, boardId, id);
-    return {
-      id,
-      boardId,
-      name: input.name,
-      type: input.type,
-      ownerId: personal ? user.userId : null,
-      isDefault: false,
-      isLocked: false,
-      isRestricted: false,
-      position,
-      personal,
-      canEdit: true,
-    };
+    return viewPayload(
+      {
+        id,
+        boardId,
+        name: input.name,
+        type: input.type,
+        ownerId: personal ? user.userId : null,
+        config,
+        filters,
+        sort,
+        groupBy,
+        hiddenColumnKeys,
+        isDefault: false,
+        isLocked: false,
+        isRestricted: false,
+        position,
+      },
+      { personal, canEdit: true },
+    );
   }
 
   async updateView(user: AuthPrincipal, viewId: string, input: UpdateViewInput) {
     const view = await this.view(viewId);
     await this.access.assert(user, 'view.update', { type: 'view', id: viewId }, 'View');
+    // Tornar padrão, bloquear ou restringir uma view compartilhada é governança do board.
+    const governance =
+      input.isDefault !== undefined ||
+      input.isLocked !== undefined ||
+      input.isRestricted !== undefined;
+    if (governance) {
+      await this.access.assert(
+        user,
+        'view.manage',
+        { type: 'board', id: view.boardId },
+        'View',
+      );
+    }
     const set: Partial<typeof views.$inferInsert> = {};
     const before: Record<string, unknown> = {};
     if (input.name !== undefined && input.name !== view.name) {
       before.name = view.name;
       set.name = input.name;
+    }
+    if (input.config !== undefined) {
+      before.config = view.config;
+      set.config = parseViewConfig(view.type, input.config);
+    }
+    if (input.filters !== undefined) {
+      before.filters = view.filters;
+      set.filters = FilterGroupSchema.nullable().parse(input.filters);
+    }
+    if (input.sort !== undefined) {
+      before.sort = view.sort;
+      set.sort = ViewSortSchema.parse(input.sort);
+    }
+    if (input.groupBy !== undefined) {
+      before.groupBy = view.groupBy;
+      set.groupBy = ViewGroupBySchema.nullable().parse(input.groupBy);
+    }
+    if (input.hiddenColumnKeys !== undefined) {
+      before.hiddenColumnKeys = view.hiddenColumnKeys;
+      set.hiddenColumnKeys = input.hiddenColumnKeys;
+    }
+    if (input.isLocked !== undefined && input.isLocked !== view.isLocked) {
+      before.isLocked = view.isLocked;
+      set.isLocked = input.isLocked;
+    }
+    if (input.isRestricted !== undefined && input.isRestricted !== view.isRestricted) {
+      before.isRestricted = view.isRestricted;
+      set.isRestricted = input.isRestricted;
+    }
+    if (input.isDefault !== undefined && input.isDefault !== view.isDefault) {
+      before.isDefault = view.isDefault;
+      set.isDefault = input.isDefault;
     }
     if (input.afterId !== undefined || input.beforeId !== undefined) {
       const siblings = await this.runner.tx
@@ -777,6 +905,11 @@ export class StructureService {
       );
     }
     if (Object.keys(set).length === 0) return { id: viewId, changes: {} };
+    // No máximo uma view padrão por dono (pessoal) ou por board (compartilhada, ADR 0044).
+    // Precisa rodar ANTES do update desta view: o índice único (views_board_default_key) é
+    // verificado a cada statement, então marcar esta view como padrão com a antiga ainda
+    // marcada violaria a constraint.
+    if (set.isDefault === true) await this.clearOtherDefaults(view.boardId, view.ownerId, viewId);
     await this.runner.tx.update(views).set(set).where(eq(views.id, viewId));
     this.domainEvents.recordChange({
       action: 'view.update',
@@ -788,6 +921,68 @@ export class StructureService {
     });
     await this.viewChanged(user, view.boardId, viewId);
     return { id: viewId, changes: set };
+  }
+
+  async duplicateView(user: AuthPrincipal, viewId: string, input: DuplicateViewInput) {
+    const view = await this.view(viewId);
+    await this.access.assert(user, 'view.read', { type: 'view', id: viewId }, 'View');
+    const personal = input.personal ?? view.ownerId !== null;
+    await this.access.assert(
+      user,
+      personal ? 'board.read' : 'view.manage',
+      { type: 'board', id: view.boardId },
+      'Board',
+    );
+    const tx = this.runner.tx;
+    const siblings = await tx
+      .select({ id: views.id, position: views.position })
+      .from(views)
+      .where(and(eq(views.boardId, view.boardId), isNull(views.deletedAt)));
+    const id = newId();
+    const name = input.name ?? `${view.name} (cópia)`;
+    const ownerId = personal ? user.userId : null;
+    await tx.insert(views).values({
+      id,
+      tenantId: user.tenantId,
+      boardId: view.boardId,
+      ownerId,
+      name,
+      type: view.type,
+      config: view.config,
+      filters: view.filters,
+      sort: view.sort,
+      groupBy: view.groupBy,
+      hiddenColumnKeys: view.hiddenColumnKeys,
+      position: this.place(siblings, { afterId: viewId }),
+      createdBy: user.userId,
+    });
+    this.domainEvents.recordChange({
+      action: 'view.duplicate',
+      entityType: 'view',
+      entityId: id,
+      boardId: view.boardId,
+      after: { name, sourceViewId: viewId, personal },
+    });
+    await this.viewChanged(user, view.boardId, id);
+    return viewPayload(
+      {
+        id,
+        boardId: view.boardId,
+        name,
+        type: view.type,
+        ownerId,
+        config: view.config,
+        filters: view.filters,
+        sort: view.sort,
+        groupBy: view.groupBy,
+        hiddenColumnKeys: view.hiddenColumnKeys,
+        isDefault: false,
+        isLocked: false,
+        isRestricted: false,
+        position: view.position,
+      },
+      { personal, canEdit: true },
+    );
   }
 
   async deleteView(user: AuthPrincipal, viewId: string): Promise<void> {
@@ -807,6 +1002,110 @@ export class StructureService {
       before: { name: view.name, type: view.type },
     });
     await this.viewChanged(user, view.boardId, viewId);
+  }
+
+  private async clearOtherDefaults(
+    boardId: string,
+    ownerId: string | null,
+    exceptViewId: string,
+  ): Promise<void> {
+    await this.runner.tx
+      .update(views)
+      .set({ isDefault: false })
+      .where(
+        and(
+          eq(views.boardId, boardId),
+          ownerId === null ? isNull(views.ownerId) : eq(views.ownerId, ownerId),
+          isNull(views.deletedAt),
+          ne(views.id, exceptViewId),
+        ),
+      );
+  }
+
+  // ----------------------------------------------------------------------- Filtros salvos ---
+
+  async listSavedFilters(user: AuthPrincipal, boardId: string) {
+    await this.access.assert(user, 'board.read', { type: 'board', id: boardId }, 'Board');
+    const rows = await this.runner.tx
+      .select({
+        id: savedFilters.id,
+        boardId: savedFilters.boardId,
+        ownerId: savedFilters.ownerId,
+        name: savedFilters.name,
+        filter: savedFilters.filter,
+        isShared: savedFilters.isShared,
+      })
+      .from(savedFilters)
+      .where(and(eq(savedFilters.boardId, boardId), isNull(savedFilters.deletedAt)))
+      .orderBy(asc(savedFilters.createdAt));
+    return rows
+      .filter((row) => row.isShared || row.ownerId === user.userId)
+      .map((row) => ({ ...row, mine: row.ownerId === user.userId }));
+  }
+
+  async createSavedFilter(user: AuthPrincipal, boardId: string, input: CreateSavedFilterInput) {
+    const shared = input.isShared === true;
+    await this.access.assert(
+      user,
+      shared ? 'view.manage' : 'board.read',
+      { type: 'board', id: boardId },
+      'Board',
+    );
+    const id = newId();
+    await this.runner.tx.insert(savedFilters).values({
+      id,
+      tenantId: user.tenantId,
+      boardId,
+      ownerId: user.userId,
+      name: input.name,
+      filter: input.filter,
+      isShared: shared,
+      createdBy: user.userId,
+    });
+    this.domainEvents.recordChange({
+      action: 'saved_filter.create',
+      entityType: 'saved_filter',
+      entityId: id,
+      boardId,
+      after: { name: input.name, isShared: shared },
+    });
+    return {
+      id,
+      boardId,
+      ownerId: user.userId,
+      name: input.name,
+      filter: input.filter,
+      isShared: shared,
+      mine: true,
+    };
+  }
+
+  async deleteSavedFilter(user: AuthPrincipal, filterId: string): Promise<void> {
+    const [filter] = await this.runner.tx
+      .select()
+      .from(savedFilters)
+      .where(and(eq(savedFilters.id, filterId), isNull(savedFilters.deletedAt)));
+    if (filter === undefined) throw new NotFoundError('Filtro salvo');
+    const owns = filter.ownerId === user.userId;
+    if (!owns) {
+      await this.access.assert(
+        user,
+        'view.manage',
+        { type: 'board', id: filter.boardId },
+        'Filtro salvo',
+      );
+    }
+    await this.runner.tx
+      .update(savedFilters)
+      .set({ deletedAt: new Date() })
+      .where(eq(savedFilters.id, filterId));
+    this.domainEvents.recordChange({
+      action: 'saved_filter.delete',
+      entityType: 'saved_filter',
+      entityId: filterId,
+      boardId: filter.boardId,
+      before: { name: filter.name },
+    });
   }
 
   // --------------------------------------------------------------------------- Helpers ---

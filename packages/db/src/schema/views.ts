@@ -1,3 +1,4 @@
+import type { FilterGroup, ViewGroupBy, ViewSortTerm } from '@cube-track/shared';
 import { sql } from 'drizzle-orm';
 import {
   boolean,
@@ -29,12 +30,9 @@ export const views = tenantTable(
     type: viewType('type').notNull(),
     name: text('name').notNull(),
     config: jsonb('config').$type<Record<string, unknown>>().notNull().default({}),
-    filters: jsonb('filters').$type<Record<string, unknown>>(),
-    sort: jsonb('sort')
-      .$type<{ columnKey: string; direction: 'asc' | 'desc' }[]>()
-      .notNull()
-      .default([]),
-    groupBy: jsonb('group_by').$type<Record<string, unknown>>(),
+    filters: jsonb('filters').$type<FilterGroup>(),
+    sort: jsonb('sort').$type<ViewSortTerm[]>().notNull().default([]),
+    groupBy: jsonb('group_by').$type<ViewGroupBy>(),
     hiddenColumnKeys: text('hidden_column_keys')
       .array()
       .notNull()
@@ -66,7 +64,7 @@ export const savedFilters = tenantTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
-    filter: jsonb('filter').$type<Record<string, unknown>>().notNull(),
+    filter: jsonb('filter').$type<FilterGroup>().notNull(),
     isShared: boolean('is_shared').notNull().default(false),
     deletedAt: deletedAt(),
   },

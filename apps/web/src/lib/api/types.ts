@@ -1,6 +1,6 @@
 /** Tipos das respostas da API REST v1 consumidas pela interface (contrato em docs/openapi.json). */
 
-import type { FilterGroup } from '@cube-track/shared';
+import type { FilterGroup, ViewGroupBy, ViewSortTerm } from '@cube-track/shared';
 
 export interface SessionUser {
   id: string;
@@ -206,6 +206,12 @@ export interface BoardView {
   name: string;
   type: ViewType;
   ownerId: string | null;
+  /** Específico do tipo (ex.: `KanbanConfig` para `kanban`) — ver `parseViewConfig` em shared. */
+  config: Record<string, unknown>;
+  filters: FilterGroup | null;
+  sort: ViewSortTerm[];
+  groupBy: ViewGroupBy | null;
+  hiddenColumnKeys: string[];
   isDefault: boolean;
   isLocked: boolean;
   isRestricted: boolean;
@@ -217,6 +223,40 @@ export interface BoardView {
 export interface ViewList {
   canManage: boolean;
   data: BoardView[];
+}
+
+export interface ShareLinkSettings {
+  hiddenColumnKeys: string[];
+  allowSearch: boolean;
+}
+
+export interface ShareLinkStatus {
+  exists: boolean;
+  requiresPassword?: boolean;
+  expiresAt?: string | null;
+  revokedAt?: string | null;
+  accessCount?: number;
+  lastAccessedAt?: string | null;
+  settings?: ShareLinkSettings;
+}
+
+export interface ShareLinkResult {
+  /** Em claro — só vem preenchido logo após criar/regenerar; não é recuperável depois. */
+  token: string | null;
+  path: string;
+  requiresPassword: boolean;
+  expiresAt: string | null;
+  settings: ShareLinkSettings;
+}
+
+export interface SavedFilter {
+  id: string;
+  boardId: string;
+  ownerId: string;
+  name: string;
+  filter: FilterGroup;
+  isShared: boolean;
+  mine: boolean;
 }
 
 export interface Item {

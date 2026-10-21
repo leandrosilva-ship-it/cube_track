@@ -8,8 +8,8 @@ Legenda: ✅ concluído · 🟡 aguardando validação · ⏳ pendente · 🔄 e
 | 2   | Banco de dados e tabelas                           | ✅ Concluído            | Monorepo, docker-compose, `packages/db` (88 tabelas + auditoria particionada), RLS, seed PMSP, testes, benchmark                                                                                                              | 0020–0025 |
 | 3   | Backend base                                       | ✅ Concluído            | `apps/api` (auth, multi-tenant, RBAC 5 níveis, REST/GraphQL, realtime, auditoria, arquivos, busca), `apps/worker`, `docs/permissions.md`, `docs/realtime-events.md`, `docs/openapi.json`                                      | 0026–0030 |
 | 4   | Frontend base                                      | ✅ Concluído            | `apps/web` (shell, auth, navegação, board header/abas/toolbar, paleta, PWA), `packages/ui` + Storybook, i18n pt-BR/en/es, cliente realtime, `docs/brand.md`, `docs/frontend-guidelines.md`                                    | 0031–0036 |
-| 5   | Boards, colunas e Tabela                           | 🟡 Aguardando validação | 33 tipos de coluna, fórmulas decimais, colunas calculadas, obrigatoriedade condicional, templates, lixeira, importação/exportação, Tabela virtualizada (50 mil itens) com edição de planilha em tempo real, `docs/columns.md` | 0037–0043 |
-| 6   | Kanban e views salvas                              | ⏳                      | Kanban com raias, filtros/ordenação/agrupamento, views salvas e compartilhadas, link público                                                                                                                                  | —         |
+| 5   | Boards, colunas e Tabela                           | ✅ Concluído            | 33 tipos de coluna, fórmulas decimais, colunas calculadas, obrigatoriedade condicional, templates, lixeira, importação/exportação, Tabela virtualizada (50 mil itens) com edição de planilha em tempo real, `docs/columns.md` | 0037–0043 |
+| 6   | Kanban e views salvas                              | ✅ Concluído            | Views salvas (pessoais/compartilhadas, padrão, duplicar, link público), Kanban com raias/WIP/arrasta-e-solta, `docs/views.md`                                                                                                 | 0044–0047 |
 | 7   | Painel do item                                     | ⏳                      | Atualizações com @menções, respostas, reações, arquivos, log de atividade, subitens, Yjs                                                                                                                                      | —         |
 | 8   | Calendário, Timeline, Gantt e Formulários          | ⏳                      | Views de tempo, dependências, caminho crítico, baselines, formulários públicos                                                                                                                                                | —         |
 | 9   | Dashboards                                         | ⏳                      | Widgets, agregações, Project Health, exportação                                                                                                                                                                               | —         |
@@ -269,3 +269,50 @@ pnpm --filter @cube-track/web test:e2e
 ```
 
 **Próximos passos:** Prompt 6, com Kanban customizável e views salvas (pessoais e compartilhadas, link público).
+
+## Prompt 6 — Resumo
+
+**Feito**
+
+- **Views** (`packages/shared`, `packages/db`, `apps/api`, ADR 0044): registro extensível de tipos de view (`table`, `kanban` implementados; `calendar`, `timeline`, `gantt`, `form`, `map`, `chart`, `files`, `workload`, `dashboard` reservados para views futuras). CRUD completo — criar, renomear, configurar (`config`/`filters`/`sort`/`groupBy`/`hiddenColumnKeys` tipados e validados por Zod conforme o tipo), duplicar (cópia independente: filtros, config e colunas ocultas não são compartilhados com o original), excluir, reordenar.
+  - Views pessoais (visíveis só ao dono) e compartilhadas (board inteiro); no máximo uma padrão por dono/board. Governança (padrão, bloqueada, restrita) exige `view.manage`; dono de view pessoal só edita a própria.
+  - **Filtros salvos** por board, reutilizáveis entre views.
+  - **Link público por view** (ADR 0047): senha opcional (Argon2id), expiração, colunas ocultas herdadas, `allowSearch`; token de sessão próprio (`X-Share-Session`, JWT de 1 h) resolvido por função `SECURITY DEFINER` no Postgres — nunca expõe credenciais de tenant a visitantes anônimos; acesso audita contagem e último uso.
+- **Kanban** (`apps/web/src/features/kanban`, ADR 0045):
+  - Colunas por status, dropdown, pessoa, marcadores ou checkbox; raias por qualquer um desses campos ou por grupo da Tabela.
+  - Cartões configuráveis (campos visíveis, densidade, cor), ocultar colunas vazias.
+  - **Limite de WIP** por coluna: aviso visual acima do limite e bloqueio opcional de novas entradas.
+  - Arrastar e soltar entre colunas/raias com `dnd-kit` (ponteiro e teclado), respeitando transições de status permitidas (ADR 0046) e campos obrigatórios da fase de destino; indicadores em tempo real idênticos aos da Tabela.
+  - Filtros rápidos (busca, pessoa), seleção múltipla com ações em massa (mover, arquivar, excluir), criação rápida por coluna, virtualização vertical por coluna (desativada durante o arraste, já que o `dnd-kit` precisa de todos os itens arrastáveis montados).
+- **Abas de views** (`apps/web/src/features/board`): criar (com tipo e visibilidade pessoal/compartilhada), renomear, duplicar, tornar padrão, excluir e gerenciar o link público, tudo pelo menu de cada aba; aba "Todas as views" para boards com muitas views.
+- **Correção de bug encontrado no caminho:** `updateView` marcava a view como padrão antes de desmarcar a antiga, violando a constraint única `views_board_default_key` (índice único: no máximo uma view padrão por board/dono) — o `UPDATE` que tentava setar o novo padrão falhava com 409 antes que a limpeza do padrão anterior rodasse. Corrigido invertendo a ordem (limpar os outros padrões primeiro); coberto por teste de regressão em `apps/api/test/views.e2e.test.ts`.
+- **Testes:** suíte completa da API com 112 testes (novo: `views.e2e.test.ts`, 7 casos cobrindo CRUD, governança, duplicação, filtros salvos, link público e a correção acima); 39 em `db`; 68 em `web` (novo: `features/kanban/model.test.ts`); 150 em `shared`; 51 em `ui`; 10 em `i18n`; 34 em `worker` — 464 testes automatizados no total. E2E Playwright: 19 specs (1 ignorado — carga de 50 mil itens, requer seed grande), incluindo os dois novos cenários de Kanban (criação com raias + arrasto em tempo real entre dois navegadores; limite de WIP) e o de gerenciamento de views (renomear, duplicar, tornar padrão, link público).
+- **Documentação:** `docs/views.md` (novo), ADRs 0044–0047, `docs/permissions.md` e `docs/realtime-events.md` atualizados.
+
+**Critérios de aceite**
+
+- ✅ **Criar "Kanban por Frente" com raias por grupo em menos de 1 minuto:** testado em E2E (criação da view, troca para Kanban, configuração de raias por grupo).
+- ✅ **Arrastar um cartão atualiza o campo em tempo real na outra view/navegador:** E2E com dois navegadores (arrasto na visão Kanban reflete na Tabela do outro navegador).
+- ✅ **Limite de WIP é respeitado:** coluna acima do limite é destacada; bloqueio opcional testado.
+- ✅ **Duas views permanecem independentes:** duplicar uma view e alterar filtros/config/colunas ocultas da cópia não afeta a original (testado na API).
+
+**Pendências**
+
+- Arrastar para reordenar as abas de views não foi implementado (escopo cortado por tempo); a reordenação de views via API existe (`afterId`/`beforeId`) mas sem UI de drag ainda.
+- "Salvar/Salvar como" filtros/ordenação da Tabela em uma view nova foi mapeado para a ação "Duplicar" existente (semanticamente equivalente: o Kanban já persiste sua config automaticamente a cada mudança). Uma UI dedicada de "salvar como nova view" a partir do estado atual de filtros da Tabela fica para quando os filtros da Tabela also persistirem na view (hoje ficam na sessão, conforme pendência do Prompt 5).
+- O menu "Todas as views" (usado quando o board tem mais de 6 views) ainda só permite trocar e excluir; renomear/duplicar/padrão/link público exigem que a view esteja entre as 6 abas visíveis.
+- Views do tipo `calendar`, `timeline`, `gantt`, `form`, `map`, `chart`, `files`, `workload` e `dashboard` podem ser criadas (registro extensível) mas mostram apenas "Em breve" — implementação nos Prompts 8, 9 e 15.
+
+**Como rodar e testar**
+
+```bash
+pnpm infra:up && pnpm db:reset && pnpm db:seed
+pnpm build
+pnpm --filter @cube-track/api start      # API :3001
+pnpm --filter @cube-track/worker start   # recálculos, lixeira, relay
+pnpm --filter @cube-track/web start      # web :3000 — ana.ribeiro@empresademo.com.br / CubeTrack@2026
+pnpm lint && pnpm typecheck && pnpm test
+pnpm --filter @cube-track/web test:e2e
+```
+
+**Próximos passos:** Prompt 7, com o painel do item (atualizações com @menções, respostas, reações, arquivos, log de atividade, subitens e edição colaborativa via Yjs).

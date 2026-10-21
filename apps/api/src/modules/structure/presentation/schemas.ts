@@ -1,3 +1,11 @@
+import {
+  FilterGroupSchema,
+  KanbanConfigSchema,
+  TableConfigSchema,
+  VIEW_TYPES,
+  ViewGroupBySchema,
+  ViewSortSchema,
+} from '@cube-track/shared';
 import { z } from 'zod';
 
 const name = z.string().trim().min(1).max(120);
@@ -124,25 +132,19 @@ export const FavoriteSchema = z.object({
 });
 export const AddFavoriteBody = FavoriteParams;
 
-export const VIEW_TYPES = [
-  'table',
-  'kanban',
-  'calendar',
-  'timeline',
-  'gantt',
-  'form',
-  'map',
-  'chart',
-  'files',
-  'workload',
-  'dashboard',
-] as const;
+/** `config` é validado por tipo no serviço (`parseViewConfig`); aqui só o shape de transporte. */
+const viewConfig = z.record(z.string(), z.unknown());
 export const ViewSchema = z.object({
   id: z.uuid(),
   boardId: z.uuid(),
   name: z.string(),
   type: z.enum(VIEW_TYPES),
   ownerId: z.uuid().nullable(),
+  config: viewConfig,
+  filters: FilterGroupSchema.nullable(),
+  sort: ViewSortSchema,
+  groupBy: ViewGroupBySchema.nullable(),
+  hiddenColumnKeys: z.array(z.string()),
   isDefault: z.boolean(),
   isLocked: z.boolean(),
   isRestricted: z.boolean(),
@@ -150,12 +152,147 @@ export const ViewSchema = z.object({
   personal: z.boolean(),
   canEdit: z.boolean(),
 });
-export const CreateViewBody = z.object({
-  name,
-  type: z.enum(VIEW_TYPES),
-  personal: z.boolean().optional(),
+export const CreateViewBody = z
+  .object({
+    name,
+    type: z.enum(VIEW_TYPES),
+    personal: z.boolean().optional(),
+    config: viewConfig.optional(),
+    filters: FilterGroupSchema.nullable().optional(),
+    sort: ViewSortSchema.optional(),
+    groupBy: ViewGroupBySchema.nullable().optional(),
+    hiddenColumnKeys: z.array(z.string().max(64)).max(300).optional(),
+  })
+  .strict();
+export const UpdateViewBody = z
+  .object({
+    name: name.optional(),
+    config: viewConfig.optional(),
+    filters: FilterGroupSchema.nullable().optional(),
+    sort: ViewSortSchema.optional(),
+    groupBy: ViewGroupBySchema.nullable().optional(),
+    hiddenColumnKeys: z.array(z.string().max(64)).max(300).optional(),
+    isDefault: z.boolean().optional(),
+    isLocked: z.boolean().optional(),
+    isRestricted: z.boolean().optional(),
+    ...neighbors,
+  })
+  .strict();
+export const DuplicateViewBody = z
+  .object({ name: name.optional(), personal: z.boolean().optional() })
+  .strict();
+
+// ------------------------------------------------------------------ Prompt 6: links públicos ---
+
+const shareToken = z.string().regex(/^[A-Za-z0-9_-]{16,128}$/, 'Token inválido.');
+export const ShareTokenParams = z.object({ token: shareToken });
+const shareSettings = z.object({
+  hiddenColumnKeys: z.array(z.string()),
+  allowSearch: z.boolean(),
 });
-export const UpdateViewBody = z.object({ name: name.optional(), ...neighbors });
+export const ShareLinkBody = z
+  .object({
+    /** `null` remove a senha; ausente mantém a atual. */
+    password: z.string().min(4).max(128).nullable().optional(),
+    expiresAt: z.iso.datetime().nullable().optional(),
+    hiddenColumnKeys: z.array(z.string().max(64)).max(300).optional(),
+    allowSearch: z.boolean().optional(),
+    /** Troca o segredo do link (invalida o anterior); o token só volta na resposta quando `true`. */
+    regenerateToken: z.boolean().optional(),
+  })
+  .strict();
+export const ShareLinkResponse = z.object({
+  token: z.string().nullable(),
+  path: z.string(),
+  requiresPassword: z.boolean(),
+  expiresAt: z.iso.datetime().nullable(),
+  settings: shareSettings,
+});
+export const ShareLinkStatusResponse = z.object({
+  exists: z.boolean(),
+  requiresPassword: z.boolean().optional(),
+  expiresAt: z.iso.datetime().nullable().optional(),
+  revokedAt: z.iso.datetime().nullable().optional(),
+  accessCount: z.number().int().optional(),
+  lastAccessedAt: z.iso.datetime().nullable().optional(),
+  settings: shareSettings.optional(),
+});
+export const PublicShareInfoResponse = z.object({ requiresPassword: z.boolean() });
+export const PublicVerifyBody = z.object({ password: z.string().max(128).optional() }).strict();
+export const PublicVerifyResponse = z.object({
+  shareToken: z.string(),
+  boardId: z.uuid(),
+  viewId: z.uuid(),
+  expiresInSeconds: z.number().int(),
+});
+export const PublicLabelSchema = z.object({
+  id: z.uuid(),
+  label: z.string(),
+  color: z.string(),
+  category: z.string(),
+  position: z.string(),
+});
+export const PublicOptionSchema = z.object({
+  id: z.uuid(),
+  label: z.string(),
+  color: z.string().nullable(),
+  position: z.string(),
+});
+export const PublicColumnSchema = z.object({
+  id: z.uuid(),
+  key: z.string(),
+  type: z.string(),
+  title: z.string(),
+  binding: z.string().nullable(),
+  width: z.number().nullable(),
+  labels: z.array(PublicLabelSchema),
+  options: z.array(PublicOptionSchema),
+});
+export const PublicGroupSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  color: z.string(),
+  position: z.string(),
+});
+export const PublicBoardResponse = z.object({
+  name: z.string(),
+  description: z.string().nullable(),
+  icon: z.string().nullable(),
+  viewType: z.enum(VIEW_TYPES),
+  viewName: z.string(),
+  groups: z.array(PublicGroupSchema),
+  columns: z.array(PublicColumnSchema),
+});
+export const PublicItemSchema = z.object({
+  id: z.uuid(),
+  groupId: z.uuid(),
+  name: z.string(),
+  position: z.string(),
+  values: z.record(z.string(), z.unknown()),
+});
+export const PublicItemsResponse = z.object({
+  data: z.array(PublicItemSchema),
+  truncated: z.boolean(),
+});
+export const PublicItemsQuery = z.object({ q: z.string().max(200).optional() });
+
+// ------------------------------------------------------------------- Prompt 6: filtros salvos ---
+
+export const SavedFilterSchema = z.object({
+  id: z.uuid(),
+  boardId: z.uuid(),
+  ownerId: z.uuid(),
+  name: z.string(),
+  filter: FilterGroupSchema,
+  isShared: z.boolean(),
+  mine: z.boolean(),
+});
+export const CreateSavedFilterBody = z
+  .object({ name, filter: FilterGroupSchema, isShared: z.boolean().optional() })
+  .strict();
+
+// Reexportados para quem valida `config` por tipo fora deste módulo (ex.: duplicação de view).
+export { KanbanConfigSchema, TableConfigSchema };
 
 export const NotificationQuery = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(30),

@@ -1,26 +1,9 @@
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  randomBytes,
-  timingSafeEqual,
-} from 'node:crypto';
+import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
-/** Token aleatório de alta entropia (URL-safe) para links e refresh tokens. */
-export function randomToken(bytes = 32): string {
-  return randomBytes(bytes).toString('base64url');
-}
-
-/** Hash SHA-256 (hex) — tokens nunca são armazenados em claro. */
-export function sha256Hex(value: string): string {
-  return createHash('sha256').update(value).digest('hex');
-}
-
-export function safeEqualHex(a: string, b: string): boolean {
-  const left = Buffer.from(a, 'hex');
-  const right = Buffer.from(b, 'hex');
-  return left.length === right.length && timingSafeEqual(left, right);
-}
+// Geração/hash de token são utilitários genéricos (sem estado de identidade): vivem no núcleo
+// compartilhado (`core/crypto`) para que outros módulos (ex.: links públicos de view) os reusem
+// sem depender da camada de domínio deste módulo.
+export { randomToken, safeEqualHex, sha256Hex } from '../../../core/crypto/secrets.js';
 
 /** Cifra AES-256-GCM: `v1:iv:tag:ciphertext` (base64url). */
 export function encryptSecret(plaintext: string, keyBase64: string): string {

@@ -1,4 +1,5 @@
 import type { Messages } from './pt-BR.js';
+import { kanbanEs } from './kanban.es.js';
 import { tableEs } from './table.es.js';
 
 export const es: Messages = {
@@ -226,6 +227,7 @@ export const es: Messages = {
     rename: { title: 'Renombrar "{name}"' },
   },
   board: {
+    noViews: 'Este tablero todavía no tiene ninguna vista.',
     icon: 'Ícono del tablero',
     markTemplate: 'Usar como plantilla',
     unmarkTemplate: 'Dejar de usar como plantilla',
@@ -276,6 +278,42 @@ export const es: Messages = {
       newName: 'Nueva vista {type}',
       created: 'Vista "{name}" creada.',
       deleteConfirm: '¿Eliminar la vista "{name}"?',
+      duplicate: 'Duplicar',
+      duplicated: 'Vista "{name}" duplicada.',
+      viewActions: 'Acciones de la vista "{name}"',
+      rename: 'Renombrar',
+      renamePrompt: 'Nuevo nombre de la vista',
+      renamed: 'Vista renombrada.',
+      setDefault: 'Marcar como predeterminada',
+      madeDefault: '"{name}" ahora es la vista predeterminada.',
+      dragHint: 'Presiona espacio para tomar una pestaña. Usa las flechas para reordenar. Presiona espacio para soltar, o Esc para cancelar.',
+      moved: '{name} movida.',
+      comingSoon: 'Este tipo de vista todavía no tiene pantalla propia — disponible en un próximo prompt.',
+      shareLink: {
+        title: 'Enlace público',
+        description: 'Quien tenga el enlace puede seguir esta vista sin unirse a la organización, solo lectura.',
+        create: 'Crear enlace público',
+        active: 'Enlace activo',
+        password: 'Contraseña (opcional)',
+        passwordPlaceholder: 'Deja en blanco para no exigir contraseña',
+        expiresAt: 'Expira el (opcional)',
+        hiddenColumns: 'Columnas ocultas en el enlace',
+        allowSearch: 'Permitir búsqueda por nombre',
+        copy: 'Copiar enlace',
+        copied: '¡Enlace copiado!',
+        tokenWarning: 'Cópialo ahora — por seguridad, no volveremos a mostrar este enlace.',
+        regenerate: 'Generar nuevo enlace',
+        regenerateConfirm: 'Generar un nuevo enlace invalida el anterior. ¿Continuar?',
+        revoke: 'Revocar enlace',
+        revokeConfirm: '¿Revocar el enlace público de esta vista? Quien tenga el enlace perderá el acceso.',
+        revoked: 'Enlace revocado.',
+        saved: 'Enlace actualizado.',
+        requiresPassword: 'Exige contraseña',
+        noPassword: 'Sin contraseña',
+        accessCount: '{count, plural, one {# acceso} other {# accesos}}',
+        neverAccessed: 'Todavía sin accesos.',
+        lastAccess: 'Último acceso: {date}',
+      },
       types: {
         table: 'Tabla',
         kanban: 'Kanban',
@@ -333,6 +371,7 @@ export const es: Messages = {
     },
   },
   table: tableEs,
+  kanban: kanbanEs,
   palette: {
     title: 'Paleta de comandos',
     placeholder: 'Buscar tableros, páginas y acciones…',

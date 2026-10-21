@@ -2,6 +2,7 @@
  * Mensagens da interface em pt-BR (idioma padrão e fonte da verdade das chaves).
  * Sintaxe ICU (next-intl): `{name}`, `{count, plural, one {...} other {...}}`.
  */
+import { kanbanPtBR } from './kanban.pt-BR.js';
 import { tablePtBR } from './table.pt-BR.js';
 
 export const ptBR = {
@@ -229,6 +230,7 @@ export const ptBR = {
     rename: { title: 'Renomear "{name}"' },
   },
   board: {
+    noViews: 'Este board ainda não tem nenhuma view.',
     icon: 'Ícone do board',
     markTemplate: 'Usar como modelo',
     unmarkTemplate: 'Deixar de usar como modelo',
@@ -279,6 +281,42 @@ export const ptBR = {
       newName: 'Nova {type}',
       created: 'View "{name}" criada.',
       deleteConfirm: 'Excluir a view "{name}"?',
+      duplicate: 'Duplicar',
+      duplicated: 'View "{name}" duplicada.',
+      viewActions: 'Ações da view "{name}"',
+      rename: 'Renomear',
+      renamePrompt: 'Novo nome da view',
+      renamed: 'View renomeada.',
+      setDefault: 'Tornar padrão',
+      madeDefault: '"{name}" agora é a view padrão.',
+      dragHint: 'Pressione espaço para pegar uma aba. Use as setas para reordenar. Pressione espaço para soltar, ou Esc para cancelar.',
+      moved: '{name} movida.',
+      comingSoon: 'Esta view ainda não tem tela própria — disponível em um próximo prompt.',
+      shareLink: {
+        title: 'Link público',
+        description: 'Quem tiver o link acompanha esta view sem entrar na organização, somente leitura.',
+        create: 'Criar link público',
+        active: 'Link ativo',
+        password: 'Senha (opcional)',
+        passwordPlaceholder: 'Deixe em branco para não exigir senha',
+        expiresAt: 'Expira em (opcional)',
+        hiddenColumns: 'Colunas ocultas no link',
+        allowSearch: 'Permitir busca por nome',
+        copy: 'Copiar link',
+        copied: 'Link copiado!',
+        tokenWarning: 'Copie agora — por segurança, não mostramos este link de novo.',
+        regenerate: 'Gerar novo link',
+        regenerateConfirm: 'Gerar um novo link invalida o anterior. Continuar?',
+        revoke: 'Revogar link',
+        revokeConfirm: 'Revogar o link público desta view? Quem tiver o link perde o acesso.',
+        revoked: 'Link revogado.',
+        saved: 'Link atualizado.',
+        requiresPassword: 'Exige senha',
+        noPassword: 'Sem senha',
+        accessCount: '{count, plural, one {# acesso} other {# acessos}}',
+        neverAccessed: 'Ainda sem acessos.',
+        lastAccess: 'Último acesso: {date}',
+      },
       types: {
         table: 'Tabela',
         kanban: 'Kanban',
@@ -336,6 +374,7 @@ export const ptBR = {
     },
   },
   table: tablePtBR,
+  kanban: kanbanPtBR,
   palette: {
     title: 'Paleta de comandos',
     placeholder: 'Buscar boards, páginas e ações…',

@@ -8,6 +8,7 @@ import { Endpoint, Input } from '../../../core/http/endpoint.js';
 import { IdParams } from '../../../core/http/schemas.js';
 import { WorkspaceSchema } from '../../work/presentation/schemas.js';
 import { InboxService } from '../application/inbox.service.js';
+import { ShareLinksService } from '../application/share-links.service.js';
 import { StructureService } from '../application/structure.service.js';
 import * as S from './schemas.js';
 
@@ -18,6 +19,7 @@ export class StructureController {
   constructor(
     private readonly structure: StructureService,
     private readonly inbox: InboxService,
+    private readonly shareLinks: ShareLinksService,
   ) {}
 
   @Post('workspaces')
@@ -236,6 +238,108 @@ export class StructureController {
   })
   async deleteView(@CurrentPrincipal() user: AuthPrincipal, @Input('params') params: Id) {
     await this.structure.deleteView(user, params.id);
+  }
+
+  @Post('views/:id/duplicate')
+  @Audited({ action: 'view.duplicate', entityType: 'view' })
+  @Endpoint({
+    summary: 'Duplicar view (filtros, ordenação, agrupamento e configuração copiados)',
+    tags: ['views'],
+    status: 201,
+    params: IdParams,
+    body: S.DuplicateViewBody,
+    response: S.ViewSchema,
+  })
+  duplicateView(
+    @CurrentPrincipal() user: AuthPrincipal,
+    @Input('params') params: Id,
+    @Input('body') body: z.infer<typeof S.DuplicateViewBody>,
+  ) {
+    return this.structure.duplicateView(user, params.id, body);
+  }
+
+  @Get('views/:id/share-link')
+  @Endpoint({
+    summary: 'Status do link público da view (exige board.share)',
+    tags: ['views'],
+    params: IdParams,
+    response: S.ShareLinkStatusResponse,
+  })
+  shareLinkStatus(@CurrentPrincipal() user: AuthPrincipal, @Input('params') params: Id) {
+    return this.shareLinks.status(user, params.id);
+  }
+
+  @Put('views/:id/share-link')
+  @Audited({ action: 'share_link.update', entityType: 'share_link' })
+  @Endpoint({
+    summary: 'Cria ou atualiza o link público da view (senha e expiração opcionais)',
+    tags: ['views'],
+    params: IdParams,
+    body: S.ShareLinkBody,
+    response: S.ShareLinkResponse,
+  })
+  upsertShareLink(
+    @CurrentPrincipal() user: AuthPrincipal,
+    @Input('params') params: Id,
+    @Input('body') body: z.infer<typeof S.ShareLinkBody>,
+  ) {
+    return this.shareLinks.upsert(user, params.id, body);
+  }
+
+  @Delete('views/:id/share-link')
+  @Audited({ action: 'share_link.revoke', entityType: 'share_link' })
+  @Endpoint({
+    summary: 'Revoga o link público da view',
+    tags: ['views'],
+    status: 204,
+    params: IdParams,
+  })
+  async revokeShareLink(@CurrentPrincipal() user: AuthPrincipal, @Input('params') params: Id) {
+    await this.shareLinks.revoke(user, params.id);
+  }
+
+  @Get('boards/:boardId/saved-filters')
+  @Endpoint({
+    summary: 'Filtros salvos do board visíveis ao usuário (pessoais e compartilhados)',
+    tags: ['views'],
+    params: S.BoardParams,
+    response: z.object({ data: z.array(S.SavedFilterSchema) }),
+  })
+  async savedFilters(
+    @CurrentPrincipal() user: AuthPrincipal,
+    @Input('params') params: z.infer<typeof S.BoardParams>,
+  ) {
+    return { data: await this.structure.listSavedFilters(user, params.boardId) };
+  }
+
+  @Post('boards/:boardId/saved-filters')
+  @Audited({ action: 'saved_filter.create', entityType: 'saved_filter' })
+  @Endpoint({
+    summary: 'Criar filtro salvo (compartilhado exige view.manage; pessoal exige leitura)',
+    tags: ['views'],
+    status: 201,
+    params: S.BoardParams,
+    body: S.CreateSavedFilterBody,
+    response: S.SavedFilterSchema,
+  })
+  createSavedFilter(
+    @CurrentPrincipal() user: AuthPrincipal,
+    @Input('params') params: z.infer<typeof S.BoardParams>,
+    @Input('body') body: z.infer<typeof S.CreateSavedFilterBody>,
+  ) {
+    return this.structure.createSavedFilter(user, params.boardId, body);
+  }
+
+  @Delete('saved-filters/:id')
+  @Audited({ action: 'saved_filter.delete', entityType: 'saved_filter' })
+  @Endpoint({
+    summary: 'Excluir filtro salvo (dono ou quem gerencia views do board)',
+    tags: ['views'],
+    status: 204,
+    params: IdParams,
+  })
+  async deleteSavedFilter(@CurrentPrincipal() user: AuthPrincipal, @Input('params') params: Id) {
+    await this.structure.deleteSavedFilter(user, params.id);
   }
 
   @Get('me/notifications')

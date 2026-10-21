@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, EmptyState, Skeleton } from '@cube-track/ui';
-import { ShieldAlert } from 'lucide-react';
+import { LayoutGrid, ShieldAlert } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useEffect, useRef } from 'react';
 
@@ -10,9 +10,10 @@ import { isApiError } from '@/lib/api/errors';
 import { rememberBoard } from '@/lib/recent-boards';
 import { useBoardRealtime, useRealtimeClient } from '@/realtime/provider';
 
-import { TableView } from '../table/table-view';
+import { RequiredFieldsDialog } from '../table/required-dialog';
 import { BoardHeader } from './board-header';
 import { useBoard, useViews } from './hooks';
+import { BoardViewBody } from './view-body';
 import { ViewTabs } from './view-tabs';
 
 export function BoardPage({
@@ -97,7 +98,14 @@ export function BoardPage({
         activeViewId={activeView?.id ?? null}
         canManage={views.data?.canManage ?? false}
       />
-      <TableView key={boardId} board={detail} searchRef={searchRef} />
+      {activeView === undefined ? (
+        <div className="p-6">
+          <EmptyState icon={<LayoutGrid aria-hidden="true" />} title={t('noViews')} />
+        </div>
+      ) : (
+        <BoardViewBody board={detail} view={activeView} searchRef={searchRef} />
+      )}
+      <RequiredFieldsDialog />
     </div>
   );
 }

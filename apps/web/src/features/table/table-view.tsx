@@ -81,7 +81,6 @@ import {
   type TableRow,
 } from './model';
 import { MoveDialog, type MoveTarget } from './move-dialog';
-import { RequiredFieldsDialog } from './required-dialog';
 import { TrashDialog } from './trash-dialog';
 import { redo, undo, useUndoAvailability } from './undo';
 
@@ -844,7 +843,6 @@ export function TableView({
         />
       ) : null}
 
-      <RequiredFieldsDialog />
       <ConfirmDialog
         confirm={confirm}
         onClose={() => {

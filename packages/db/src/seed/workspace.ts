@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { initialPositions, newId } from '@cube-track/shared';
+import { initialPositions, newId, type FilterGroup } from '@cube-track/shared';
 import { sql } from 'drizzle-orm';
 
 import {
@@ -478,7 +478,7 @@ export async function seedPmspExperience(
             value: [frenteId('Mapeamento e Redesenho')],
           },
         ],
-      },
+      } satisfies FilterGroup,
     },
     {
       name: 'Cronograma',
@@ -502,7 +502,7 @@ export async function seedPmspExperience(
           { field: 'c_termino_planejado', operator: 'before', value: 'today' },
           { field: 'c_status', operator: 'none_of', value: [statusId('Concluído')] },
         ],
-      },
+      } satisfies FilterGroup,
     },
     {
       name: 'A faturar',
@@ -514,7 +514,7 @@ export async function seedPmspExperience(
           { field: 'c_status', operator: 'any_of', value: [statusId('Concluído')] },
           { field: 'c_faturamento', operator: 'is_empty' },
         ],
-      },
+      } satisfies FilterGroup,
     },
   ];
   const viewPositions = initialPositions(viewSpecs.length);
@@ -544,7 +544,7 @@ export async function seedPmspExperience(
     filters: {
       op: 'and',
       conditions: [{ field: 'c_responsaveis', operator: 'any_of', value: ['me'] }],
-    },
+    } satisfies FilterGroup,
     position: initialPositions(1)[0] ?? 'a0',
     createdBy: userId(ctx, 'juliana'),
   });
@@ -559,7 +559,7 @@ export async function seedPmspExperience(
         { field: 'group_id', operator: 'any_of', value: [pmsp.groupIds.andamento] },
         { field: 'c_termino_replanejado', operator: 'is_empty' },
       ],
-    },
+    } satisfies FilterGroup,
     isShared: true,
     createdBy: userId(ctx, 'carlos'),
   });
@@ -1297,6 +1297,38 @@ export async function seedOtherBoards(
     },
     createdBy,
   });
+
+  // Todo board precisa de ao menos a view padrão (Tabela) — estes três não vêm de um template.
+  const defaultViewPositions = initialPositions(3);
+  await tx.insert(views).values([
+    {
+      tenantId,
+      boardId: backlogBoardId,
+      name: 'Tabela',
+      type: 'table',
+      isDefault: true,
+      position: defaultViewPositions[0] ?? 'a0',
+      createdBy,
+    },
+    {
+      tenantId,
+      boardId: processBoardId,
+      name: 'Tabela',
+      type: 'table',
+      isDefault: true,
+      position: defaultViewPositions[1] ?? 'a1',
+      createdBy,
+    },
+    {
+      tenantId,
+      boardId: templateBoardId,
+      name: 'Tabela',
+      type: 'table',
+      isDefault: true,
+      position: defaultViewPositions[2] ?? 'a2',
+      createdBy,
+    },
+  ]);
 
   return { backlogBoardId, processBoardId };
 }

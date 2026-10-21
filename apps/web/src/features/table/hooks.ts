@@ -185,12 +185,18 @@ export function useWorkspaceBoards(workspaceId: string, enabled: boolean) {
 export interface ItemWrite {
   item: Item;
   name?: string;
+  /** Mover para outro grupo/raia (usado pelo Kanban ao arrastar entre raias). */
+  groupId?: string;
+  /** Reordenar entre vizinhos (usado pelo Kanban ao arrastar dentro da mesma coluna/raia). */
+  position?: { afterId?: string; beforeId?: string };
   values: Record<string, Record<string, unknown> | null>;
 }
 
 interface WireUpdate {
   id: string;
   name?: string;
+  groupId?: string;
+  position?: { afterId?: string; beforeId?: string };
   values?: Record<string, unknown>;
   fields?: Record<string, string | null>;
   baseVersions?: Record<string, number>;
@@ -203,6 +209,7 @@ function columnMap(board: BoardDetail): Map<string, BoardColumn> {
 function applyWrite(board: BoardDetail, write: ItemWrite): Item {
   const columns = columnMap(board);
   let next = write.name === undefined ? write.item : { ...write.item, name: write.name };
+  if (write.groupId !== undefined) next = { ...next, groupId: write.groupId };
   for (const [key, value] of Object.entries(write.values)) {
     const column = columns.get(key);
     if (column !== undefined) next = applyCellWrite(next, column, value);
@@ -224,9 +231,12 @@ function toWire(board: BoardDetail, write: ItemWrite, conditional: boolean): Wir
     if (part.values !== undefined) baseVersions[key] = write.item.fieldVersions[key] ?? 0;
   }
   if (write.name !== undefined) baseVersions.name = write.item.fieldVersions.name ?? 0;
+  if (write.groupId !== undefined) baseVersions.group_id = write.item.fieldVersions.group_id ?? 0;
   return {
     id: write.item.id,
     ...(write.name === undefined ? {} : { name: write.name }),
+    ...(write.groupId === undefined ? {} : { groupId: write.groupId }),
+    ...(write.position === undefined ? {} : { position: write.position }),
     ...(Object.keys(values).length === 0 ? {} : { values }),
     ...(Object.keys(fields).length === 0 ? {} : { fields }),
     ...(conditional ? { baseVersions } : {}),
@@ -245,6 +255,7 @@ function inverseOf(board: BoardDetail, write: ItemWrite): ItemWrite {
   return {
     item: applyWrite(board, write),
     ...(write.name === undefined ? {} : { name: write.item.name }),
+    ...(write.groupId === undefined ? {} : { groupId: write.item.groupId }),
     values,
   };
 }

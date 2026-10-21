@@ -26,6 +26,8 @@ export const qk = {
   board: (boardId: string) => ['boards', boardId] as const,
   boardDetail: (boardId: string) => ['boards', boardId, 'detail'] as const,
   views: (boardId: string) => ['boards', boardId, 'views'] as const,
+  shareLink: (viewId: string) => ['views', viewId, 'share-link'] as const,
+  savedFilters: (boardId: string) => ['boards', boardId, 'saved-filters'] as const,
   items: (boardId: string) => ['boards', boardId, 'items'] as const,
   itemList: (boardId: string, params: ItemListParams) =>
     ['boards', boardId, 'items', params] as const,

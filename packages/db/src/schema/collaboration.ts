@@ -14,6 +14,10 @@ import {
 
 import {
   actorKind,
+  approvalDecision,
+  approvalMode,
+  approvalRequestStatus,
+  collabSource,
   followEntity,
   mentionSource,
   mentionTarget,
@@ -36,7 +40,13 @@ export const updates = tenantTable(
     body: jsonb('body').$type<Record<string, unknown>>().notNull(),
     bodyText: text('body_text').notNull(),
     isPinned: boolean('is_pinned').notNull().default(false),
+    source: collabSource('source').notNull().default('app'),
     editedAt: timestamp('edited_at', { withTimezone: true }),
+    /** Versões anteriores do corpo (histórico de edição, mais recente por último). */
+    editHistory: jsonb('edit_history')
+      .$type<{ body: Record<string, unknown>; bodyText: string; editedAt: string }[]>()
+      .notNull()
+      .default([]),
     deletedAt: deletedAt(),
   },
   (t) => [
@@ -57,7 +67,12 @@ export const replies = tenantTable(
     authorId: uuid('author_id').references(() => users.id, { onDelete: 'set null' }),
     body: jsonb('body').$type<Record<string, unknown>>().notNull(),
     bodyText: text('body_text').notNull(),
+    source: collabSource('source').notNull().default('app'),
     editedAt: timestamp('edited_at', { withTimezone: true }),
+    editHistory: jsonb('edit_history')
+      .$type<{ body: Record<string, unknown>; bodyText: string; editedAt: string }[]>()
+      .notNull()
+      .default([]),
     deletedAt: deletedAt(),
   },
   (t) => [
@@ -239,6 +254,54 @@ export const follows = tenantTable(
   (t) => [
     uniqueIndex('follows_user_entity_key').on(t.tenantId, t.userId, t.entityType, t.entityId),
     index('follows_entity_idx').on(t.tenantId, t.entityType, t.entityId),
+  ],
+);
+
+/**
+ * Pedido de aprovação de um item a um ou mais aprovadores (ADR 0048). `mode` define a regra de
+ * resolução: `all` exige aprovação de todos (uma rejeição já resolve `rejected`); `any` resolve
+ * `approved` na primeira aprovação (só vira `rejected` se todos rejeitarem). A decisão de cada
+ * aprovador fica em `approval_approvers`.
+ */
+export const approvalRequests = tenantTable(
+  'approval_requests',
+  {
+    boardId: uuid('board_id').notNull(),
+    itemId: uuid('item_id').notNull(),
+    requestedBy: uuid('requested_by').references(() => users.id, { onDelete: 'set null' }),
+    mode: approvalMode('mode').notNull().default('any'),
+    note: text('note'),
+    status: approvalRequestStatus('status').notNull().default('pending'),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  },
+  (t) => [
+    tenantFk('approval_requests', t.tenantId, t.boardId, boards),
+    tenantFk('approval_requests', t.tenantId, t.itemId, items),
+    index('approval_requests_item_created_idx').on(t.itemId, t.createdAt),
+    index('approval_requests_item_pending_idx')
+      .on(t.itemId)
+      .where(sql`${t.status} = 'pending'`),
+  ],
+);
+
+/** Aprovador designado de um pedido e sua decisão (`decision` nulo = ainda não decidiu). */
+export const approvalApprovers = tenantTable(
+  'approval_approvers',
+  {
+    requestId: uuid('request_id').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    decision: approvalDecision('decision'),
+    comment: text('comment'),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+  },
+  (t) => [
+    tenantFk('approval_approvers', t.tenantId, t.requestId, approvalRequests),
+    uniqueIndex('approval_approvers_request_user_key').on(t.requestId, t.userId),
+    index('approval_approvers_user_pending_idx')
+      .on(t.tenantId, t.userId)
+      .where(sql`${t.decidedAt} is null`),
   ],
 );
 

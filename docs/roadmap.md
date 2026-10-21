@@ -10,7 +10,7 @@ Legenda: ✅ concluído · 🟡 aguardando validação · ⏳ pendente · 🔄 e
 | 4   | Frontend base                                      | ✅ Concluído            | `apps/web` (shell, auth, navegação, board header/abas/toolbar, paleta, PWA), `packages/ui` + Storybook, i18n pt-BR/en/es, cliente realtime, `docs/brand.md`, `docs/frontend-guidelines.md`                                    | 0031–0036 |
 | 5   | Boards, colunas e Tabela                           | ✅ Concluído            | 33 tipos de coluna, fórmulas decimais, colunas calculadas, obrigatoriedade condicional, templates, lixeira, importação/exportação, Tabela virtualizada (50 mil itens) com edição de planilha em tempo real, `docs/columns.md` | 0037–0043 |
 | 6   | Kanban e views salvas                              | ✅ Concluído            | Views salvas (pessoais/compartilhadas, padrão, duplicar, link público), Kanban com raias/WIP/arrasta-e-solta, `docs/views.md`                                                                                                 | 0044–0047 |
-| 7   | Painel do item                                     | ⏳                      | Atualizações com @menções, respostas, reações, arquivos, log de atividade, subitens, Yjs                                                                                                                                      | —         |
+| 7   | Painel do item                                     | ✅ Concluído            | Drawer com deep link, abas (Atualizações com @menções e resposta por e-mail, Arquivos, Atividade, Campos, Checklist, Dependências, Aprovações, Seguir), presença e navegação anterior/próximo, `docs/item-panel.md`           | 0048      |
 | 8   | Calendário, Timeline, Gantt e Formulários          | ⏳                      | Views de tempo, dependências, caminho crítico, baselines, formulários públicos                                                                                                                                                | —         |
 | 9   | Dashboards                                         | ⏳                      | Widgets, agregações, Project Health, exportação                                                                                                                                                                               | —         |
 | 10  | Automações, Processos e Notificações               | ⏳                      | Motor de regras, fases com SLA, workflows, inbox, e-mail                                                                                                                                                                      | —         |
@@ -316,3 +316,46 @@ pnpm --filter @cube-track/web test:e2e
 ```
 
 **Próximos passos:** Prompt 7, com o painel do item (atualizações com @menções, respostas, reações, arquivos, log de atividade, subitens e edição colaborativa via Yjs).
+
+## Prompt 7 — Resumo
+
+**Feito**
+
+- **Atualizações, respostas e reações** (`apps/api/src/modules/collaboration`, ADR 0048): corpo em Tiptap (JSON), @menções a usuário/time/"todos" (`packages/shared/src/richtext.ts`), histórico de edição, fixar/desafixar, reações por emoji, respostas em thread. Notificação in-app + e-mail (reaproveita o processador de notificações do worker, já existente desde o Prompt 3, generalizado para `reply.created` e `approval.changed`).
+- **Resposta por e-mail**: cada notificação de menção leva um endereço de resposta assinado por HMAC (`reply+<payload>.<hmac>@<domínio>`); responder a ele chama o webhook público `POST /v1/email/inbound` (autenticado por segredo de servidor, não por login) e grava a resposta/atualização com `source: 'email'`, removendo a citação do corpo.
+- **Arquivos** (`apps/api/src/modules/files`, estendido): histórico de versões, download de uma versão específica, exclusão; evento `attachment.changed` passou a ser emitido no upload (antes só auditava). Frontend: arraste-e-solte, pré-visualização de imagem/PDF, envio de nova versão.
+- **Log de atividade**: leitura com filtros por usuário, coluna e período — reaproveita a mesma tabela `activity_logs` que todas as escritas do sistema já gravavam.
+- **Checklists**: múltiplos por item, progresso calculado na leitura, posição por fractional index.
+- **Seguir** o item (lista de seguidores) e **aprovações** (um ou mais aprovadores, modo "todos" ou "qualquer um", histórico de decisões) — ambos novos.
+- **Dependências**: a aba reaproveita o `DependencyEditor` e as rotas de dependências do Prompt 5 (detecção de ciclo no grafo inteiro do board) em vez de duplicá-los; só acrescenta a lista de sucessoras. Itens relacionados (colunas de relação) já ficam editáveis na aba Campos, reaproveitando `ValueEditor`/`ValueField` da Tabela.
+- **Painel do item** (`apps/web/src/features/collaboration`): drawer com URL própria (`?item=<id>`), sete abas, presença (`rooms.item`), navegação anterior/próximo pela ordem visível da view atual (Tabela ou Kanban publicam a ordem numa store efêmera), indicadores de não lidas/anexos atualizados em tempo real sem recarregar. Entradas: ícone "Abrir" na Tabela, clique no cartão do Kanban.
+- **Eventos realtime novos**: `update.created/changed`, `reply.created/changed`, `reaction.changed`, `attachment.changed`, `checklist.changed`, `approval.changed` — entregues pela mesma infraestrutura de fanout por item do Prompt 5 (já suportava entrega dupla board+item); só o cliente precisou passar a assinar a room do item.
+- **Testes:** `apps/api/test/collaboration.e2e.test.ts` (13 casos: atualizações/edição/histórico/fixar/exclusão com permissão, respostas, reações, atividade com filtros, checklists, dependências via rotas existentes, seguir, aprovações nos dois modos, webhook de e-mail) — suíte da API em 137 testes. Worker em 40 testes (+3: menção em resposta, aprovação solicitada/resolvida). `packages/shared` em 163 testes (+13: `richtext`, `mail-reply`). `apps/web` em 78 testes (+10: candidatos de @menção, eventos realtime do painel). E2E Playwright: novo `item-panel.spec.ts` (5 cenários — deep link e abas, @menção com notificação em tempo real entre dois navegadores, log de atividade, progresso do checklist, aprovação pedida e decidida em tempo real entre dois navegadores).
+- **Documentação:** `docs/item-panel.md` (novo), ADR 0048, `docs/permissions.md` e `docs/realtime-events.md` atualizados.
+
+**Critérios de aceite**
+
+- ✅ **Uma menção gera notificação em tempo real e por e-mail:** worker notifica in-app (`notification.created`) e envia e-mail imediato com endereço de resposta próprio; coberto em `apps/worker/test/processors.e2e.test.ts` e no E2E de dois navegadores.
+- ✅ **Uma resposta por e-mail aparece como atualização no item:** validado no nível de API (`apps/api/test/collaboration.e2e.test.ts`, webhook assinado) — sem cliente de e-mail real disponível no ambiente de teste, não há E2E de navegador para este fluxo específico (documentado como escopo cortado).
+- ✅ **O log registra 100% das mudanças de campo:** toda escrita do sistema já gravava `activity_logs` na mesma transação (`DomainEvents.recordChange`); o painel só lê essa mesma fonte — testado com o campo nativo `name` e com `checklist_item.toggle`/`file.uploaded`/`approval.decide`.
+
+**Pendências**
+
+- Menção a **time** tem schema e domínio prontos, mas a UI de sugestão só lista usuários e "todos" — falta a tela de gestão de times no frontend (fora do escopo deste prompt).
+- Edição colaborativa via **Yjs/Hocuspocus** (prevista na ADR 0007) foi adiada: atualizações/respostas são postagens atômicas, não documentos compartilhados de longa duração, então não precisam de CRDT nesta entrega; fica reservada para um futuro campo de texto longo editado por várias pessoas ao mesmo tempo.
+- Pré-visualização de arquivos Office (Word/Excel/PowerPoint) não foi implementada — só download; imagem e PDF têm pré-visualização embutida.
+- E2E do fluxo de resposta por e-mail não existe no nível de navegador (ver critério de aceite acima).
+
+**Como rodar e testar**
+
+```bash
+pnpm infra:up && pnpm db:reset && pnpm db:seed
+pnpm build
+pnpm --filter @cube-track/api start      # API :3001
+pnpm --filter @cube-track/worker start   # notificações, menções, antivírus, recálculos
+pnpm --filter @cube-track/web start      # web :3000 — ana.ribeiro@empresademo.com.br / CubeTrack@2026
+pnpm lint && pnpm typecheck && pnpm test
+pnpm --filter @cube-track/web test:e2e -- item-panel.spec.ts
+```
+
+**Próximos passos:** Prompt 8, com Calendário, Timeline, Gantt (dependências, caminho crítico, baselines) e Formulários públicos.

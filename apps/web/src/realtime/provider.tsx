@@ -98,3 +98,12 @@ export function useBoardRealtime(
     if (client !== null && seq !== undefined) client.setBaseline(boardId, seq);
   }, [client, boardId, seq]);
 }
+
+/** Assina a presença da room de um item (quem tem o painel aberto) enquanto montado. */
+export function useItemRealtime(itemId: string | null): void {
+  const client = useRealtimeClient();
+  useEffect(() => {
+    if (client === null || itemId === null) return undefined;
+    return client.watchItem(itemId);
+  }, [client, itemId]);
+}

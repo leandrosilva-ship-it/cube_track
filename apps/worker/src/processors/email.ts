@@ -61,6 +61,14 @@ const TEMPLATES: Record<
     lines: [`${data.actor ?? 'Alguém'} mencionou você:`, `“${data.excerpt ?? ''}”`],
     action: { label: 'Ver atualização', url: data.link ?? '' },
   }),
+  approval_requested: (data) => ({
+    subject: `${data.requester ?? 'Alguém'} pediu sua aprovação em "${data.item ?? ''}"`,
+    lines: [
+      `${data.requester ?? 'Alguém'} pediu sua aprovação para "${data.item ?? ''}".`,
+      ...(data.note === undefined || data.note === '' ? [] : [`Observação: “${data.note}”`]),
+    ],
+    action: { label: 'Ver pedido de aprovação', url: data.link ?? '' },
+  }),
 };
 
 /** Renderiza o e-mail (texto e HTML com escape de todo conteúdo dinâmico). */
@@ -93,6 +101,7 @@ export function emailProcessor(mailer: Transporter, from: string) {
     const info = (await mailer.sendMail({
       from,
       to: email.to,
+      ...(email.replyTo === undefined ? {} : { replyTo: email.replyTo }),
       subject: rendered.subject,
       text: rendered.text,
       html: rendered.html,

@@ -28,6 +28,7 @@ export const EMAIL_TEMPLATES = [
   'email_verification',
   'invitation',
   'mention',
+  'approval_requested',
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
@@ -36,6 +37,8 @@ export const EmailJobSchema = z.object({
   template: z.enum(EMAIL_TEMPLATES),
   locale: z.string().default('pt-BR'),
   data: z.record(z.string(), z.string()),
+  /** Endereço de resposta por e-mail do item (ADR 0048) — ausente quando não há item associado. */
+  replyTo: z.string().optional(),
 });
 export type EmailJob = z.infer<typeof EmailJobSchema>;
 
@@ -125,4 +128,6 @@ export const EVENT_CONSUMERS: Record<string, readonly QueueName[]> = {
   'column.updated': [QUEUES.computed],
   'board.updated': [QUEUES.searchIndex],
   'update.created': [QUEUES.searchIndex, QUEUES.notifications],
+  'reply.created': [QUEUES.notifications],
+  'approval.changed': [QUEUES.notifications],
 };

@@ -2,6 +2,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
 
 import { qk } from '@/lib/query/keys';
+import { sessionStore } from '@/stores/session';
 
 import { BOARD_ID, makeEvent, makeItem, pagesOf } from '../../test/fixtures';
 import { applyItemChanges, applyRealtimeEvent, insertItem, type ItemPages } from './apply';
@@ -14,6 +15,19 @@ const context = () => ({
 
 function seed(queryClient: QueryClient, params: object, data: ItemPages) {
   queryClient.setQueryData(qk.itemList(BOARD_ID, params), data);
+}
+
+type QueryKeyPredicate = (query: { queryKey: readonly unknown[] }) => boolean;
+
+/** Algum `invalidateQueries({ predicate })` da chamada espiada bate com esta chave? */
+function invalidatedByPredicate(
+  invalidate: { mock: { calls: unknown[][] } },
+  queryKey: readonly unknown[],
+): boolean {
+  return invalidate.mock.calls.some((args) => {
+    const filters = args[0] as { predicate?: QueryKeyPredicate } | undefined;
+    return filters?.predicate?.({ queryKey }) === true;
+  });
 }
 
 describe('applyItemChanges (LWW por campo)', () => {
@@ -225,5 +239,111 @@ describe('Prompt 5: subitens, estrutura e destaque', () => {
       context(),
     );
     expect(spy).toHaveBeenLastCalledWith({ queryKey: qk.board(BOARD_ID) });
+  });
+});
+
+describe('Prompt 7: painel do item (atualizações, arquivos, checklists, aprovações)', () => {
+  it('update.created invalida o feed e incrementa updates/unreadUpdates do indicador', () => {
+    const queryClient = new QueryClient();
+    const item = makeItem({ indicators: { subitems: 0, attachments: 0, updates: 2, unreadUpdates: 0 } });
+    seed(queryClient, {}, pagesOf([item]));
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('update.created', { updateId: 'u1', itemId: item.id, authorId: 'other-user', bodyText: 'Oi' }),
+      context(),
+    );
+    const updated = queryClient.getQueryData<ItemPages>(qk.itemList(BOARD_ID, {}))?.pages[0]?.data[0];
+    expect(updated?.indicators).toEqual({ subitems: 0, attachments: 0, updates: 3, unreadUpdates: 1 });
+    expect(invalidatedByPredicate(invalidate, qk.updates(item.id))).toBe(true);
+  });
+
+  it('update.created não marca como não lida quando o autor é o próprio usuário', () => {
+    const queryClient = new QueryClient();
+    const item = makeItem({ indicators: { subitems: 0, attachments: 0, updates: 0, unreadUpdates: 0 } });
+    seed(queryClient, {}, pagesOf([item]));
+    const me = sessionStore.getState().user?.id ?? null;
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('update.created', { updateId: 'u1', itemId: item.id, authorId: me, bodyText: 'Oi' }),
+      context(),
+    );
+    const updated = queryClient.getQueryData<ItemPages>(qk.itemList(BOARD_ID, {}))?.pages[0]?.data[0];
+    expect(updated?.indicators?.unreadUpdates).toBe(0);
+  });
+
+  it('attachment.changed ajusta o indicador de anexos conforme uploaded/deleted', () => {
+    const queryClient = new QueryClient();
+    const item = makeItem({ indicators: { subitems: 0, attachments: 1, updates: 0, unreadUpdates: 0 } });
+    seed(queryClient, {}, pagesOf([item]));
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('attachment.changed', { attachmentId: 'a1', itemId: item.id, change: 'uploaded' }),
+      context(),
+    );
+    expect(
+      queryClient.getQueryData<ItemPages>(qk.itemList(BOARD_ID, {}))?.pages[0]?.data[0]?.indicators
+        ?.attachments,
+    ).toBe(2);
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('attachment.changed', { attachmentId: 'a1', itemId: item.id, change: 'deleted' }),
+      context(),
+    );
+    expect(
+      queryClient.getQueryData<ItemPages>(qk.itemList(BOARD_ID, {}))?.pages[0]?.data[0]?.indicators
+        ?.attachments,
+    ).toBe(1);
+  });
+
+  it('reply.created invalida o feed de atualizações e as respostas do update', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('reply.created', { replyId: 'r1', updateId: 'u1', itemId: 'i1', authorId: 'u', bodyText: 'Oi' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.replies('u1') });
+  });
+
+  it('checklist.changed e approval.changed invalidam suas próprias chaves e a atividade', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('checklist.changed', { itemId: 'i1', checklistId: 'c1' }),
+      context(),
+    );
+    expect(invalidatedByPredicate(invalidate, qk.checklists('i1'))).toBe(true);
+    expect(invalidatedByPredicate(invalidate, qk.activity('i1', {}))).toBe(true);
+
+    invalidate.mockClear();
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('approval.changed', { requestId: 'a1', itemId: 'i1', status: 'approved', requestedBy: 'u' }),
+      context(),
+    );
+    expect(invalidatedByPredicate(invalidate, qk.approvals('i1'))).toBe(true);
+  });
+
+  it('item.updated também atualiza o cache individual do item (`qk.item`) e item.deleted invalida', () => {
+    const queryClient = new QueryClient();
+    const item = makeItem();
+    queryClient.setQueryData(qk.item(item.id), item);
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('item.updated', {
+        itemId: item.id,
+        version: 2,
+        changes: [{ field: 'name', kind: 'native', value: 'Novo nome', version: 2 }],
+      }),
+      context(),
+    );
+    expect(queryClient.getQueryData<typeof item>(qk.item(item.id))?.name).toBe('Novo nome');
+
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(queryClient, makeEvent('item.deleted', { itemId: item.id }), context());
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.item(item.id) });
   });
 });

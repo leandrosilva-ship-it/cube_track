@@ -89,6 +89,16 @@ export const notificationFrequency = pgEnum('notification_frequency', [
   'never',
 ]);
 export const followEntity = pgEnum('follow_entity', ['board', 'item', 'dashboard']);
+export const approvalMode = pgEnum('approval_mode', ['all', 'any']);
+export const approvalRequestStatus = pgEnum('approval_request_status', [
+  'pending',
+  'approved',
+  'rejected',
+  'cancelled',
+]);
+export const approvalDecision = pgEnum('approval_decision', ['approved', 'rejected']);
+/** Origem de uma atualização/resposta: criada no app ou importada de uma resposta por e-mail. */
+export const collabSource = pgEnum('collab_source', ['app', 'email']);
 
 // Planejamento
 export const dependencyType = pgEnum('dependency_type', ['FS', 'SS', 'FF', 'SF']);

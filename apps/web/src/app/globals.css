@@ -21,3 +21,59 @@
     animation: none;
   }
 }
+
+/* Corpo rico (Tiptap): atualizações, respostas e descrição do item (ADR 0048). */
+.prose-cube {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--ct-text);
+}
+.prose-cube p {
+  margin: 0.25rem 0;
+}
+.prose-cube p:first-child {
+  margin-top: 0;
+}
+.prose-cube p:last-child {
+  margin-bottom: 0;
+}
+.prose-cube ul,
+.prose-cube ol {
+  margin: 0.25rem 0;
+  padding-inline-start: 1.25rem;
+}
+.prose-cube ul {
+  list-style: disc;
+}
+.prose-cube ol {
+  list-style: decimal;
+}
+.prose-cube a {
+  color: var(--ct-primary);
+  text-decoration: underline;
+}
+.prose-cube strong {
+  font-weight: 600;
+}
+.prose-cube code {
+  background: var(--ct-surface-hover);
+  border-radius: 0.25rem;
+  padding: 0.0625rem 0.3rem;
+  font-size: 0.8125em;
+}
+.prose-cube blockquote {
+  border-inline-start: 2px solid var(--ct-border);
+  padding-inline-start: 0.75rem;
+  color: var(--ct-text-muted);
+}
+.prose-cube .mention {
+  font-weight: 500;
+  white-space: nowrap;
+}
+.prose-cube p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: inline-start;
+  color: var(--ct-text-muted);
+  pointer-events: none;
+  height: 0;
+}

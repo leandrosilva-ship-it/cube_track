@@ -25,5 +25,7 @@ Object.assign(process.env, {
   RATE_LIMIT_PER_MINUTE: '10000',
   APP_URL: 'http://app.test',
   BASE_DOMAIN: 'cubetrack.test',
+  MAIL_REPLY_DOMAIN: 'reply.cubetrack.test',
+  INBOUND_EMAIL_WEBHOOK_SECRET: 'test-inbound-email-webhook-secret',
 });
 process.env.TEST_ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;

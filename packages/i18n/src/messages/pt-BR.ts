@@ -2,6 +2,7 @@
  * Mensagens da interface em pt-BR (idioma padrão e fonte da verdade das chaves).
  * Sintaxe ICU (next-intl): `{name}`, `{count, plural, one {...} other {...}}`.
  */
+import { itemPanelPtBR } from './collaboration.pt-BR.js';
 import { kanbanPtBR } from './kanban.pt-BR.js';
 import { tablePtBR } from './table.pt-BR.js';
 
@@ -375,6 +376,7 @@ export const ptBR = {
   },
   table: tablePtBR,
   kanban: kanbanPtBR,
+  itemPanel: itemPanelPtBR,
   palette: {
     title: 'Paleta de comandos',
     placeholder: 'Buscar boards, páginas e ações…',

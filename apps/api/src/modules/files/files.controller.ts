@@ -1,4 +1,4 @@
-import { Controller, Get, Post } from '@nestjs/common';
+import { Controller, Delete, Get, Post } from '@nestjs/common';
 import { z } from 'zod';
 
 import { Audited } from '../../core/audit/audited.js';
@@ -29,6 +29,7 @@ const UploadResponse = z.object({
   expiresAt: z.string(),
 });
 const CompleteParams = z.object({ id: z.uuid(), versionId: z.uuid() });
+const VersionParams = z.object({ id: z.uuid(), version: z.coerce.number().int().positive() });
 
 @Controller()
 export class FilesController {
@@ -92,5 +93,39 @@ export class FilesController {
   @Endpoint({ summary: 'Arquivos do item', tags: ['files'], params: IdParams })
   async list(@CurrentPrincipal() user: AuthPrincipal, @Input('params') params: { id: string }) {
     return { data: await this.files.listForItem(user, params.id) };
+  }
+
+  @Get('files/:id/versions')
+  @Endpoint({ summary: 'Histórico de versões de um arquivo', tags: ['files'], params: IdParams })
+  async versions(@CurrentPrincipal() user: AuthPrincipal, @Input('params') params: { id: string }) {
+    return { data: await this.files.listVersions(user, params.id) };
+  }
+
+  @Get('files/:id/versions/:version/download-url')
+  @Endpoint({
+    summary: 'URL temporária de download de uma versão específica',
+    tags: ['files'],
+    params: VersionParams,
+    response: z.object({
+      url: z.string(),
+      expiresInSeconds: z.number(),
+      fileName: z.string(),
+      mimeType: z.string(),
+      sizeBytes: z.number(),
+    }),
+    errors: [409],
+  })
+  downloadVersion(
+    @CurrentPrincipal() user: AuthPrincipal,
+    @Input('params') params: z.infer<typeof VersionParams>,
+  ) {
+    return this.files.downloadVersionUrl(user, params.id, params.version);
+  }
+
+  @Delete('files/:id')
+  @Audited({ action: 'file.delete', entityType: 'attachment' })
+  @Endpoint({ summary: 'Excluir um arquivo', tags: ['files'], status: 204, params: IdParams })
+  async remove(@CurrentPrincipal() user: AuthPrincipal, @Input('params') params: { id: string }) {
+    await this.files.remove(user, params.id);
   }
 }

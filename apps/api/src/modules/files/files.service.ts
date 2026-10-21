@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { schema } from '@cube-track/db';
+import { schema, type Transaction } from '@cube-track/db';
 import { newId, QUEUES, type FileScanJob } from '@cube-track/shared';
 import { and, asc, desc, eq, isNull } from 'drizzle-orm';
 
@@ -184,6 +184,18 @@ export class FilesService {
             ],
           }),
     });
+    if (row.attachment.itemId !== null) {
+      await this.events.emit({
+        tenantId: user.tenantId,
+        type: 'attachment.changed',
+        aggregateType: 'attachment',
+        aggregateId: attachmentId,
+        boardId,
+        itemId: row.attachment.itemId,
+        payload: { attachmentId, itemId: row.attachment.itemId, change: 'uploaded' },
+        actorId: user.userId,
+      });
+    }
     const job: FileScanJob = {
       tenantId: user.tenantId,
       attachmentId,
@@ -246,6 +258,107 @@ export class FilesService {
       mimeType: version.mimeType,
       sizeBytes: version.sizeBytes,
     };
+  }
+
+  /** Histórico de versões de um anexo (mais recente primeiro). */
+  async listVersions(user: AuthPrincipal, attachmentId: string) {
+    const tx = this.runner.tx;
+    const attachment = await this.attachmentOrThrow(tx, attachmentId);
+    await this.assertReadable(user, attachment);
+    const rows = await tx
+      .select()
+      .from(attachmentVersions)
+      .where(eq(attachmentVersions.attachmentId, attachmentId))
+      .orderBy(desc(attachmentVersions.version));
+    return rows.map((row) => ({
+      version: row.version,
+      mimeType: row.mimeType,
+      sizeBytes: row.sizeBytes,
+      scanStatus: row.scanStatus,
+      createdAt: row.createdAt.toISOString(),
+      createdBy: row.createdBy,
+      isCurrent: row.version === attachment.currentVersion,
+    }));
+  }
+
+  /** URL de download de uma versão específica (não precisa ser a atual). */
+  async downloadVersionUrl(user: AuthPrincipal, attachmentId: string, version: number) {
+    const tx = this.runner.tx;
+    const attachment = await this.attachmentOrThrow(tx, attachmentId);
+    await this.assertReadable(user, attachment);
+    const [row] = await tx
+      .select()
+      .from(attachmentVersions)
+      .where(and(eq(attachmentVersions.attachmentId, attachmentId), eq(attachmentVersions.version, version)));
+    if (row === undefined) throw new NotFoundError('Versão do arquivo');
+    if (row.scanStatus === 'pending') {
+      throw new ConflictError('O arquivo ainda está sendo verificado pelo antivírus.', 'scan_pending');
+    }
+    if (row.scanStatus !== 'clean') {
+      throw new UnprocessableError('O arquivo foi bloqueado pela verificação de segurança.', 'file_blocked');
+    }
+    return {
+      url: await this.storage.presignDownload(row.storageKey, attachment.fileName, row.mimeType),
+      expiresInSeconds: 300,
+      fileName: attachment.fileName,
+      mimeType: row.mimeType,
+      sizeBytes: row.sizeBytes,
+    };
+  }
+
+  /** Exclui (lógico) um anexo — exige a mesma permissão de upload do board/item. */
+  async remove(user: AuthPrincipal, attachmentId: string): Promise<void> {
+    const tx = this.runner.tx;
+    const attachment = await this.attachmentOrThrow(tx, attachmentId);
+    if (attachment.boardId === null) throw new NotFoundError('Arquivo');
+    await this.access.assert(user, 'file.upload', { type: 'board', id: attachment.boardId }, 'Arquivo');
+    await tx.update(attachments).set({ deletedAt: new Date() }).where(eq(attachments.id, attachmentId));
+    this.events.recordChange({
+      action: 'file.delete',
+      entityType: 'attachment',
+      entityId: attachmentId,
+      boardId: attachment.boardId,
+      itemId: attachment.itemId,
+      before: { fileName: attachment.fileName },
+      ...(attachment.itemId === null
+        ? {}
+        : { activity: [{ action: 'file.delete', oldValue: { fileName: attachment.fileName } }] }),
+    });
+    if (attachment.itemId !== null) {
+      await this.events.emit({
+        tenantId: user.tenantId,
+        type: 'attachment.changed',
+        aggregateType: 'attachment',
+        aggregateId: attachmentId,
+        boardId: attachment.boardId,
+        itemId: attachment.itemId,
+        payload: { attachmentId, itemId: attachment.itemId, change: 'deleted' },
+        actorId: user.userId,
+      });
+    }
+  }
+
+  private async attachmentOrThrow(tx: Transaction, attachmentId: string) {
+    const [attachment] = await tx
+      .select()
+      .from(attachments)
+      .where(and(eq(attachments.id, attachmentId), isNull(attachments.deletedAt)));
+    if (attachment === undefined) throw new NotFoundError('Arquivo');
+    return attachment;
+  }
+
+  private async assertReadable(
+    user: AuthPrincipal,
+    attachment: { boardId: string | null; itemId: string | null },
+  ): Promise<void> {
+    if (attachment.boardId === null) throw new NotFoundError('Arquivo');
+    if (attachment.itemId !== null) {
+      const item = await this.items.findById(this.runner.tx, attachment.itemId);
+      if (item === null) throw new NotFoundError('Arquivo');
+      await this.access.assert(user, 'item.read', { type: 'item', item }, 'Arquivo');
+    } else {
+      await this.access.assert(user, 'board.read', { type: 'board', id: attachment.boardId }, 'Arquivo');
+    }
   }
 
   async listForItem(user: AuthPrincipal, itemId: string) {

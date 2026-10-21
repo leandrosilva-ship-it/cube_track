@@ -72,6 +72,8 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
         redis,
         emails: queues[QUEUES.emails],
         appUrl: config.APP_URL,
+        jwtSecret: config.JWT_SECRET,
+        mailReplyDomain: config.MAIL_REPLY_DOMAIN,
       }),
       common,
     ),

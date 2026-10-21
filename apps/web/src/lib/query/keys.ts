@@ -4,6 +4,13 @@
  */
 import type { FilterGroup } from '@cube-track/shared';
 
+export interface ActivityFilters {
+  actorId?: string;
+  columnKey?: string;
+  from?: string;
+  to?: string;
+}
+
 export interface ItemListParams {
   search?: string;
   personId?: string;
@@ -35,6 +42,17 @@ export const qk = {
     ['boards', boardId, 'items', { parentItemId }] as const,
   trash: (boardId: string) => ['boards', boardId, 'trash'] as const,
   dependencies: (boardId: string) => ['boards', boardId, 'dependencies'] as const,
+  item: (itemId: string) => ['items', itemId, 'detail'] as const,
+  updates: (itemId: string) => ['items', itemId, 'updates'] as const,
+  replies: (updateId: string) => ['updates', updateId, 'replies'] as const,
+  activity: (itemId: string, filters: ActivityFilters) =>
+    ['items', itemId, 'activity', filters] as const,
+  activityActors: (itemId: string) => ['items', itemId, 'activity-actors'] as const,
+  checklists: (itemId: string) => ['items', itemId, 'checklists'] as const,
+  follow: (itemId: string) => ['items', itemId, 'follow'] as const,
+  approvals: (itemId: string) => ['items', itemId, 'approvals'] as const,
+  itemFiles: (itemId: string) => ['items', itemId, 'files'] as const,
+  fileVersions: (attachmentId: string) => ['files', attachmentId, 'versions'] as const,
   boardTemplates: () => ['board-templates'] as const,
   boardsOf: (workspaceId: string) => ['workspaces', workspaceId, 'boards'] as const,
   grants: (resourceType: string, resourceId: string) =>

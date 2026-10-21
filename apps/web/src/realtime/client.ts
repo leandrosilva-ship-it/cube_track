@@ -37,6 +37,12 @@ interface SubscribeAck {
   error?: { code: string };
 }
 
+interface ItemSubscription {
+  refs: number;
+  room: string | null;
+  presenceState: Record<string, unknown>;
+}
+
 /**
  * Cliente realtime: uma conexão Socket.IO por aba, assinaturas de board com contagem de referências,
  * aplicação ordenada por `seq` (lacuna → replay; replay impossível → resync), deduplicação por
@@ -45,6 +51,7 @@ interface SubscribeAck {
 export class RealtimeClient {
   private socket: Socket | null = null;
   private readonly boards = new Map<string, BoardSubscription>();
+  private readonly items = new Map<string, ItemSubscription>();
   private readonly seen = new Set<string>();
   private heartbeat: ReturnType<typeof setInterval> | undefined;
   private readonly replaying = new Set<string>();
@@ -85,6 +92,7 @@ export class RealtimeClient {
     socket.on('ready', () => {
       realtimeStore.setState({ status: 'online' });
       for (const boardId of this.boards.keys()) void this.subscribe(boardId);
+      for (const itemId of this.items.keys()) void this.subscribeItem(itemId);
     });
     socket.on('disconnect', () => {
       realtimeStore.setState({ status: 'offline' });
@@ -115,6 +123,7 @@ export class RealtimeClient {
     this.socket?.disconnect();
     this.socket = null;
     this.boards.clear();
+    this.items.clear();
     this.seen.clear();
     realtimeStore.setState({ status: 'idle', presence: {} });
   }
@@ -159,6 +168,65 @@ export class RealtimeClient {
     if (subscription === undefined) return;
     subscription.presenceState = state;
     this.beat(boardId);
+  }
+
+  /**
+   * Presença da room de um item (quem tem o painel aberto): sem replay/seq, só presença — os
+   * eventos do item (atualizações, checklist…) já chegam pela room do board, sempre assistida
+   * enquanto o painel está aberto sobre a página do board.
+   */
+  watchItem(itemId: string, presenceState: Record<string, unknown> = {}): () => void {
+    const existing = this.items.get(itemId);
+    if (existing !== undefined) {
+      existing.refs += 1;
+      existing.presenceState = presenceState;
+    } else {
+      this.items.set(itemId, { refs: 1, room: null, presenceState });
+      if (this.socket?.connected === true) void this.subscribeItem(itemId);
+    }
+    return () => {
+      this.unwatchItem(itemId);
+    };
+  }
+
+  setItemPresenceState(itemId: string, state: Record<string, unknown>): void {
+    const subscription = this.items.get(itemId);
+    if (subscription === undefined) return;
+    subscription.presenceState = state;
+    this.beatItem(itemId);
+  }
+
+  private unwatchItem(itemId: string): void {
+    const subscription = this.items.get(itemId);
+    if (subscription === undefined) return;
+    subscription.refs -= 1;
+    if (subscription.refs > 0) return;
+    this.items.delete(itemId);
+    if (subscription.room !== null) clearRoomPresence(subscription.room);
+    if (this.socket?.connected === true) this.socket.emit('unsubscribe', { room: 'item', id: itemId });
+  }
+
+  private async subscribeItem(itemId: string): Promise<void> {
+    const socket = this.socket;
+    const subscription = this.items.get(itemId);
+    if (socket === null || subscription === undefined) return;
+    try {
+      const ack = (await socket
+        .timeout(10_000)
+        .emitWithAck('subscribe', { room: 'item', id: itemId })) as SubscribeAck;
+      if (!ack.ok || ack.room === undefined) return;
+      subscription.room = ack.room;
+      setPresence(ack.room, ack.presence ?? []);
+      this.beatItem(itemId);
+    } catch {
+      // Sem ack (timeout): a próxima reconexão tenta de novo.
+    }
+  }
+
+  private beatItem(itemId: string): void {
+    const subscription = this.items.get(itemId);
+    if (subscription?.room === null || subscription === undefined || this.socket?.connected !== true) return;
+    this.socket.emit('presence.heartbeat', { room: 'item', id: itemId, state: subscription.presenceState });
   }
 
   private unwatchBoard(boardId: string): void {
@@ -284,5 +352,6 @@ export class RealtimeClient {
 
   private beatAll(): void {
     for (const boardId of this.boards.keys()) this.beat(boardId);
+    for (const itemId of this.items.keys()) this.beatItem(itemId);
   }
 }

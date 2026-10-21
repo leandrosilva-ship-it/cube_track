@@ -462,7 +462,7 @@ erDiagram
 
 | Tabela                                | Descrição                                                                                                 |
 | ------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `updates` / `replies`                 | Atualizações (feed) e respostas; corpo em JSON do editor (Tiptap) + texto plano para busca; fixar; edição |
+| `updates` / `replies`                 | Atualizações (feed) e respostas; corpo em JSON do editor (Tiptap) + texto plano para busca; fixar; edição. `source` (`app`/`email`, ADR 0048) e `edit_history` (jsonb, histórico de versões anteriores, nunca apagado) |
 | `reactions`                           | Reações com emoji em atualizações/respostas                                                               |
 | `mentions`                            | @menções a usuário, time ou "todos" a partir de atualização, resposta ou descrição                        |
 | `attachments` / `attachment_versions` | Arquivo lógico + versões imutáveis no object storage (chave por tenant, checksum, antivírus)              |
@@ -470,6 +470,7 @@ erDiagram
 | `notifications`                       | Inbox in-app (lida/arquivada)                                                                             |
 | `notification_preferences`            | Preferências por canal (in-app, e-mail, push), tipo de evento e frequência                                |
 | `follows`                             | Inscrição em board, item ou dashboard                                                                     |
+| `approval_requests` / `approval_approvers` | Pedido de aprovação de um item (ADR 0048): modo `all`/`any`, nota, status; um ou mais aprovadores com decisão (`approved`/`rejected`), comentário e data |
 
 ### Planejamento
 

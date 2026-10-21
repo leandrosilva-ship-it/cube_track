@@ -4,11 +4,13 @@ import { Button, Dialog, IconButton, Input, Popover, PopoverContent, PopoverTrig
 import { Avatar } from '@cube-track/ui';
 import { Search, Settings2, UserRound, X } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useMemo, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, useState, type MouseEvent } from 'react';
 
 import type { BoardDetail, BoardView } from '@/lib/api/types';
 import type { ItemListParams } from '@/lib/query/keys';
 
+import { setItemPanelOrder } from '../collaboration/item-panel-store';
+import { useOpenItemPanel } from '../collaboration/use-open-item-panel';
 import { BulkBar } from '../table/bulk-bar';
 import {
   useCellLocale,
@@ -53,7 +55,11 @@ export function KanbanView({ board, view, searchRef }: KanbanViewProps) {
   const createItem = useCreateTableItem(board);
   const runAction = useItemActions(board);
   const canCreate = board.permissions.includes('item.create');
+  useEffect(() => {
+    setItemPanelOrder(board.id, query.items.map((item) => item.id));
+  }, [board.id, query.items]);
 
+  const openItem = useOpenItemPanel();
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const toggleSelect = (id: string, event: MouseEvent) => {
     setSelected((current) => {
@@ -157,9 +163,7 @@ export function KanbanView({ board, view, searchRef }: KanbanViewProps) {
           locale={locale}
           write={write}
           canCreate={canCreate}
-          onOpenItem={(id) => {
-            setSelected(new Set([id]));
-          }}
+          onOpenItem={openItem}
           onQuickCreate={(groupId, values) => {
             void createItem({ groupId, name: t('column.newCardName'), values });
           }}

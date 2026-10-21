@@ -138,3 +138,20 @@ A escrita numa coluna sem permissão de edição, ou num campo nativo vinculado 
 | Exportar CSV/Excel                                                        | `board.export` (colunas ocultas ficam de fora)                                                    |
 | Cronômetro e dependências do item                                         | `item.update`                                                                                     |
 | Templates (`GET /v1/board-templates`), marcar board como template         | leitura do board de origem; marcar exige `board.manage`                                           |
+
+### Painel do item (Prompt 7, ADR 0048)
+
+Nenhuma permissão nova — todas as ações do painel reaproveitam `item.read`, `item.comment` e `item.update` (ou `schedule.manage`, já existente, para dependências via `item.update`).
+
+| Operação                                                                  | Permissão exigida                                                                                 |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Ler atualizações/respostas/atividade/checklists/arquivos/aprovações       | `item.read`                                                                                        |
+| Postar atualização/resposta; reagir (emoji)                               | `item.comment`                                                                                     |
+| Editar/excluir a própria atualização ou resposta                          | autor **ou** `item.update`                                                                         |
+| Fixar/desafixar uma atualização                                           | `item.update`                                                                                      |
+| Criar/renomear/excluir checklist; adicionar/editar/excluir/marcar item    | `item.update`                                                                                      |
+| Seguir/deixar de seguir o item                                            | `item.read` (qualquer um que vê o item pode seguir)                                                |
+| Pedir aprovação; cancelar pedido pendente                                 | `item.update`                                                                                      |
+| Decidir um pedido de aprovação (aprovar/rejeitar)                         | ser um dos aprovadores designados daquele pedido (`403 not_an_approver` caso contrário), independente de `item.update` |
+| Upload/exclusão de arquivo do item; versões                               | `file.upload` no board (exclusão também exige `item.update` quando o anexo tem item)               |
+| `POST /v1/email/inbound` (webhook de resposta por e-mail)                 | nenhuma sessão de usuário — segredo de servidor-a-servidor (`X-Webhook-Secret`), não é uma permissão de usuário |

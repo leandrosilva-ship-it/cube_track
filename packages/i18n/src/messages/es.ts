@@ -1,4 +1,5 @@
 import type { Messages } from './pt-BR.js';
+import { itemPanelEs } from './collaboration.es.js';
 import { kanbanEs } from './kanban.es.js';
 import { tableEs } from './table.es.js';
 
@@ -371,6 +372,7 @@ export const es: Messages = {
     },
   },
   table: tableEs,
+  itemPanel: itemPanelEs,
   kanban: kanbanEs,
   palette: {
     title: 'Paleta de comandos',

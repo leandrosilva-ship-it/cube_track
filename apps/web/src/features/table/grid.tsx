@@ -68,6 +68,7 @@ export interface TableGridProps {
   canRenameGroups: boolean;
   groupMenu: (row: Extract<TableRow, { kind: 'header' }>) => ReactNode;
   onOpenRowMenu: (item: Item, anchor: { x: number; y: number }) => void;
+  onOpenItem: (itemId: string) => void;
   onWrite: (writes: ItemWrite[], label: string) => Promise<boolean>;
   onCreate: (input: { groupId: string; name: string; parentItemId: string | null }) => void;
   onUndo: () => void;
@@ -862,6 +863,7 @@ export function TableGrid(props: TableGridProps) {
                   onSelect={toggleRow}
                   onToggleExpand={props.onToggleExpand}
                   onOpenMenu={props.onOpenRowMenu}
+                  onOpenItem={props.onOpenItem}
                   style={style}
                 />
               );

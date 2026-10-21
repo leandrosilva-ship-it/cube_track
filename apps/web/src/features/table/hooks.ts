@@ -273,6 +273,15 @@ interface RequiredProblem {
   fields?: { key: string; title: string }[];
 }
 
+/** Mantém o item do painel (`qk.item`, aberto num drawer) em sincronia com a própria escrita. */
+function patchStandaloneItem(queryClient: QueryClient, updated: Item): void {
+  queryClient.setQueryData<Item>(qk.item(updated.id), (current) =>
+    current === undefined
+      ? current
+      : { ...updated, ...(current.indicators === undefined ? {} : { indicators: current.indicators }) },
+  );
+}
+
 /**
  * Escritas da Tabela: otimistas, condicionais por campo (LWW, ADR 0008), com pedido de campos
  * obrigatórios antes de salvar (ADR 0039) e registro para desfazer.
@@ -354,6 +363,7 @@ export function useItemWriter(board: BoardDetail) {
             ...updated,
             ...(current.indicators === undefined ? {} : { indicators: current.indicators }),
           }));
+          patchStandaloneItem(queryClient, updated);
           return;
         }
         for (let offset = 0; offset < writes.length; offset += BULK_CHUNK) {
@@ -363,11 +373,13 @@ export function useItemWriter(board: BoardDetail) {
             body: { items: chunk.map((write) => toWire(board, write, false)) },
             clientMutationId: mutationId,
           });
-          for (const updated of response.data)
+          for (const updated of response.data) {
             patchItem(queryClient, board.id, updated.id, (current) => ({
               ...updated,
               ...(current.indicators === undefined ? {} : { indicators: current.indicators }),
             }));
+            patchStandaloneItem(queryClient, updated);
+          }
         }
       } catch (error) {
         if (isApiError(error, 409) && writes.length === 1) {

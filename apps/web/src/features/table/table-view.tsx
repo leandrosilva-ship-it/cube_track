@@ -36,7 +36,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useCallback, useMemo, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useState, type RefObject } from 'react';
 
 import { apiBlob } from '@/lib/api/client';
 import type { BoardDetail, Item } from '@/lib/api/types';
@@ -48,6 +48,8 @@ import { useSession } from '@/stores/session';
 import { BoardToolbar } from '../board/board-toolbar';
 import { activeFilterCount, buildItemQuery } from '../board/query-builder';
 import { listParams, updateBoardView, useBoardViewState } from '../board/store';
+import { setItemPanelOrder } from '../collaboration/item-panel-store';
+import { useOpenItemPanel } from '../collaboration/use-open-item-panel';
 import { useBoardShortcuts, type BoardShortcut } from '../shell/shortcuts';
 import { useMe } from '../shell/hooks';
 import { BulkBar } from './bulk-bar';
@@ -161,6 +163,7 @@ export function TableView({
   const writer = useItemWriter(board);
   const createItem = useCreateTableItem(board);
   const runAction = useItemActions(board);
+  const openItem = useOpenItemPanel();
   const timer = useTimer(board.id);
   const dependencies = useDependencies(
     board.id,
@@ -231,6 +234,14 @@ export function TableView({
       filtered,
     ],
   );
+  useEffect(() => {
+    setItemPanelOrder(
+      board.id,
+      rows
+        .filter((row): row is Extract<TableRow, { kind: 'item' }> => row.kind === 'item')
+        .map((row) => row.item.id),
+    );
+  }, [board.id, rows]);
 
   const predecessors = useMemo(() => {
     const counts = new Map<string, number>();
@@ -659,6 +670,7 @@ export function TableView({
           onOpenRowMenu={(item, anchor) => {
             setRowMenu({ item, ...anchor });
           }}
+          onOpenItem={openItem}
           onWrite={write}
           onCreate={(input) => void createItem(input)}
           onUndo={() => void runUndo()}

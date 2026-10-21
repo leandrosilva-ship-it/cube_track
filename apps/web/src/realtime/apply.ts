@@ -3,6 +3,7 @@ import type { InfiniteData, QueryClient } from '@tanstack/react-query';
 
 import type { BoardDetail, Item, Page, WorkspaceTree } from '@/lib/api/types';
 import { isFiltered, qk, type ItemListParams } from '@/lib/query/keys';
+import { sessionStore } from '@/stores/session';
 
 import { markRemoteChanges } from './highlight';
 
@@ -133,6 +134,29 @@ export function bumpSubitemCount(
   );
 }
 
+/** Ajusta um contador do indicador da linha (ex.: `updates`, `attachments`, `unreadUpdates`). */
+function bumpIndicator(
+  queryClient: QueryClient,
+  boardId: string,
+  itemId: string,
+  field: 'updates' | 'attachments' | 'unreadUpdates',
+  delta: number,
+): void {
+  patchItem(queryClient, boardId, itemId, (item) =>
+    item.indicators === undefined
+      ? item
+      : { ...item, indicators: { ...item.indicators, [field]: Math.max(0, item.indicators[field] + delta) } },
+  );
+}
+
+/** Invalida consultas do painel do item cuja chave é `['items', itemId, feature, ...]`. */
+function invalidateItemFeature(queryClient: QueryClient, itemId: string, feature: string): void {
+  void queryClient.invalidateQueries({
+    predicate: (query) =>
+      query.queryKey[0] === 'items' && query.queryKey[1] === itemId && query.queryKey[2] === feature,
+  });
+}
+
 export function removeItem(queryClient: QueryClient, boardId: string, itemId: string): void {
   queryClient.setQueriesData<ItemPages>({ queryKey: qk.items(boardId) }, (data) =>
     mapPages(data, (items) =>
@@ -254,10 +278,15 @@ export function applyRealtimeEvent(
               applied.push(change.field);
         return next;
       });
+      queryClient.setQueryData<Item>(qk.item(payload.itemId), (item) =>
+        item === undefined ? item : applyItemChanges(item, payload.changes, payload.version),
+      );
       // Destaque visual nas células alteradas por outra pessoa (Gherkin do Prompt 5).
       markRemoteChanges(payload.itemId, applied);
       if (payload.changes.some((change) => change.field === 'dependencies'))
         void queryClient.invalidateQueries({ queryKey: qk.dependencies(boardId) });
+      if (payload.changes.some((change) => change.field === 'name' || change.field === 'dependencies'))
+        invalidateItemFeature(queryClient, payload.itemId, 'activity');
       // Listas filtradas/ordenadas podem ganhar ou perder o item: o servidor decide.
       for (const query of queryClient.getQueryCache().findAll({ queryKey: qk.items(boardId) })) {
         if (isFiltered(paramsOf(query.queryKey))) {
@@ -273,6 +302,7 @@ export function applyRealtimeEvent(
       removeItem(queryClient, boardId, itemId);
       if (parentItemId !== null) bumpSubitemCount(queryClient, boardId, parentItemId, -1);
       void queryClient.invalidateQueries({ queryKey: qk.trash(boardId) });
+      void queryClient.invalidateQueries({ queryKey: qk.item(itemId) });
       return;
     }
     case 'group.changed': {
@@ -337,6 +367,56 @@ export function applyRealtimeEvent(
     case 'favorites.changed':
       void queryClient.invalidateQueries({ queryKey: qk.favorites() });
       return;
+    case 'update.created': {
+      const { itemId, authorId } = event.payload as { itemId: string; authorId: string | null };
+      if (boardId !== null) {
+        bumpIndicator(queryClient, boardId, itemId, 'updates', 1);
+        if (authorId !== (sessionStore.getState().user?.id ?? null))
+          bumpIndicator(queryClient, boardId, itemId, 'unreadUpdates', 1);
+      }
+      invalidateItemFeature(queryClient, itemId, 'updates');
+      return;
+    }
+    case 'update.changed': {
+      const { itemId } = event.payload as { itemId: string };
+      invalidateItemFeature(queryClient, itemId, 'updates');
+      return;
+    }
+    case 'reply.created':
+    case 'reply.changed': {
+      const { itemId, updateId } = event.payload as { itemId: string; updateId: string };
+      invalidateItemFeature(queryClient, itemId, 'updates');
+      void queryClient.invalidateQueries({ queryKey: qk.replies(updateId) });
+      return;
+    }
+    case 'reaction.changed': {
+      const { itemId, targetType } = event.payload as { itemId: string; targetType: 'update' | 'reply' };
+      invalidateItemFeature(queryClient, itemId, 'updates');
+      if (targetType === 'reply')
+        void queryClient.invalidateQueries({
+          predicate: (query) => query.queryKey[0] === 'updates' && query.queryKey[2] === 'replies',
+        });
+      return;
+    }
+    case 'attachment.changed': {
+      const { itemId, change } = event.payload as { itemId: string; change: 'uploaded' | 'deleted' };
+      if (boardId !== null) bumpIndicator(queryClient, boardId, itemId, 'attachments', change === 'uploaded' ? 1 : -1);
+      invalidateItemFeature(queryClient, itemId, 'files');
+      invalidateItemFeature(queryClient, itemId, 'activity');
+      return;
+    }
+    case 'checklist.changed': {
+      const { itemId } = event.payload as { itemId: string };
+      invalidateItemFeature(queryClient, itemId, 'checklists');
+      invalidateItemFeature(queryClient, itemId, 'activity');
+      return;
+    }
+    case 'approval.changed': {
+      const { itemId } = event.payload as { itemId: string };
+      invalidateItemFeature(queryClient, itemId, 'approvals');
+      invalidateItemFeature(queryClient, itemId, 'activity');
+      return;
+    }
     case 'notification.created':
       void queryClient.invalidateQueries({ queryKey: qk.notifications() });
       context.onNotification((event.payload as { title: string }).title);

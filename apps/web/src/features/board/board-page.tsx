@@ -10,6 +10,7 @@ import { isApiError } from '@/lib/api/errors';
 import { rememberBoard } from '@/lib/recent-boards';
 import { useBoardRealtime, useRealtimeClient } from '@/realtime/provider';
 
+import { ItemPanel } from '../collaboration/item-panel';
 import { RequiredFieldsDialog } from '../table/required-dialog';
 import { BoardHeader } from './board-header';
 import { useBoard, useViews } from './hooks';
@@ -105,6 +106,7 @@ export function BoardPage({
       ) : (
         <BoardViewBody board={detail} view={activeView} searchRef={searchRef} />
       )}
+      <ItemPanel board={detail} />
       <RequiredFieldsDialog />
     </div>
   );

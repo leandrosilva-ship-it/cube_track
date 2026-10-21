@@ -49,3 +49,4 @@
 | [0045](0045-kanban-arrastar-e-soltar-e-limite-de-wip.md)        | Kanban: arrastar-e-soltar reaproveita a escrita do item | Aceita                          |
 | [0046](0046-transicoes-de-status.md)                            | Transições controladas na coluna de status             | Aceita                          |
 | [0047](0047-links-publicos-de-view.md)                          | Link público somente leitura de uma view               | Aceita                          |
+| [0048](0048-painel-do-item.md)                                  | Painel do item: e-mail, menções, aprovações, dependências reaproveitadas | Aceita             |

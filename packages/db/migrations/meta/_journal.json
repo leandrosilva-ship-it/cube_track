@@ -64,6 +64,34 @@
       "when": 1792063923258,
       "tag": "0008_volatile_formula_boards",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792591512614,
+      "tag": "0009_approvals",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792591531597,
+      "tag": "0010_approvals_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792591888217,
+      "tag": "0011_updates_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1792592585487,
+      "tag": "0012_resolve_item_for_reply",
+      "breakpoints": true
     }
   ]
 }

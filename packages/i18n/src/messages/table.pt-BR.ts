@@ -53,6 +53,7 @@ export const tablePtBR = {
   rows: {
     select: 'Selecionar {name}',
     menu: 'Ações de {name}',
+    open: 'Abrir {name}',
     expandSubitems: 'Mostrar subitens',
     collapseSubitems: 'Ocultar subitens',
     subitems: '{count, plural, one {# subitem} other {# subitens}}',

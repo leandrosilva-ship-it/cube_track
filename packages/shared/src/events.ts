@@ -79,6 +79,48 @@ export const EVENT_PAYLOADS = {
     authorId: z.uuid().nullable(),
     bodyText: z.string(),
   }),
+  /** Edição, exclusão ou fixar/desafixar de uma atualização do feed do item. */
+  'update.changed': z.object({
+    updateId: z.uuid(),
+    itemId: z.uuid(),
+    change: z.enum(['edited', 'deleted', 'pinned', 'unpinned']),
+  }),
+  'reply.created': z.object({
+    replyId: z.uuid(),
+    updateId: z.uuid(),
+    itemId: z.uuid(),
+    authorId: z.uuid().nullable(),
+    bodyText: z.string(),
+  }),
+  'reply.changed': z.object({
+    replyId: z.uuid(),
+    updateId: z.uuid(),
+    itemId: z.uuid(),
+    change: z.enum(['edited', 'deleted']),
+  }),
+  /** Reação adicionada/removida numa atualização ou resposta. */
+  'reaction.changed': z.object({
+    targetType: z.enum(['update', 'reply']),
+    targetId: z.uuid(),
+    itemId: z.uuid(),
+  }),
+  /** Arquivo anexado ao item (upload concluído ou excluído). */
+  'attachment.changed': z.object({
+    attachmentId: z.uuid(),
+    itemId: z.uuid(),
+    change: z.enum(['uploaded', 'deleted']),
+  }),
+  /** Checklist ou item de checklist criado/editado/excluído/marcado. */
+  'checklist.changed': z.object({ itemId: z.uuid(), checklistId: z.uuid().nullable() }),
+  /** Pedido de aprovação criado ou decidido (resolvido quando `status` sai de `pending`). */
+  'approval.changed': z.object({
+    requestId: z.uuid(),
+    itemId: z.uuid(),
+    status: z.enum(['pending', 'approved', 'rejected', 'cancelled']),
+    requestedBy: z.uuid().nullable(),
+    /** Presente só na criação: quem precisa decidir (para notificar os aprovadores). */
+    approverIds: z.array(z.uuid()).optional(),
+  }),
   'notification.created': z.object({
     notificationId: z.uuid(),
     type: z.string(),

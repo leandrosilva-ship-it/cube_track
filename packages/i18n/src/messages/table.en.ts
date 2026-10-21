@@ -53,6 +53,7 @@ export const tableEn: Messages['table'] = {
   rows: {
     select: 'Select {name}',
     menu: 'Actions for {name}',
+    open: 'Open {name}',
     expandSubitems: 'Show subitems',
     collapseSubitems: 'Hide subitems',
     subitems: '{count, plural, one {# subitem} other {# subitems}}',

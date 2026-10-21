@@ -56,6 +56,10 @@ export const ConfigSchema = z.object({
     .int()
     .default(100 * 1024 * 1024),
   UPLOAD_URL_TTL_SECONDS: z.coerce.number().int().default(900),
+  /** Domínio do endereço de resposta por e-mail de cada item (ADR 0048): `reply+<token>@<domínio>`. */
+  MAIL_REPLY_DOMAIN: z.string().default('reply.cubetrack.local'),
+  /** Segredo do webhook de e-mail recebido (cabeçalho `X-Webhook-Secret` do provedor). */
+  INBOUND_EMAIL_WEBHOOK_SECRET: z.string().min(16).default('dev-inbound-email-secret-change-me'),
   OAUTH_GOOGLE_CLIENT_ID: optionalString,
   OAUTH_GOOGLE_CLIENT_SECRET: optionalString,
   OAUTH_GOOGLE_ISSUER: z.string().default('https://accounts.google.com'),

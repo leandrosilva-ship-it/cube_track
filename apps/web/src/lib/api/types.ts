@@ -438,3 +438,141 @@ export interface Dependency {
   type: 'FS' | 'SS' | 'FF' | 'SF';
   lagDays: number;
 }
+
+// ------------------------------------------------------------------- painel do item (Prompt 7) ---
+
+export interface ReactionSummary {
+  emoji: string;
+  count: number;
+  reactedByMe: boolean;
+}
+
+export interface ItemUpdate {
+  id: string;
+  itemId: string;
+  authorId: string | null;
+  authorName: string | null;
+  authorAvatarUrl: string | null;
+  body: Record<string, unknown>;
+  bodyText: string;
+  isPinned: boolean;
+  source: 'app' | 'email';
+  editedAt: string | null;
+  editCount: number;
+  canEdit: boolean;
+  createdAt: string;
+  replyCount: number;
+  reactions: ReactionSummary[];
+}
+
+export interface UpdateFeed {
+  pinned: ItemUpdate[];
+  data: ItemUpdate[];
+  pageInfo: { nextCursor: string | null; hasNextPage: boolean };
+}
+
+export interface ItemReply {
+  id: string;
+  updateId: string;
+  authorId: string | null;
+  authorName: string | null;
+  authorAvatarUrl: string | null;
+  body: Record<string, unknown>;
+  bodyText: string;
+  source: 'app' | 'email';
+  editedAt: string | null;
+  editCount: number;
+  canEdit: boolean;
+  createdAt: string;
+  reactions: ReactionSummary[];
+}
+
+export interface ActivityLogEntry {
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  columnKey: string | null;
+  oldValue: unknown;
+  newValue: unknown;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  actorId: string | null;
+  actorKind: string;
+  actorName: string | null;
+  actorAvatarUrl: string | null;
+}
+
+export interface ActivityActor {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+}
+
+export interface ChecklistItemRow {
+  id: string;
+  content: string;
+  isDone: boolean;
+  doneAt: string | null;
+  doneBy: string | null;
+  assigneeId: string | null;
+  dueDate: string | null;
+  position: string;
+}
+
+export interface Checklist {
+  id: string;
+  itemId: string;
+  title: string;
+  position: string;
+  items: ChecklistItemRow[];
+  progress: { done: number; total: number };
+}
+
+export interface FollowStatus {
+  following: boolean;
+  followers: { id: string; name: string; avatarUrl: string | null }[];
+}
+
+export interface Approver {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  decision: 'approved' | 'rejected' | null;
+  comment: string | null;
+  decidedAt: string | null;
+}
+
+export interface ApprovalRequest {
+  id: string;
+  itemId: string;
+  mode: 'all' | 'any';
+  note: string | null;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  requestedBy: string | null;
+  requestedByName: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+  approvers: Approver[];
+  canDecide: boolean;
+}
+
+export interface AttachmentSummary {
+  id: string;
+  fileName: string;
+  currentVersion: number;
+  createdAt: string;
+  mimeType: string;
+  sizeBytes: number;
+  scanStatus: 'pending' | 'clean' | 'infected' | 'error';
+}
+
+export interface AttachmentVersion {
+  version: number;
+  mimeType: string;
+  sizeBytes: number;
+  scanStatus: 'pending' | 'clean' | 'infected' | 'error';
+  createdAt: string;
+  createdBy: string | null;
+  isCurrent: boolean;
+}

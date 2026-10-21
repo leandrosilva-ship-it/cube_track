@@ -44,8 +44,14 @@ const {
   dependencies,
   holidays,
   updates,
+  replies,
   mentions,
+  approvalRequests,
+  approvalApprovers,
 } = schema;
+
+const JWT_SECRET = 'test-jwt-secret-at-least-32-characters-long';
+const MAIL_REPLY_DOMAIN = 'reply.test.local';
 
 let admin: DatabaseHandle;
 let app: DatabaseHandle;
@@ -395,6 +401,8 @@ describe('notificações de menção', () => {
       redis,
       emails: queues[QUEUES.emails],
       appUrl: 'http://app.test',
+      jwtSecret: JWT_SECRET,
+      mailReplyDomain: MAIL_REPLY_DOMAIN,
     });
     const result = await process(
       fakeJob(
@@ -433,8 +441,184 @@ describe('notificações de menção', () => {
     expect(event).toBeDefined();
     const jobs = await queues[QUEUES.emails].getJobs(['waiting', 'delayed']);
     expect(jobs.map((job) => job.data as unknown)).toContainEqual(
-      expect.objectContaining({ to: 'carlos.lima@empresademo.com.br', template: 'mention' }),
+      expect.objectContaining({
+        to: 'carlos.lima@empresademo.com.br',
+        template: 'mention',
+        replyTo: expect.stringMatching(/^reply\+.+@reply\.test\.local$/) as unknown,
+      }),
     );
+  });
+
+  it('notifica menção numa resposta (reply.created)', async () => {
+    const ana = demo.users['ana.ribeiro'] ?? '';
+    const carlos = demo.users['carlos.lima'] ?? '';
+    const item = await createItem('Notificação — menção em resposta', 'Demandas em Análise');
+    const [update] = await admin.db
+      .insert(updates)
+      .values({
+        tenantId: demo.tenantId,
+        boardId: demo.boardId,
+        itemId: item.id,
+        authorId: ana,
+        body: { type: 'doc' },
+        bodyText: 'Atualização original',
+      })
+      .returning();
+    const [reply] = await admin.db
+      .insert(replies)
+      .values({
+        tenantId: demo.tenantId,
+        updateId: update?.id ?? '',
+        authorId: ana,
+        body: { type: 'doc' },
+        bodyText: '@Carlos, pode confirmar?',
+      })
+      .returning();
+    await admin.db.insert(mentions).values([
+      {
+        tenantId: demo.tenantId,
+        sourceType: 'reply',
+        sourceId: reply?.id ?? '',
+        itemId: item.id,
+        targetType: 'user',
+        targetId: carlos,
+      },
+    ]);
+    await queues[QUEUES.emails].obliterate({ force: true });
+    const process = notificationsProcessor({
+      database: app,
+      redis,
+      emails: queues[QUEUES.emails],
+      appUrl: 'http://app.test',
+      jwtSecret: JWT_SECRET,
+      mailReplyDomain: MAIL_REPLY_DOMAIN,
+    });
+    const result = await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'reply.created',
+          boardId: demo.boardId,
+          itemId: item.id,
+          actorId: ana,
+          payload: {
+            replyId: reply?.id,
+            updateId: update?.id,
+            itemId: item.id,
+            authorId: ana,
+            bodyText: '@Carlos, pode confirmar?',
+          },
+        }),
+      ),
+    );
+    expect(result.notified).toBe(1);
+    const rows = await admin.db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.entityId, reply?.id ?? ''));
+    expect(rows.map((row) => row.userId)).toEqual([carlos]);
+  });
+});
+
+describe('notificações de aprovação', () => {
+  it('notifica os aprovadores quando um pedido é criado', async () => {
+    const ana = demo.users['ana.ribeiro'] ?? '';
+    const carlos = demo.users['carlos.lima'] ?? '';
+    const item = await createItem('Aprovação — pedido criado', 'Demandas em Análise');
+    const [request] = await admin.db
+      .insert(approvalRequests)
+      .values({
+        tenantId: demo.tenantId,
+        boardId: demo.boardId,
+        itemId: item.id,
+        requestedBy: ana,
+        mode: 'any',
+        status: 'pending',
+      })
+      .returning();
+    await admin.db.insert(approvalApprovers).values({
+      tenantId: demo.tenantId,
+      requestId: request?.id ?? '',
+      userId: carlos,
+    });
+    await queues[QUEUES.emails].obliterate({ force: true });
+    const process = notificationsProcessor({
+      database: app,
+      redis,
+      emails: queues[QUEUES.emails],
+      appUrl: 'http://app.test',
+      jwtSecret: JWT_SECRET,
+      mailReplyDomain: MAIL_REPLY_DOMAIN,
+    });
+    const result = await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'approval.changed',
+          boardId: demo.boardId,
+          itemId: item.id,
+          actorId: ana,
+          payload: { requestId: request?.id, itemId: item.id, status: 'pending', requestedBy: ana },
+        }),
+      ),
+    );
+    expect(result.notified).toBe(1);
+    const rows = await admin.db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.entityId, request?.id ?? ''));
+    expect(rows.map((row) => row.userId)).toEqual([carlos]);
+    const jobs = await queues[QUEUES.emails].getJobs(['waiting', 'delayed']);
+    expect(jobs.map((job) => job.data as unknown)).toContainEqual(
+      expect.objectContaining({ to: 'carlos.lima@empresademo.com.br', template: 'approval_requested' }),
+    );
+  });
+
+  it('notifica quem pediu quando o pedido é resolvido', async () => {
+    const ana = demo.users['ana.ribeiro'] ?? '';
+    const carlos = demo.users['carlos.lima'] ?? '';
+    const item = await createItem('Aprovação — pedido resolvido', 'Demandas em Análise');
+    const [request] = await admin.db
+      .insert(approvalRequests)
+      .values({
+        tenantId: demo.tenantId,
+        boardId: demo.boardId,
+        itemId: item.id,
+        requestedBy: ana,
+        mode: 'any',
+        status: 'approved',
+        resolvedAt: new Date(),
+      })
+      .returning();
+    const process = notificationsProcessor({
+      database: app,
+      redis,
+      emails: queues[QUEUES.emails],
+      appUrl: 'http://app.test',
+      jwtSecret: JWT_SECRET,
+      mailReplyDomain: MAIL_REPLY_DOMAIN,
+    });
+    const result = await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'approval.changed',
+          boardId: demo.boardId,
+          itemId: item.id,
+          actorId: carlos,
+          payload: { requestId: request?.id, itemId: item.id, status: 'approved', requestedBy: ana },
+        }),
+      ),
+    );
+    expect(result.notified).toBe(1);
+    const rows = await admin.db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.entityId, request?.id ?? ''));
+    expect(rows.map((row) => row.userId)).toEqual([ana]);
   });
 });
 

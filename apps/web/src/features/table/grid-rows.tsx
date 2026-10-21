@@ -6,6 +6,7 @@ import {
   ChevronDown,
   ChevronRight,
   CornerDownRight,
+  Maximize2,
   MessageSquare,
   MoreHorizontal,
   Paperclip,
@@ -79,6 +80,7 @@ export interface ItemRowProps {
   onSelect: (item: Item, extend: boolean) => void;
   onToggleExpand: (item: Item) => void;
   onOpenMenu: (item: Item, anchor: { x: number; y: number }) => void;
+  onOpenItem: (itemId: string) => void;
   style: CSSProperties;
 }
 
@@ -88,7 +90,8 @@ function NameCell({
   canExpand,
   onToggleExpand,
   onOpenMenu,
-}: Pick<ItemRowProps, 'row' | 'expanded' | 'canExpand' | 'onToggleExpand' | 'onOpenMenu'>) {
+  onOpenItem,
+}: Pick<ItemRowProps, 'row' | 'expanded' | 'canExpand' | 'onToggleExpand' | 'onOpenMenu' | 'onOpenItem'>) {
   const t = useTranslations('table.rows');
   const { item } = row;
   const indicators = item.indicators;
@@ -159,6 +162,21 @@ function NameCell({
           </span>
         </span>
       ) : null}
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label={t('open', { name: item.name })}
+        className="invisible inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-fg-muted hover:bg-surface-hover group-hover/row:visible"
+        onMouseDown={(event) => {
+          event.stopPropagation();
+        }}
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpenItem(item.id);
+        }}
+      >
+        <Maximize2 className="size-3.5" aria-hidden="true" />
+      </button>
       <button
         type="button"
         tabIndex={-1}
@@ -261,6 +279,7 @@ export const ItemRow = memo(
         canExpand={props.canExpand}
         onToggleExpand={props.onToggleExpand}
         onOpenMenu={props.onOpenMenu}
+        onOpenItem={props.onOpenItem}
       />
     );
     const renderCell = (col: number, cellStyle: CSSProperties) => {

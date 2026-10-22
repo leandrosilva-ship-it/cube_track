@@ -266,10 +266,12 @@ export class ItemQueryBuilder {
     );
     const query = sql`
       select i.id, i.tenant_id, i.board_id, i.group_id, i.parent_item_id, i.name, i.position, i.values, i.field_versions,
-             i.version, i.planned_start_date::text as planned_start_date, i.planned_end_date::text as planned_end_date,
+             i.version, i.description_text,
+             i.planned_start_date::text as planned_start_date, i.planned_end_date::text as planned_end_date,
              i.replanned_start_date::text as replanned_start_date, i.replanned_end_date::text as replanned_end_date,
              i.actual_start_date::text as actual_start_date, i.actual_end_date::text as actual_end_date,
-             i.progress::text as progress, i.created_at, i.updated_at, i.created_by, i.updated_by,
+             i.progress::text as progress, i.is_milestone, i.schedule_mode,
+             i.created_at, i.updated_at, i.created_by, i.updated_by,
              i.completed_at, i.archived_at,
              ${this.input.withIndicators ? this.indicatorColumns() : sql``}
              ${sql.join(select, sql`, `)}

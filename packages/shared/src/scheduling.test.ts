@@ -6,7 +6,7 @@ import {
   businessDaysBetween,
   DEFAULT_CALENDAR,
 } from './business-days.js';
-import { computeSchedule } from './scheduling.js';
+import { computeCriticalPath, computeSchedule } from './scheduling.js';
 
 const calendar = { workingDays: [1, 2, 3, 4, 5], holidays: new Set(['2026-11-02', '2026-11-20']) };
 
@@ -121,5 +121,60 @@ describe('computeSchedule', () => {
     );
     expect(result.cyclic.sort()).toEqual(['a', 'b']);
     expect(result.changes).toEqual([]);
+  });
+});
+
+describe('computeCriticalPath', () => {
+  it('cadeia sem folga é toda crítica; ramo paralelo mais curto tem folga positiva', () => {
+    const result = computeCriticalPath(
+      [
+        { id: 'a', start: '2026-11-03', end: '2026-11-04' },
+        { id: 'b', start: '2026-11-05', end: '2026-11-06' },
+        { id: 'c', start: '2026-11-09', end: '2026-11-10' },
+        { id: 'd', start: '2026-11-03', end: '2026-11-04' },
+      ],
+      [
+        { predecessorId: 'a', successorId: 'b', type: 'FS', lagDays: 0 },
+        { predecessorId: 'b', successorId: 'c', type: 'FS', lagDays: 0 },
+      ],
+      calendar,
+    );
+    const byId = new Map(result.tasks.map((task) => [task.id, task]));
+    expect(byId.get('a')).toMatchObject({ lateStart: '2026-11-03', lateFinish: '2026-11-04', totalFloatDays: 0, isCritical: true });
+    expect(byId.get('b')).toMatchObject({ lateStart: '2026-11-05', lateFinish: '2026-11-06', totalFloatDays: 0, isCritical: true });
+    expect(byId.get('c')).toMatchObject({ lateStart: '2026-11-09', lateFinish: '2026-11-10', totalFloatDays: 0, isCritical: true });
+    expect(byId.get('d')).toMatchObject({ lateStart: '2026-11-09', lateFinish: '2026-11-10', totalFloatDays: 4, isCritical: false });
+    expect(result.cyclic).toEqual([]);
+  });
+
+  it('predecessor fora do prazo (sucessor já agendado antes do que o vínculo permitiria) fica com folga negativa', () => {
+    const result = computeCriticalPath(
+      [
+        { id: 'a', start: '2026-11-09', end: '2026-11-10' },
+        { id: 'b', start: '2026-11-03', end: '2026-11-04' },
+      ],
+      [{ predecessorId: 'a', successorId: 'b', type: 'FS', lagDays: 0 }],
+      calendar,
+    );
+    const a = result.tasks.find((task) => task.id === 'a');
+    expect(a?.totalFloatDays).toBeLessThan(0);
+    expect(a?.isCritical).toBe(true);
+  });
+
+  it('ignora tarefas em ciclo e sem datas', () => {
+    const result = computeCriticalPath(
+      [
+        { id: 'a', start: '2026-11-03', end: '2026-11-04' },
+        { id: 'b', start: '2026-11-03', end: '2026-11-04' },
+        { id: 'c', start: null, end: null },
+      ],
+      [
+        { predecessorId: 'a', successorId: 'b', type: 'FS', lagDays: 0 },
+        { predecessorId: 'b', successorId: 'a', type: 'FS', lagDays: 0 },
+      ],
+      calendar,
+    );
+    expect(result.cyclic.sort()).toEqual(['a', 'b']);
+    expect(result.tasks).toEqual([]);
   });
 });

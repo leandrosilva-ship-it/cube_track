@@ -359,6 +359,91 @@ describe('recálculo de cronograma', () => {
     // Idempotente: novo recálculo não altera nada.
     expect((await scheduleProcessor({ database: app, redis })(fakeJob(event))).rescheduled).toBe(0);
   });
+
+  it('adicionar um predecessor (sem mexer em datas) também dispara o recálculo', async () => {
+    const predecessor = await createItem('Cronograma — dep A', 'Demandas em Análise', {
+      plannedStartDate: '2026-11-09',
+      plannedEndDate: '2026-11-13',
+    });
+    const successor = await createItem('Cronograma — dep B', 'Demandas em Análise', {
+      plannedStartDate: '2026-11-10',
+      plannedEndDate: '2026-11-11',
+    });
+    await admin.db.insert(dependencies).values([
+      {
+        tenantId: demo.tenantId,
+        boardId: demo.boardId,
+        predecessorId: predecessor.id,
+        successorId: successor.id,
+        type: 'FS',
+        lagDays: 0,
+      },
+    ]);
+    const event = domainEvent({
+      eventId: newId(),
+      tenantId: demo.tenantId,
+      type: 'item.updated',
+      boardId: demo.boardId,
+      itemId: successor.id,
+      payload: {
+        itemId: successor.id,
+        version: 2,
+        changes: [{ field: 'dependencies', kind: 'native', value: [predecessor.id], version: 1 }],
+      },
+    });
+    expect(toScheduleJob(event)).toMatchObject({ itemId: successor.id });
+    const result = await scheduleProcessor({ database: app, redis })(fakeJob(event));
+    expect(result.rescheduled).toBe(1);
+    const [moved] = await admin.db.select().from(items).where(eq(items.id, successor.id));
+    // FS: o sucessor passa a começar depois do fim do predecessor (antes começava um dia antes dele).
+    expect((moved?.plannedStartDate ?? '') > (predecessor.plannedEndDate ?? '')).toBe(true);
+    expect(moved?.version).toBe(successor.version + 1);
+  });
+
+  it('item em modo manual nunca é empurrado pelo recálculo', async () => {
+    const predecessor = await createItem('Cronograma — manual A', 'Demandas em Análise', {
+      plannedStartDate: '2026-11-09',
+      plannedEndDate: '2026-11-13',
+    });
+    const manualSuccessor = await createItem('Cronograma — manual B', 'Demandas em Análise', {
+      plannedStartDate: '2026-11-10',
+      plannedEndDate: '2026-11-11',
+      scheduleMode: 'manual',
+    });
+    await admin.db.insert(dependencies).values([
+      {
+        tenantId: demo.tenantId,
+        boardId: demo.boardId,
+        predecessorId: predecessor.id,
+        successorId: manualSuccessor.id,
+        type: 'FS',
+        lagDays: 0,
+      },
+    ]);
+    const event = domainEvent({
+      eventId: newId(),
+      tenantId: demo.tenantId,
+      type: 'item.updated',
+      boardId: demo.boardId,
+      itemId: predecessor.id,
+      payload: {
+        itemId: predecessor.id,
+        version: 2,
+        changes: [{ field: 'plannedEndDate', kind: 'native', value: '2026-11-13', version: 1 }],
+      },
+    });
+    const result = await scheduleProcessor({ database: app, redis })(fakeJob(event));
+    expect(result.rescheduled).toBe(0);
+    const [unchanged] = await admin.db
+      .select()
+      .from(items)
+      .where(eq(items.id, manualSuccessor.id));
+    expect(unchanged).toMatchObject({
+      plannedStartDate: '2026-11-10',
+      plannedEndDate: '2026-11-11',
+      version: manualSuccessor.version,
+    });
+  });
 });
 
 describe('notificações de menção', () => {

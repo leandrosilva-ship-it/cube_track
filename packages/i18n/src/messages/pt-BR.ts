@@ -2,9 +2,14 @@
  * Mensagens da interface em pt-BR (idioma padrão e fonte da verdade das chaves).
  * Sintaxe ICU (next-intl): `{name}`, `{count, plural, one {...} other {...}}`.
  */
+import { calendarPtBR } from './calendar.pt-BR.js';
 import { itemPanelPtBR } from './collaboration.pt-BR.js';
+import { formsPtBR } from './forms.pt-BR.js';
+import { ganttPtBR } from './gantt.pt-BR.js';
 import { kanbanPtBR } from './kanban.pt-BR.js';
+import { planningPtBR } from './planning.pt-BR.js';
 import { tablePtBR } from './table.pt-BR.js';
+import { timelinePtBR } from './timeline.pt-BR.js';
 
 export const ptBR = {
   common: {
@@ -377,6 +382,11 @@ export const ptBR = {
   table: tablePtBR,
   kanban: kanbanPtBR,
   itemPanel: itemPanelPtBR,
+  calendar: calendarPtBR,
+  planning: planningPtBR,
+  timeline: timelinePtBR,
+  gantt: ganttPtBR,
+  forms: formsPtBR,
   palette: {
     title: 'Paleta de comandos',
     placeholder: 'Buscar boards, páginas e ações…',

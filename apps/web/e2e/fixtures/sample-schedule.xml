@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Project>
+  <Tasks>
+    <Task>
+      <UID>0</UID>
+      <Name>Projeto inteiro</Name>
+      <Start>2026-11-01T08:00:00</Start>
+      <Finish>2026-11-30T17:00:00</Finish>
+      <Milestone>0</Milestone>
+    </Task>
+    <Task>
+      <UID>1</UID>
+      <Name>Levantamento de requisitos</Name>
+      <Start>2026-11-02T08:00:00</Start>
+      <Finish>2026-11-06T17:00:00</Finish>
+      <Milestone>0</Milestone>
+    </Task>
+    <Task>
+      <UID>2</UID>
+      <Name>Desenvolvimento</Name>
+      <Start>2026-11-09T08:00:00</Start>
+      <Finish>2026-11-20T17:00:00</Finish>
+      <Milestone>0</Milestone>
+      <PredecessorLink>
+        <PredecessorUID>1</PredecessorUID>
+        <Type>1</Type>
+        <LinkLag>0</LinkLag>
+      </PredecessorLink>
+    </Task>
+  </Tasks>
+</Project>

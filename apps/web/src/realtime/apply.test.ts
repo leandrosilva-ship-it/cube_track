@@ -346,4 +346,52 @@ describe('Prompt 7: painel do item (atualizações, arquivos, checklists, aprova
     applyRealtimeEvent(queryClient, makeEvent('item.deleted', { itemId: item.id }), context());
     expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.item(item.id) });
   });
+
+  it('item.created/updated/deleted também invalidam o Gantt do board', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('item.created', { item: makeItem(), reason: 'created' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.gantt(BOARD_ID) });
+
+    invalidate.mockClear();
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('item.updated', {
+        itemId: 'i1',
+        version: 2,
+        changes: [{ field: 'plannedEndDate', kind: 'native', value: '2026-12-01', version: 2 }],
+      }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.gantt(BOARD_ID) });
+
+    invalidate.mockClear();
+    applyRealtimeEvent(queryClient, makeEvent('item.deleted', { itemId: 'i1' }), context());
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.gantt(BOARD_ID) });
+  });
+
+  it('milestone.changed invalida marcos e Gantt; baseline.changed invalida a lista e o detalhe', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('milestone.changed', { milestoneId: 'm1', boardId: BOARD_ID, change: 'created' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.milestones(BOARD_ID) });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.gantt(BOARD_ID) });
+
+    invalidate.mockClear();
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('baseline.changed', { baselineId: 'b1', boardId: BOARD_ID, change: 'captured' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.baselines(BOARD_ID) });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.baseline('b1') });
+  });
 });

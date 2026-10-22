@@ -22,7 +22,14 @@ export const VIEW_TYPES = [
 export type ViewType = (typeof VIEW_TYPES)[number];
 
 /** Tipos de view com uma tela própria neste momento do produto (os demais mostram "em breve"). */
-export const IMPLEMENTED_VIEW_TYPES = new Set<ViewType>(['table', 'kanban']);
+export const IMPLEMENTED_VIEW_TYPES = new Set<ViewType>([
+  'table',
+  'kanban',
+  'calendar',
+  'timeline',
+  'gantt',
+  'form',
+]);
 
 export function isViewType(value: string): value is ViewType {
   return (VIEW_TYPES as readonly string[]).includes(value);
@@ -88,6 +95,58 @@ export const TableConfigSchema = z
   .strict();
 export type TableConfig = z.infer<typeof TableConfigSchema>;
 
+/** Configuração da view Calendário: coluna de data (+ secundária, ex. replanejado) e cor. */
+export const CalendarConfigSchema = z
+  .object({
+    /** Coluna de data ou intervalo usada para posicionar o item no calendário. */
+    dateColumnKey: z.string().min(1).max(64).default('plannedStartDate'),
+    /** Segunda data mostrada no mesmo item (ex.: término replanejado ao lado do planejado). */
+    secondaryDateColumnKey: z.string().min(1).max(64).optional(),
+    /** Coluna (normalmente status) que colore o item no calendário. */
+    colorBy: z.string().min(1).max(64).optional(),
+    defaultView: z.enum(['month', 'week', 'day']).default('month'),
+  })
+  .strict();
+export type CalendarConfig = z.infer<typeof CalendarConfigSchema>;
+
+export const TIMELINE_ZOOMS = ['day', 'week', 'month', 'quarter', 'year'] as const;
+export type TimelineZoom = (typeof TIMELINE_ZOOMS)[number];
+
+/** Configuração da view Timeline/Roadmap: barras por intervalo, agrupadas e com marcos. */
+export const TimelineConfigSchema = z
+  .object({
+    startColumnKey: z.string().min(1).max(64).default('plannedStartDate'),
+    endColumnKey: z.string().min(1).max(64).default('plannedEndDate'),
+    /** `'group'`, chave de coluna de pessoas, ou outra coluna de agrupamento. */
+    groupBy: z.string().min(1).max(64).default('group'),
+    colorBy: z.string().min(1).max(64).optional(),
+    zoom: z.enum(TIMELINE_ZOOMS).default('month'),
+    showMilestones: z.boolean().default(true),
+    showToday: z.boolean().default(true),
+  })
+  .strict();
+export type TimelineConfig = z.infer<typeof TimelineConfigSchema>;
+
+/** Configuração da view Gantt/Cronograma: datas, caminho crítico, baseline e agrupamento. */
+export const GanttConfigSchema = z
+  .object({
+    startColumnKey: z.string().min(1).max(64).default('plannedStartDate'),
+    endColumnKey: z.string().min(1).max(64).default('plannedEndDate'),
+    groupBy: z.enum(['group', 'none']).default('group'),
+    showCriticalPath: z.boolean().default(false),
+    showWbs: z.boolean().default(true),
+    baselineCompare: z.boolean().default(false),
+    /** Baseline comparada; ausente + `baselineCompare` usa a baseline primária do board. */
+    baselineId: z.uuid().optional(),
+    zoom: z.enum(TIMELINE_ZOOMS).default('week'),
+  })
+  .strict();
+export type GanttConfig = z.infer<typeof GanttConfigSchema>;
+
+/** Configuração da view Formulário: só referencia o formulário (o formulário é a fonte da verdade). */
+export const FormViewConfigSchema = z.object({ formId: z.uuid().optional() }).strict();
+export type FormViewConfig = z.infer<typeof FormViewConfigSchema>;
+
 /** Configurações de outros tipos de view (ainda sem tela própria): forma livre, limitada em tamanho. */
 export const GenericViewConfigSchema = z.record(z.string(), z.unknown());
 
@@ -95,5 +154,9 @@ export const GenericViewConfigSchema = z.record(z.string(), z.unknown());
 export function parseViewConfig(type: ViewType, raw: unknown): Record<string, unknown> {
   if (type === 'kanban') return KanbanConfigSchema.parse(raw ?? {});
   if (type === 'table') return TableConfigSchema.parse(raw ?? {});
+  if (type === 'calendar') return CalendarConfigSchema.parse(raw ?? {});
+  if (type === 'timeline') return TimelineConfigSchema.parse(raw ?? {});
+  if (type === 'gantt') return GanttConfigSchema.parse(raw ?? {});
+  if (type === 'form') return FormViewConfigSchema.parse(raw ?? {});
   return GenericViewConfigSchema.parse(raw ?? {});
 }

@@ -50,3 +50,4 @@
 | [0046](0046-transicoes-de-status.md)                            | Transições controladas na coluna de status             | Aceita                          |
 | [0047](0047-links-publicos-de-view.md)                          | Link público somente leitura de uma view               | Aceita                          |
 | [0048](0048-painel-do-item.md)                                  | Painel do item: e-mail, menções, aprovações, dependências reaproveitadas | Aceita             |
+| [0049](0049-cronograma-gantt-e-formularios.md)                  | Cronograma (Gantt/caminho crítico/baselines) e Formulários | Aceita                        |

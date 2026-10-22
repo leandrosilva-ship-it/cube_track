@@ -70,6 +70,22 @@ describe('parseViewConfig por tipo', () => {
     ).toEqual(TableConfigSchema.parse({ columnWidths: { c_ust: 120 } }));
     expect(parseViewConfig('calendar', { dateColumnKey: 'c_prazo' })).toEqual({
       dateColumnKey: 'c_prazo',
+      defaultView: 'month',
     });
+    expect(parseViewConfig('gantt', { startColumnKey: 'c_inicio', endColumnKey: 'c_fim' })).toEqual(
+      {
+        startColumnKey: 'c_inicio',
+        endColumnKey: 'c_fim',
+        groupBy: 'group',
+        showCriticalPath: false,
+        showWbs: true,
+        baselineCompare: false,
+        zoom: 'week',
+      },
+    );
+    expect(parseViewConfig('form', { formId: '01a13ae4-0000-7000-8000-000000000001' })).toEqual({
+      formId: '01a13ae4-0000-7000-8000-000000000001',
+    });
+    expect(parseViewConfig('map', { bogus: true })).toEqual({ bogus: true });
   });
 });

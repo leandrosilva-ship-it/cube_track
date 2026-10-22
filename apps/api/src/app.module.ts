@@ -10,7 +10,9 @@ import { HealthController } from './core/observability/health.controller.js';
 import { AccessModule } from './modules/access/access.module.js';
 import { CollaborationModule } from './modules/collaboration/collaboration.module.js';
 import { FilesModule } from './modules/files/files.module.js';
+import { FormsModule } from './modules/forms/forms.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
+import { PlanningModule } from './modules/planning/planning.module.js';
 import { RealtimeModule } from './modules/realtime/realtime.module.js';
 import { SearchModule } from './modules/search/search.module.js';
 import { StructureModule } from './modules/structure/structure.module.js';
@@ -35,6 +37,8 @@ import { WorkModule } from './modules/work/work.module.js';
     StructureModule,
     FilesModule,
     CollaborationModule,
+    PlanningModule,
+    FormsModule,
     SearchModule,
     // Com REALTIME_MODE=separate o gateway roda só no processo main.realtime (ADR 0027).
     ...(loadConfig().REALTIME_MODE === 'embedded' ? [RealtimeModule] : []),

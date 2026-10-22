@@ -29,6 +29,7 @@ const ItemSnapshotSchema = z.object({
   position: z.string(),
   values: z.record(z.string(), z.unknown()),
   version: z.number().int(),
+  descriptionText: z.string().nullable().optional(),
   plannedStartDate: z.string().nullable(),
   plannedEndDate: z.string().nullable(),
   replannedStartDate: z.string().nullable(),
@@ -36,6 +37,8 @@ const ItemSnapshotSchema = z.object({
   actualStartDate: z.string().nullable(),
   actualEndDate: z.string().nullable(),
   progress: z.string().nullable(),
+  isMilestone: z.boolean().optional(),
+  scheduleMode: z.enum(['auto', 'manual']).optional(),
   createdAt: z.string().optional(),
   createdBy: z.uuid().nullable().optional(),
   updatedBy: z.uuid().nullable().optional(),
@@ -120,6 +123,18 @@ export const EVENT_PAYLOADS = {
     requestedBy: z.uuid().nullable(),
     /** Presente só na criação: quem precisa decidir (para notificar os aprovadores). */
     approverIds: z.array(z.uuid()).optional(),
+  }),
+  /** Marco criado/editado/excluído/atingido (board inteiro recarrega a lista de marcos). */
+  'milestone.changed': z.object({
+    milestoneId: z.uuid(),
+    boardId: z.uuid(),
+    change: z.enum(['created', 'updated', 'deleted']),
+  }),
+  /** Baseline capturada, marcada como primária ou excluída. */
+  'baseline.changed': z.object({
+    baselineId: z.uuid(),
+    boardId: z.uuid(),
+    change: z.enum(['captured', 'primary_changed', 'deleted']),
   }),
   'notification.created': z.object({
     notificationId: z.uuid(),

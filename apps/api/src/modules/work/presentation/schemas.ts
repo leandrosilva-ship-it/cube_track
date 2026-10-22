@@ -13,6 +13,7 @@ export const ItemSchema = z.object({
   values: z.record(z.string(), z.unknown()),
   fieldVersions: z.record(z.string(), z.number().int()),
   version: z.number().int(),
+  descriptionText: z.string().nullable(),
   plannedStartDate: z.string().nullable(),
   plannedEndDate: z.string().nullable(),
   replannedStartDate: z.string().nullable(),
@@ -20,6 +21,8 @@ export const ItemSchema = z.object({
   actualStartDate: z.string().nullable(),
   actualEndDate: z.string().nullable(),
   progress: z.string().nullable(),
+  isMilestone: z.boolean(),
+  scheduleMode: z.enum(['auto', 'manual']),
   createdAt: z.string(),
   updatedAt: z.string(),
   createdBy: z.uuid().nullable(),
@@ -116,6 +119,9 @@ export const CreateItemBody = z.object({
   values: z.record(z.string(), z.unknown()).optional(),
   fields: NativeFieldsSchema.optional(),
   position: PositionSchema.optional(),
+  description: z.string().trim().max(20_000).nullable().optional(),
+  isMilestone: z.boolean().optional(),
+  scheduleMode: z.enum(['auto', 'manual']).optional(),
 });
 
 export const UpdateItemBody = z
@@ -127,6 +133,9 @@ export const UpdateItemBody = z
     fields: NativeFieldsSchema.optional(),
     baseVersions: z.record(z.string(), z.number().int().nonnegative()).optional(),
     expectedVersion: z.number().int().positive().optional(),
+    description: z.string().trim().max(20_000).nullable().optional(),
+    isMilestone: z.boolean().optional(),
+    scheduleMode: z.enum(['auto', 'manual']).optional(),
   })
   .strict();
 

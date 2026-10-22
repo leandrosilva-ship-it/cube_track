@@ -23,6 +23,7 @@ import {
   boardVisibility,
   favoriteEntity,
   folderKind,
+  itemScheduleMode,
   lifecycleStatus,
   workspaceVisibility,
 } from './_enums.js';
@@ -194,6 +195,8 @@ export const items = tenantTable(
     progress: numeric('progress', { precision: 5, scale: 2 }),
     estimateHours: numeric('estimate_hours', { precision: 10, scale: 2 }),
     isMilestone: boolean('is_milestone').notNull().default(false),
+    /** `manual`: o recálculo de cronograma (worker) nunca empurra as datas deste item. */
+    scheduleMode: itemScheduleMode('schedule_mode').notNull().default('auto'),
     completedAt: timestamp('completed_at', { withTimezone: true }),
     updatedBy: uuid('updated_by'),
     archivedAt: timestamp('archived_at', { withTimezone: true }),

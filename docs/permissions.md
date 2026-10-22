@@ -154,4 +154,21 @@ Nenhuma permissão nova — todas as ações do painel reaproveitam `item.read`,
 | Pedir aprovação; cancelar pedido pendente                                 | `item.update`                                                                                      |
 | Decidir um pedido de aprovação (aprovar/rejeitar)                         | ser um dos aprovadores designados daquele pedido (`403 not_an_approver` caso contrário), independente de `item.update` |
 | Upload/exclusão de arquivo do item; versões                               | `file.upload` no board (exclusão também exige `item.update` quando o anexo tem item)               |
+
+### Cronograma e Formulários (Prompt 8, ADR 0049)
+
+`schedule.manage` e `form.manage` já existiam no mapa de papéis (§2) sem uso até este prompt — agora cobrem Gantt/marcos/baselines/importação e a gestão de formulários, respectivamente. Preencher um formulário (público ou interno) usa as mesmas permissões de escrita de item que a Tabela já exige, nunca `form.manage`.
+
+| Operação                                                                  | Permissão exigida                                                                                 |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Ler dados do Gantt (tarefas, dependências, caminho crítico)               | `board.read`                                                                                       |
+| Arrastar barra (reagendar), alternar marco/modo manual                    | `item.update`                                                                                      |
+| Criar/editar/excluir dependência (predecessores)                         | `item.update` (mesma regra de "Dependências" do painel, §Painel do item)                           |
+| Criar/editar/excluir marco do board (entidade própria, não item)          | `schedule.manage`                                                                                  |
+| Capturar/definir primária/excluir baseline                               | `schedule.manage`                                                                                  |
+| Pré-visualizar e confirmar importação de cronograma (MS Project .xml)     | `schedule.manage` + `item.create` no grupo de destino                                              |
+| Criar/editar/excluir formulário e seus campos; emitir/revogar link público | `form.manage`                                                                                       |
+| Preencher formulário internamente (`POST /v1/forms/:id/submit`)          | `item.create` no board do formulário — as mesmas permissões por coluna da Tabela valem para `values` |
+| Preencher formulário público (com token, sem login)                      | nenhuma — autorização é o token + honeypot + captcha, nunca uma permissão de membro                |
+| Preencher formulário público com `requiresLogin`                         | sessão válida do **mesmo tenant** do board (`403 tenant_mismatch` caso contrário) — sem captcha     |
 | `POST /v1/email/inbound` (webhook de resposta por e-mail)                 | nenhuma sessão de usuário — segredo de servidor-a-servidor (`X-Webhook-Secret`), não é uma permissão de usuário |

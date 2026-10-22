@@ -47,6 +47,7 @@
     "drizzle-orm": "^0.45.0",
     "exceljs": "4.4.0",
     "express": "5.2.1",
+    "fast-xml-parser": "^4.5.7",
     "fractional-indexing": "^3.2.0",
     "graphql": "^16.11.0",
     "ioredis": "^5.8.2",

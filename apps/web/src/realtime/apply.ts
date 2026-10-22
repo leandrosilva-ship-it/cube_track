@@ -28,6 +28,9 @@ const NATIVE_FIELD_MAP: Record<string, keyof Item> = {
   actualStartDate: 'actualStartDate',
   actualEndDate: 'actualEndDate',
   progress: 'progress',
+  descriptionText: 'descriptionText',
+  isMilestone: 'isMilestone',
+  scheduleMode: 'scheduleMode',
 };
 
 /**
@@ -204,6 +207,7 @@ function snapshotToItem(snapshot: Record<string, unknown>): Item {
     values: (snapshot.values as Record<string, unknown> | undefined) ?? {},
     fieldVersions: {},
     version: Number(snapshot.version ?? 1),
+    descriptionText: (snapshot.descriptionText as string | null | undefined) ?? null,
     plannedStartDate: (snapshot.plannedStartDate as string | null | undefined) ?? null,
     plannedEndDate: (snapshot.plannedEndDate as string | null | undefined) ?? null,
     replannedStartDate: (snapshot.replannedStartDate as string | null | undefined) ?? null,
@@ -211,6 +215,8 @@ function snapshotToItem(snapshot: Record<string, unknown>): Item {
     actualStartDate: (snapshot.actualStartDate as string | null | undefined) ?? null,
     actualEndDate: (snapshot.actualEndDate as string | null | undefined) ?? null,
     progress: (snapshot.progress as string | null | undefined) ?? null,
+    isMilestone: (snapshot.isMilestone as boolean | undefined) ?? false,
+    scheduleMode: (snapshot.scheduleMode as 'auto' | 'manual' | undefined) ?? 'auto',
     createdAt:
       typeof snapshot.createdAt === 'string'
         ? snapshot.createdAt
@@ -257,7 +263,9 @@ export function applyRealtimeEvent(
   const boardId = event.scope.boardId;
   switch (event.type) {
     case 'item.created': {
-      if (boardId === null || context.isOwnPendingMutation(event.clientMutationId)) return;
+      if (boardId === null) return;
+      void queryClient.invalidateQueries({ queryKey: qk.gantt(boardId) });
+      if (context.isOwnPendingMutation(event.clientMutationId)) return;
       const { item } = event.payload as { item: Record<string, unknown> };
       const created = snapshotToItem(item);
       if (findCachedItem(queryClient, boardId, created.id) !== undefined) return;
@@ -267,7 +275,9 @@ export function applyRealtimeEvent(
       return;
     }
     case 'item.updated': {
-      if (boardId === null || context.isOwnPendingMutation(event.clientMutationId)) return;
+      if (boardId === null) return;
+      void queryClient.invalidateQueries({ queryKey: qk.gantt(boardId) });
+      if (context.isOwnPendingMutation(event.clientMutationId)) return;
       const payload = event.payload as { itemId: string; version: number; changes: ItemChange[] };
       const applied: string[] = [];
       patchItem(queryClient, boardId, payload.itemId, (item) => {
@@ -303,6 +313,7 @@ export function applyRealtimeEvent(
       if (parentItemId !== null) bumpSubitemCount(queryClient, boardId, parentItemId, -1);
       void queryClient.invalidateQueries({ queryKey: qk.trash(boardId) });
       void queryClient.invalidateQueries({ queryKey: qk.item(itemId) });
+      void queryClient.invalidateQueries({ queryKey: qk.gantt(boardId) });
       return;
     }
     case 'group.changed': {
@@ -409,6 +420,19 @@ export function applyRealtimeEvent(
       const { itemId } = event.payload as { itemId: string };
       invalidateItemFeature(queryClient, itemId, 'checklists');
       invalidateItemFeature(queryClient, itemId, 'activity');
+      return;
+    }
+    case 'milestone.changed': {
+      if (boardId === null) return;
+      void queryClient.invalidateQueries({ queryKey: qk.milestones(boardId) });
+      void queryClient.invalidateQueries({ queryKey: qk.gantt(boardId) });
+      return;
+    }
+    case 'baseline.changed': {
+      if (boardId === null) return;
+      const { baselineId } = event.payload as { baselineId: string };
+      void queryClient.invalidateQueries({ queryKey: qk.baselines(boardId) });
+      void queryClient.invalidateQueries({ queryKey: qk.baseline(baselineId) });
       return;
     }
     case 'approval.changed': {

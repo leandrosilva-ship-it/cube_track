@@ -322,6 +322,9 @@ export class ItemsService {
         ...(item.parentItemId === null ? {} : { parentItemId: item.parentItemId }),
         position,
         fields: nativeOf(item),
+        description: item.descriptionText,
+        isMilestone: item.isMilestone,
+        scheduleMode: item.scheduleMode,
       },
       {
         checkPermissions: false,
@@ -340,6 +343,9 @@ export class ItemsService {
             parentItemId: copy.id,
             position: child.position,
             fields: nativeOf(child),
+            description: child.descriptionText,
+            isMilestone: child.isMilestone,
+            scheduleMode: child.scheduleMode,
           },
           {
             checkPermissions: false,

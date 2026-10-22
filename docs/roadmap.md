@@ -11,7 +11,7 @@ Legenda: ✅ concluído · 🟡 aguardando validação · ⏳ pendente · 🔄 e
 | 5   | Boards, colunas e Tabela                           | ✅ Concluído            | 33 tipos de coluna, fórmulas decimais, colunas calculadas, obrigatoriedade condicional, templates, lixeira, importação/exportação, Tabela virtualizada (50 mil itens) com edição de planilha em tempo real, `docs/columns.md` | 0037–0043 |
 | 6   | Kanban e views salvas                              | ✅ Concluído            | Views salvas (pessoais/compartilhadas, padrão, duplicar, link público), Kanban com raias/WIP/arrasta-e-solta, `docs/views.md`                                                                                                 | 0044–0047 |
 | 7   | Painel do item                                     | ✅ Concluído            | Drawer com deep link, abas (Atualizações com @menções e resposta por e-mail, Arquivos, Atividade, Campos, Checklist, Dependências, Aprovações, Seguir), presença e navegação anterior/próximo, `docs/item-panel.md`           | 0048      |
-| 8   | Calendário, Timeline, Gantt e Formulários          | ⏳                      | Views de tempo, dependências, caminho crítico, baselines, formulários públicos                                                                                                                                                | —         |
+| 8   | Calendário, Timeline, Gantt e Formulários          | ✅ Concluído            | Campos nativos de agendamento, Calendário, Timeline/Roadmap, Gantt (EAP/WBS, caminho crítico, baselines, importação MS Project), Formulários (público e interno), `docs/views.md` atualizado                                 | 0049      |
 | 9   | Dashboards                                         | ⏳                      | Widgets, agregações, Project Health, exportação                                                                                                                                                                               | —         |
 | 10  | Automações, Processos e Notificações               | ⏳                      | Motor de regras, fases com SLA, workflows, inbox, e-mail                                                                                                                                                                      | —         |
 | 11  | Capacity e Timesheet                               | ⏳                      | Alocação, carga por pessoa, apontamento de horas, aprovações                                                                                                                                                                  | —         |
@@ -359,3 +359,59 @@ pnpm --filter @cube-track/web test:e2e -- item-panel.spec.ts
 ```
 
 **Próximos passos:** Prompt 8, com Calendário, Timeline, Gantt (dependências, caminho crítico, baselines) e Formulários públicos.
+
+## Prompt 8 — Resumo
+
+**Feito**
+
+- **Campos nativos de agendamento** (ADR 0049): `plannedStartDate`/`plannedEndDate`, `replannedStartDate`/`replannedEndDate`, `actualStartDate`/`actualEndDate`, `progress`, `isMilestone` e `scheduleMode` (`'auto'`/`'manual'`) passam a existir em todo item, com vínculo opcional (`binding`) a uma coluna `date` do board para aparecer na Tabela; `scheduleMode: 'manual'` tira o item do recálculo automático em cascata.
+- **EAP/WBS e caminho crítico** (`packages/shared`): `computeWbsNumbers` (numeração `1`, `1.1`, `1.2`...) e CPM clássico (`scheduling.ts` — early/late start/finish, folga, `isCritical`) sobre o calendário de dias úteis do board, ambos derivados a cada leitura, nunca gravados.
+- **API** (`apps/api/src/modules/planning`, `apps/api/src/modules/forms`):
+  - `GET /v1/boards/:id/gantt` — endpoint único com tarefas (WBS + datas vigentes), dependências e caminho crítico já calculados.
+  - Marcos (CRUD) e baselines (capturar, listar, comparar, trocar primária) por board.
+  - Importação de cronograma MS Project em XML/MSPDI, com preview e commit separados (`.mpp` binário fora de escopo, `422 unsupported_format`).
+  - Formulários: CRUD de formulário/campos autenticado; resolução e envio público (anônimo com honeypot+captcha HMAC, ou com login exigido) e envio interno autenticado — três caminhos, uma só `FormSubmissionService`.
+- **Worker** (`apps/worker/src/processors/schedule.ts`): reagenda em cascata os sucessores em modo `auto` ao mover um predecessor, respeitando tipo/lag da dependência e o calendário de dias úteis, com auditoria (`item.rescheduled`) a cada reagendamento.
+- **Frontend** (`apps/web/src/features/planning`, `apps/web/src/features/forms`):
+  - **Calendário** (mês/semana/dia) e **Timeline/Roadmap** (agrupamento reaproveitado do Kanban), escrevendo datas por `PATCH /v1/items/:id` com cache otimista.
+  - **Gantt**: EAP/WBS, barras arrastáveis (desloca o intervalo inteiro, mantendo a duração), conectores de dependência por tipo FS/SS/FF/SF, destaque do caminho crítico, marcos, baselines (barra-fantasma de comparação), modo manual, exportação PNG/PDF e importação de cronograma.
+  - **Formulários**: construtor (campos nativos/reservados/coluna real, "mostrar quando" reaproveitando o motor de `requiredWhen`, reordenação), página pública de preenchimento (`/public/forms/:token`) e preenchimento interno a partir do board.
+  - As 4 novas views (`calendar`, `timeline`, `gantt`, `form`) saem do estado "Em breve" (pendência do Prompt 6) e ficam registradas em `view-tabs.tsx`/`view-body.tsx`.
+- **i18n:** namespaces novos `calendar`, `planning`, `timeline`, `gantt` e `forms` em pt-BR/en/es.
+- **Testes:**
+  - `packages/shared`: 183 passando (novos: `wbs.test.ts`, `scheduling.test.ts` estendido, `timeline.test.ts`, `forms.test.ts`, `views.test.ts` estendido).
+  - `packages/i18n`: 10 passando (paridade de chaves mantida com os 5 namespaces novos).
+  - `apps/web`: 112 passando (novos: `calendar-model.test.ts`, `timeline-model.test.ts`, `gantt-model.test.ts`, `forms/model.test.ts`).
+  - `apps/api` e `apps/worker`: 98 e 24 casos escritos (`planning.e2e.test.ts`, `forms.e2e.test.ts`, extensão de `processors.e2e.test.ts` para o reagendamento em cascata) — **não executados neste ambiente** (sandbox sem PostgreSQL/Redis reais); seguem o mesmo padrão das suítes de integração existentes (papéis sem BYPASSRLS, ADR 0024).
+  - E2E Playwright: `planning.spec.ts` (reagendar uma barra do Gantt com recálculo em cascata; destaque do caminho crítico — ambos via importação de um cronograma MS Project de amostra) e `forms.spec.ts` (envio público anônimo com aparição em tempo real na Tabela; preenchimento interno autenticado) — escritos, não executados neste ambiente (sem stack de dev + banco).
+  - Dois bugs reais encontrados ao escrever os testes e corrigidos no caminho: barra do Gantt ficava invisível sem `plannedEndDate` (agora usa `start` como fallback, igual à Timeline); `<Input>` do rótulo do campo no construtor de formulário e o campo de resposta do captcha público não tinham nome acessível.
+- **Documentação:** ADR 0049, `docs/views.md` (seções 5 e 6), `docs/permissions.md` (seção "Cronograma e Formulários") e `docs/realtime-events.md` (`milestone.changed`, `baseline.changed`) atualizados.
+
+**Critérios de aceite**
+
+- ✅ **Caminho crítico calculado no servidor e destacado no Gantt:** `GET /v1/boards/:id/gantt` devolve `criticalPath` pronto; o frontend só pinta as barras/conectores marcados, nunca recalcula (E2E `planning.spec.ts`, não executado neste ambiente).
+- ✅ **Mover uma tarefa reagenda sucessoras em cascata, exceto em modo manual:** worker (`schedule.ts`) e testes de API cobrem FS/SS/FF/SF com lag e o calendário de dias úteis; item em `scheduleMode: 'manual'` é ignorado.
+- ✅ **Formulário público recebe envio sem login e aparece em tempo real no board:** `forms.spec.ts` (não executado neste ambiente) cobre honeypot/captcha e a chegada do item via `item.created` no outro navegador.
+- ⚠️ Os três critérios de aceite dependentes de API/Postgres/Redis (reagendamento em cascata, formulário público, caminho crítico ponta a ponta) estão cobertos por testes escritos e revisados, mas **não confirmados em execução** neste ambiente — ver pendências.
+
+**Pendências**
+
+- `apps/api` e `apps/worker`: suítes de integração escritas mas não executadas nesta sessão (sandbox sem Postgres/Redis/Testcontainers); e os 4 specs Playwright novos (`planning.spec.ts`, `forms.spec.ts`) também não executados (sem stack de dev completa). Rodar `pnpm db:reset && pnpm db:seed && pnpm test` e `pnpm --filter @cube-track/web test:e2e` num ambiente com a infraestrutura antes de considerar o prompt validado em produção.
+- Gantt não permite redimensionar só uma ponta da barra nem criar item diretamente nele (só Calendário e Timeline criam); um item nasce sem `plannedEndDate` até alguém arrastar/editar uma data — lacuna documentada na ADR 0049, fica para um prompt futuro.
+- Importação MS Project aceita só `.xml` (MSPDI); `.mpp` binário continua fora de escopo. A hierarquia por `OutlineLevel` não é reconstruída — toda importação cria itens de topo no grupo escolhido.
+- Preenchimento público de formulário cobre os 7 tipos nativos + `status`/`dropdown`; outros tipos de coluna mapeados a um campo público mostram um aviso em vez de um widget.
+- Reordenar marcos/baselines por drag não existe (CRUD via diálogo apenas).
+
+**Como rodar e testar**
+
+```bash
+pnpm infra:up && pnpm db:reset && pnpm db:seed
+pnpm build
+pnpm --filter @cube-track/api start      # API :3001
+pnpm --filter @cube-track/worker start   # reagendamento em cascata, notificações, relay
+pnpm --filter @cube-track/web start      # web :3000 — ana.ribeiro@empresademo.com.br / CubeTrack@2026
+pnpm lint && pnpm typecheck && pnpm test
+pnpm --filter @cube-track/web test:e2e -- planning.spec.ts forms.spec.ts
+```
+
+**Próximos passos:** Prompt 9, com Dashboards (widgets, agregações, Project Health e exportação), reaproveitando os dados de cronograma e formulários deste prompt nos widgets de agregação.

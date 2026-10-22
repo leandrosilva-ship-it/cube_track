@@ -102,6 +102,8 @@ export const collabSource = pgEnum('collab_source', ['app', 'email']);
 
 // Planejamento
 export const dependencyType = pgEnum('dependency_type', ['FS', 'SS', 'FF', 'SF']);
+/** Modo de agendamento do item (Gantt, ADR 0049): `auto` é empurrado pelo recálculo de dependências; `manual` nunca é. */
+export const itemScheduleMode = pgEnum('item_schedule_mode', ['auto', 'manual']);
 export const sprintState = pgEnum('sprint_state', ['planned', 'active', 'closed']);
 export const milestoneStatus = pgEnum('milestone_status', [
   'pending',

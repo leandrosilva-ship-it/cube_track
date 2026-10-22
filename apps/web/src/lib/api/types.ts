@@ -269,6 +269,7 @@ export interface Item {
   values: Record<string, unknown>;
   fieldVersions: Record<string, number>;
   version: number;
+  descriptionText: string | null;
   plannedStartDate: string | null;
   plannedEndDate: string | null;
   replannedStartDate: string | null;
@@ -276,6 +277,10 @@ export interface Item {
   actualStartDate: string | null;
   actualEndDate: string | null;
   progress: string | null;
+  /** Marco do cronograma (losango de duração zero no Gantt). */
+  isMilestone: boolean;
+  /** `manual`: o recálculo automático de dependências nunca empurra este item (ADR 0049). */
+  scheduleMode: 'auto' | 'manual';
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
@@ -575,4 +580,165 @@ export interface AttachmentVersion {
   createdAt: string;
   createdBy: string | null;
   isCurrent: boolean;
+}
+
+// -------------------------------------------------------------------- Prompt 8: planejamento ---
+
+export type DependencyType = 'FS' | 'SS' | 'FF' | 'SF';
+
+export interface GanttTask {
+  id: string;
+  parentItemId: string | null;
+  groupId: string;
+  name: string;
+  wbs: string | null;
+  position: string;
+  plannedStartDate: string | null;
+  plannedEndDate: string | null;
+  replannedStartDate: string | null;
+  replannedEndDate: string | null;
+  actualStartDate: string | null;
+  actualEndDate: string | null;
+  start: string | null;
+  end: string | null;
+  progress: string | null;
+  isMilestone: boolean;
+  scheduleMode: 'auto' | 'manual';
+}
+
+export interface GanttDependency {
+  id: string;
+  predecessorId: string;
+  successorId: string;
+  type: DependencyType;
+  lagDays: number;
+}
+
+export interface CriticalPathEntry {
+  id: string;
+  earlyStart: string;
+  earlyFinish: string;
+  lateStart: string;
+  lateFinish: string;
+  totalFloatDays: number;
+  isCritical: boolean;
+}
+
+export interface GanttData {
+  tasks: GanttTask[];
+  dependencies: GanttDependency[];
+  criticalPath: CriticalPathEntry[];
+  calendar: { workingDays: number[]; holidays: string[] };
+}
+
+export interface Milestone {
+  id: string;
+  boardId: string;
+  itemId: string | null;
+  name: string;
+  description: string | null;
+  dueDate: string;
+  status: 'pending' | 'achieved' | 'missed' | 'cancelled';
+  achievedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Baseline {
+  id: string;
+  boardId: string;
+  name: string;
+  description: string | null;
+  capturedAt: string;
+  isPrimary: boolean;
+}
+
+export interface BaselineComparisonRow {
+  itemId: string;
+  itemName: string;
+  baselineStartDate: string | null;
+  baselineEndDate: string | null;
+  baselineProgress: string | null;
+  plannedStartDate: string | null;
+  plannedEndDate: string | null;
+  replannedStartDate: string | null;
+  replannedEndDate: string | null;
+  actualStartDate: string | null;
+  actualEndDate: string | null;
+  currentProgress: string | null;
+}
+
+export interface BaselineDetail extends Baseline {
+  items: BaselineComparisonRow[];
+}
+
+export interface SchedulePreview {
+  importId: string;
+  fileName: string;
+  totalTasks: number;
+  sample: { name: string; start: string | null; finish: string | null; milestone: boolean }[];
+  dependencyCount: number;
+  warnings: string[];
+}
+
+export interface ScheduleImportResult {
+  created: number;
+  skipped: number;
+  dependenciesCreated: number;
+  errors: { task: string; message: string }[];
+}
+
+// -------------------------------------------------------------------------- Prompt 8: forms ---
+
+export interface FormBranding {
+  logoUrl: string | null;
+  primaryColor: string | null;
+  thankYouMessage: string | null;
+  redirectUrl: string | null;
+}
+
+export interface FormDefinition {
+  id: string;
+  boardId: string;
+  targetGroupId: string | null;
+  name: string;
+  description: string | null;
+  isPublic: boolean;
+  requiresLogin: boolean;
+  isActive: boolean;
+  closesAt: string | null;
+  settings: FormBranding;
+  hasPublicLink: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FormField {
+  id: string;
+  formId: string;
+  columnKey: string | null;
+  label: string;
+  helpText: string | null;
+  fieldType: string;
+  isRequired: boolean;
+  showWhen: FilterGroup | null;
+  settings: Record<string, unknown>;
+  position: string;
+}
+
+export interface PublicFormField extends FormField {
+  columnType: string | null;
+  labels: { id: string; label: string; color: string; category: string }[];
+  options: { id: string; label: string; color: string | null }[];
+}
+
+export interface PublicFormDefinition {
+  formId: string;
+  boardId: string;
+  name: string;
+  description: string | null;
+  requiresLogin: boolean;
+  branding: FormBranding;
+  fields: PublicFormField[];
+  captcha: { token: string; question: string } | null;
 }

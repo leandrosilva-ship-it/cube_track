@@ -26,6 +26,7 @@ export interface ItemRecord {
   values: Record<string, Record<string, unknown>>;
   fieldVersions: Record<string, number>;
   version: number;
+  descriptionText: string | null;
   plannedStartDate: string | null;
   plannedEndDate: string | null;
   replannedStartDate: string | null;
@@ -33,6 +34,8 @@ export interface ItemRecord {
   actualStartDate: string | null;
   actualEndDate: string | null;
   progress: string | null;
+  isMilestone: boolean;
+  scheduleMode: 'auto' | 'manual';
   createdAt: Date;
   updatedAt: Date;
   createdBy: string | null;
@@ -59,6 +62,7 @@ export interface ItemDto {
   values: Record<string, unknown>;
   fieldVersions: Record<string, number>;
   version: number;
+  descriptionText: string | null;
   plannedStartDate: string | null;
   plannedEndDate: string | null;
   replannedStartDate: string | null;
@@ -66,6 +70,8 @@ export interface ItemDto {
   actualStartDate: string | null;
   actualEndDate: string | null;
   progress: string | null;
+  isMilestone: boolean;
+  scheduleMode: 'auto' | 'manual';
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
@@ -122,6 +128,7 @@ export function toItemDto(
     values: redactValues(item.values, visibility),
     fieldVersions,
     version: item.version,
+    descriptionText: item.descriptionText,
     plannedStartDate: native('plannedStartDate', item.plannedStartDate),
     plannedEndDate: native('plannedEndDate', item.plannedEndDate),
     replannedStartDate: native('replannedStartDate', item.replannedStartDate),
@@ -129,6 +136,8 @@ export function toItemDto(
     actualStartDate: native('actualStartDate', item.actualStartDate),
     actualEndDate: native('actualEndDate', item.actualEndDate),
     progress: native('progress', item.progress),
+    isMilestone: item.isMilestone,
+    scheduleMode: item.scheduleMode,
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString(),
     createdBy: item.createdBy,

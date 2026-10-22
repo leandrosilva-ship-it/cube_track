@@ -15,3 +15,11 @@ export const CurrentPrincipal = createParamDecorator(
     return principal;
   },
 );
+
+/**
+ * Usuário autenticado, se houver (sem lançar). Só faz sentido em rota `@Endpoint({ public: true })`
+ * que aceita tanto um visitante anônimo quanto alguém logado (ex.: envio de formulário público).
+ */
+export const OptionalPrincipal = createParamDecorator(
+  (_data: unknown, _context: ExecutionContext): AuthPrincipal | null => requireContext().principal,
+);

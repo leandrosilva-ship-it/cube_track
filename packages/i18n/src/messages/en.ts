@@ -1,7 +1,12 @@
 import type { Messages } from './pt-BR.js';
+import { calendarEn } from './calendar.en.js';
 import { itemPanelEn } from './collaboration.en.js';
+import { formsEn } from './forms.en.js';
+import { ganttEn } from './gantt.en.js';
 import { kanbanEn } from './kanban.en.js';
+import { planningEn } from './planning.en.js';
 import { tableEn } from './table.en.js';
+import { timelineEn } from './timeline.en.js';
 
 export const en: Messages = {
   common: {
@@ -374,6 +379,11 @@ export const en: Messages = {
   table: tableEn,
   itemPanel: itemPanelEn,
   kanban: kanbanEn,
+  calendar: calendarEn,
+  planning: planningEn,
+  timeline: timelineEn,
+  gantt: ganttEn,
+  forms: formsEn,
   palette: {
     title: 'Command palette',
     placeholder: 'Search boards, pages and actions…',

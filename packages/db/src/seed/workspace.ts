@@ -314,12 +314,12 @@ export async function seedPmspExperience(
     createdBy,
   });
   const fieldSpecs = [
-    { columnKey: null, label: 'Título da demanda', fieldType: 'text', isRequired: true },
+    { columnKey: 'name', label: 'Título da demanda', fieldType: 'text', isRequired: true },
     { columnKey: 'c_orgao', label: 'Órgão solicitante', fieldType: 'dropdown', isRequired: true },
     { columnKey: 'c_frente', label: 'Frente de trabalho', fieldType: 'status', isRequired: true },
     { columnKey: 'c_tipo', label: 'Tipo de tarefa', fieldType: 'status', isRequired: false },
     {
-      columnKey: null,
+      columnKey: 'description',
       label: 'Descrição e justificativa',
       fieldType: 'long_text',
       isRequired: true,
@@ -465,6 +465,16 @@ export async function seedPmspExperience(
       },
     },
     { name: 'Formulários', type: 'form' as const, config: { formId } },
+    {
+      name: 'Linha do tempo',
+      type: 'timeline' as const,
+      config: {
+        startColumnKey: 'c_inicio',
+        endColumnKey: 'c_termino_planejado',
+        groupBy: 'c_frente',
+        colorBy: 'c_status',
+      },
+    },
     {
       name: 'Mapeamento',
       type: 'table' as const,

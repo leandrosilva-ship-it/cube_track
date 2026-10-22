@@ -22,6 +22,9 @@ export const SCHEDULE_FIELDS: ReadonlySet<string> = new Set([
   'plannedEndDate',
   'replannedStartDate',
   'replannedEndDate',
+  // Adicionar/remover/editar um predecessor também precisa recalcular o próprio item (ele pode
+  // ficar fora do prazo em relação ao novo vínculo) e, a partir dele, as sucessoras.
+  'dependencies',
 ]);
 
 const DATE_BINDINGS = {
@@ -89,9 +92,15 @@ export function scheduleProcessor(deps: { database: DatabaseHandle; redis: Redis
             plannedEndDate: items.plannedEndDate,
             replannedStartDate: items.replannedStartDate,
             replannedEndDate: items.replannedEndDate,
+            scheduleMode: items.scheduleMode,
           })
           .from(items)
           .where(and(eq(items.boardId, request.boardId), isNull(items.deletedAt)));
+        const manualIds = new Set(
+          rows.filter((row) => row.scheduleMode === 'manual').map((row) => row.id),
+        );
+        // Um item em modo manual nunca é empurrado: o vínculo em que ele é sucessor é ignorado (ele
+        // continua constrangendo as próprias sucessoras normalmente, com as datas que já tem).
         const links: ScheduleLink[] = (
           await tx
             .select({
@@ -102,7 +111,9 @@ export function scheduleProcessor(deps: { database: DatabaseHandle; redis: Redis
             })
             .from(dependencies)
             .where(eq(dependencies.boardId, request.boardId))
-        ).map((link) => ({ ...link }));
+        )
+          .map((link) => ({ ...link }))
+          .filter((link) => !manualIds.has(link.successorId));
         if (links.length === 0) return null;
         const tasks: ScheduleTask[] = rows.map((row) => ({
           id: row.id,

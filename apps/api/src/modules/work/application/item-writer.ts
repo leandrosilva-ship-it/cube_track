@@ -6,6 +6,7 @@ import {
   missingRequiredColumns,
   positionBetween,
   READ_ONLY_COLUMN_TYPES,
+  textToDoc,
   type ConditionContext,
   type ItemFieldChange,
 } from '@cube-track/shared';
@@ -57,6 +58,12 @@ export interface CreateItemInput {
   values?: Record<string, unknown> | undefined;
   fields?: NativeFieldsInput | undefined;
   position?: PositionInput | undefined;
+  /** Descrição do item em texto simples (convertida para documento rico ao gravar). */
+  description?: string | null | undefined;
+  /** Marco do cronograma (renderizado como losango de duração zero no Gantt). */
+  isMilestone?: boolean | undefined;
+  /** Modo de agendamento (ADR 0049): manual nunca é empurrado pelo recálculo automático. */
+  scheduleMode?: 'auto' | 'manual' | undefined;
 }
 
 export interface UpdateItemInput {
@@ -69,6 +76,9 @@ export interface UpdateItemInput {
   baseVersions?: Record<string, number> | undefined;
   /** Versão do item lida pelo cliente (atualização condicional do item inteiro). */
   expectedVersion?: number | undefined;
+  description?: string | null | undefined;
+  isMilestone?: boolean | undefined;
+  scheduleMode?: 'auto' | 'manual' | undefined;
 }
 
 /** Contexto de escrita de um board, carregado uma vez por requisição (inclusive em massa). */
@@ -243,6 +253,9 @@ export class ItemWriter {
     }
     for (const key of Object.keys(values)) fieldVersions[key] = 1;
     for (const field of Object.keys(native)) fieldVersions[field] = 1;
+    if (input.description !== undefined) fieldVersions.descriptionText = 1;
+    if (input.isMilestone !== undefined) fieldVersions.isMilestone = 1;
+    if (input.scheduleMode !== undefined) fieldVersions.scheduleMode = 1;
     return this.repository.insert(tx, {
       tenantId: context.user.tenantId,
       boardId: context.boardId,
@@ -258,6 +271,14 @@ export class ItemWriter {
           value,
         ]),
       ),
+      ...(input.description === undefined
+        ? {}
+        : {
+            description: input.description === null ? null : textToDoc(input.description),
+            descriptionText: input.description,
+          }),
+      ...(input.isMilestone === undefined ? {} : { isMilestone: input.isMilestone }),
+      ...(input.scheduleMode === undefined ? {} : { scheduleMode: input.scheduleMode }),
       completedAt: isItemDone(context.definition, values) ? now : null,
       createdBy: context.user.userId,
       updatedBy: context.user.userId,
@@ -306,6 +327,7 @@ export class ItemWriter {
           position: snapshot.position,
           values: snapshot.values,
           version: snapshot.version,
+          descriptionText: snapshot.descriptionText,
           plannedStartDate: snapshot.plannedStartDate,
           plannedEndDate: snapshot.plannedEndDate,
           replannedStartDate: snapshot.replannedStartDate,
@@ -313,6 +335,8 @@ export class ItemWriter {
           actualStartDate: snapshot.actualStartDate,
           actualEndDate: snapshot.actualEndDate,
           progress: snapshot.progress,
+          isMilestone: snapshot.isMilestone,
+          scheduleMode: snapshot.scheduleMode,
           createdAt: snapshot.createdAt,
           createdBy: snapshot.createdBy,
           updatedBy: snapshot.updatedBy,
@@ -512,6 +536,65 @@ export class ItemWriter {
         columnKey: field,
         oldValue: previous,
         newValue: value,
+      });
+    }
+
+    if (input.description !== undefined && input.description !== item.descriptionText) {
+      checkBase('descriptionText');
+      update.description = input.description === null ? null : textToDoc(input.description);
+      update.descriptionText = input.description;
+      touched.add('description_text');
+      before.descriptionText = item.descriptionText;
+      after.descriptionText = input.description;
+      changes.push({
+        field: 'descriptionText',
+        kind: 'native',
+        value: input.description,
+        version: bump('descriptionText'),
+      });
+      activity.push({
+        action: 'item.value_changed',
+        columnKey: 'descriptionText',
+        oldValue: item.descriptionText,
+        newValue: input.description,
+      });
+    }
+    if (input.isMilestone !== undefined && input.isMilestone !== item.isMilestone) {
+      checkBase('isMilestone');
+      update.isMilestone = input.isMilestone;
+      touched.add('is_milestone');
+      before.isMilestone = item.isMilestone;
+      after.isMilestone = input.isMilestone;
+      changes.push({
+        field: 'isMilestone',
+        kind: 'native',
+        value: input.isMilestone,
+        version: bump('isMilestone'),
+      });
+      activity.push({
+        action: 'item.value_changed',
+        columnKey: 'isMilestone',
+        oldValue: item.isMilestone,
+        newValue: input.isMilestone,
+      });
+    }
+    if (input.scheduleMode !== undefined && input.scheduleMode !== item.scheduleMode) {
+      checkBase('scheduleMode');
+      update.scheduleMode = input.scheduleMode;
+      touched.add('schedule_mode');
+      before.scheduleMode = item.scheduleMode;
+      after.scheduleMode = input.scheduleMode;
+      changes.push({
+        field: 'scheduleMode',
+        kind: 'native',
+        value: input.scheduleMode,
+        version: bump('scheduleMode'),
+      });
+      activity.push({
+        action: 'item.value_changed',
+        columnKey: 'scheduleMode',
+        oldValue: item.scheduleMode,
+        newValue: input.scheduleMode,
       });
     }
 

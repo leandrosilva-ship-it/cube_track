@@ -107,3 +107,12 @@ export function useItemRealtime(itemId: string | null): void {
     return client.watchItem(itemId);
   }, [client, itemId]);
 }
+
+/** Assina os eventos de um dashboard (`dashboard.changed`/`widget.changed`, ADR 0050) enquanto montado. */
+export function useDashboardRealtime(dashboardId: string | null): void {
+  const client = useRealtimeClient();
+  useEffect(() => {
+    if (client === null || dashboardId === null) return undefined;
+    return client.watchDashboard(dashboardId);
+  }, [client, dashboardId]);
+}

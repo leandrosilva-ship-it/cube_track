@@ -742,3 +742,77 @@ export interface PublicFormDefinition {
   fields: PublicFormField[];
   captcha: { token: string; question: string } | null;
 }
+
+// --------------------------------------------------------------------------- dashboards ---
+
+export type WidgetType = 'number' | 'chart_bar' | 'chart_pie' | 'battery' | 'workload' | 'project_health';
+
+export interface Dashboard {
+  id: string;
+  workspaceId: string;
+  ownerId: string | null;
+  name: string;
+  description: string | null;
+  visibility: 'private' | 'workspace';
+  sourceBoardIds: string[];
+  filters: Record<string, unknown> | null;
+  refreshIntervalSeconds: number | null;
+  position: string;
+  createdAt: string;
+  updatedAt: string;
+  canEdit: boolean;
+}
+
+export interface WidgetLayout {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface Widget {
+  id: string;
+  dashboardId: string;
+  type: WidgetType;
+  title: string;
+  config: Record<string, unknown>;
+  layout: WidgetLayout;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type HealthStatus = 'green' | 'yellow' | 'red' | 'grey';
+
+export type WidgetData =
+  | { kind: 'number'; value: string | null }
+  | { kind: 'chart'; categories: { key: string; label: string; value: number; color: string | null }[] }
+  | { kind: 'battery'; onTime: number; replanned: number; late: number; noDate: number; total: number }
+  | { kind: 'workload'; people: { personId: string; personName: string; value: number }[] }
+  | {
+      kind: 'project_health';
+      latest: ProjectHealthEntry | null;
+      history: { id: string; reportedAt: string; overall: HealthStatus }[];
+    };
+
+export interface DashboardWidgetData {
+  widgetId: string;
+  type: WidgetType;
+  data: WidgetData;
+}
+
+export interface ProjectHealthEntry {
+  id: string;
+  boardId: string;
+  reportedBy: string | null;
+  reportedAt: string;
+  overall: HealthStatus;
+  schedule: HealthStatus;
+  cost: HealthStatus;
+  scope: HealthStatus;
+  quality: HealthStatus;
+  risk: HealthStatus;
+  percentComplete: string | null;
+  spi: string | null;
+  cpi: string | null;
+  summary: string | null;
+}

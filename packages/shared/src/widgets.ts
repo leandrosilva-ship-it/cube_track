@@ -1,0 +1,139 @@
+import { z } from 'zod';
+
+import { ROLLUP_AGGREGATES } from './columns/registry.js';
+import { FILTER_OPERATORS, FilterScalarSchema } from './query.js';
+
+/**
+ * Registro de tipos de widget de dashboard (ADR 0050). Cada tipo define o schema Zod de `config`
+ * (`widgets.config`, JSONB) — a mesma convenção do registro de colunas (`columns/registry.ts`).
+ * Os valores aqui batem exatamente com os widgets já semeados em `packages/db/src/seed/workspace.ts`
+ * (dashboard "Project Health – PMSP").
+ */
+
+export const WIDGET_TYPES = [
+  'number',
+  'chart_bar',
+  'chart_pie',
+  'battery',
+  'workload',
+  'project_health',
+] as const;
+export type WidgetType = (typeof WIDGET_TYPES)[number];
+
+export function isWidgetType(value: string): value is WidgetType {
+  return (WIDGET_TYPES as readonly string[]).includes(value);
+}
+
+/** Agregações numéricas disponíveis para widgets `number`/`chart_bar` (mesmo catálogo de rollup). */
+export const WIDGET_AGGREGATES = ROLLUP_AGGREGATES;
+export type WidgetAggregate = (typeof WIDGET_AGGREGATES)[number];
+
+const boardIds = z.array(z.uuid()).min(1).max(20);
+const columnKey = z.string().min(1).max(64);
+
+/** Filtro simples de widget: um grupo de itens, ou uma única condição sobre uma coluna. */
+export const WidgetGroupFilterSchema = z.object({ groupIds: z.array(z.uuid()).min(1).max(100) }).strict();
+export const WidgetConditionFilterSchema = z
+  .object({
+    columnKey,
+    operator: z.enum(FILTER_OPERATORS),
+    value: z.union([FilterScalarSchema, z.array(FilterScalarSchema).max(200), z.null()]).optional(),
+  })
+  .strict();
+export const WidgetFilterSchema = z.union([WidgetGroupFilterSchema, WidgetConditionFilterSchema]);
+export type WidgetFilter = z.infer<typeof WidgetFilterSchema>;
+
+export function isGroupFilter(filter: WidgetFilter): filter is z.infer<typeof WidgetGroupFilterSchema> {
+  return 'groupIds' in filter;
+}
+
+/** KPI numérico: soma/média/contagem... de uma coluna (ou contagem de itens) sobre um filtro opcional. */
+export const NumberWidgetConfigSchema = z
+  .object({
+    boardIds,
+    columnKey: columnKey.optional(),
+    aggregate: z.enum(WIDGET_AGGREGATES),
+    filter: WidgetFilterSchema.optional(),
+  })
+  .strict();
+export type NumberWidgetConfig = z.infer<typeof NumberWidgetConfigSchema>;
+
+/** Gráfico de barras: valor de `yColumnKey` (ou contagem) agregado por categoria de `xColumnKey`. */
+export const ChartBarWidgetConfigSchema = z
+  .object({
+    boardIds,
+    xColumnKey: columnKey,
+    yColumnKey: columnKey.optional(),
+    aggregate: z.enum(WIDGET_AGGREGATES),
+    filter: WidgetFilterSchema.optional(),
+  })
+  .strict();
+export type ChartBarWidgetConfig = z.infer<typeof ChartBarWidgetConfigSchema>;
+
+/** Gráfico de pizza: contagem de itens por valor distinto de `columnKey` (status, dropdown...). */
+export const ChartPieWidgetConfigSchema = z
+  .object({ boardIds, columnKey, filter: WidgetFilterSchema.optional() })
+  .strict();
+export type ChartPieWidgetConfig = z.infer<typeof ChartPieWidgetConfigSchema>;
+
+/** "Bateria" de prazos: no prazo × replanejado × atrasado, comparando datas planejado/replanejado/realizado. */
+export const BatteryWidgetConfigSchema = z
+  .object({
+    boardIds,
+    plannedColumnKey: columnKey,
+    replannedColumnKey: columnKey.optional(),
+    actualColumnKey: columnKey.optional(),
+    filter: WidgetFilterSchema.optional(),
+  })
+  .strict();
+export type BatteryWidgetConfig = z.infer<typeof BatteryWidgetConfigSchema>;
+
+/** Carga de trabalho: contagem de itens (ou soma de uma coluna numérica) por pessoa de `peopleColumnKey`. */
+export const WorkloadWidgetConfigSchema = z
+  .object({
+    boardIds,
+    peopleColumnKey: columnKey,
+    valueColumnKey: columnKey.optional(),
+    aggregate: z.enum(WIDGET_AGGREGATES).optional(),
+    filter: WidgetFilterSchema.optional(),
+  })
+  .strict();
+export type WorkloadWidgetConfig = z.infer<typeof WorkloadWidgetConfigSchema>;
+
+/** Saúde do projeto: último relato (e histórico curto) de `project_health` para um board. */
+export const ProjectHealthWidgetConfigSchema = z.object({ boardId: z.uuid() }).strict();
+export type ProjectHealthWidgetConfig = z.infer<typeof ProjectHealthWidgetConfigSchema>;
+
+export const WIDGET_CONFIG_SCHEMAS = {
+  number: NumberWidgetConfigSchema,
+  chart_bar: ChartBarWidgetConfigSchema,
+  chart_pie: ChartPieWidgetConfigSchema,
+  battery: BatteryWidgetConfigSchema,
+  workload: WorkloadWidgetConfigSchema,
+  project_health: ProjectHealthWidgetConfigSchema,
+} as const satisfies Record<WidgetType, z.ZodType>;
+
+export type WidgetConfig = {
+  [K in WidgetType]: z.infer<(typeof WIDGET_CONFIG_SCHEMAS)[K]>;
+}[WidgetType];
+
+/** Valida `config` conforme `type`; lança `ZodError` se inválido (chamador decide como mapear o erro). */
+export function parseWidgetConfig<T extends WidgetType>(
+  type: T,
+  raw: unknown,
+): z.infer<(typeof WIDGET_CONFIG_SCHEMAS)[T]> {
+  return WIDGET_CONFIG_SCHEMAS[type].parse(raw) as z.infer<(typeof WIDGET_CONFIG_SCHEMAS)[T]>;
+}
+
+/** Layout do widget na grade do dashboard (unidades de coluna/linha, não pixels). */
+export const WidgetLayoutSchema = z
+  .object({
+    x: z.number().int().min(0).max(11),
+    y: z.number().int().min(0).max(999),
+    w: z.number().int().min(1).max(12),
+    h: z.number().int().min(1).max(20),
+  })
+  .strict();
+export type WidgetLayout = z.infer<typeof WidgetLayoutSchema>;
+
+export const DASHBOARD_GRID_COLUMNS = 12;

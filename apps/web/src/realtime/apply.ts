@@ -441,6 +441,33 @@ export function applyRealtimeEvent(
       invalidateItemFeature(queryClient, itemId, 'activity');
       return;
     }
+    case 'dashboard.changed': {
+      const { dashboardId } = event.payload as { dashboardId: string };
+      void queryClient.invalidateQueries({ queryKey: qk.dashboard(dashboardId) });
+      // A lista de dashboards do workspace ('workspaces', id, 'dashboards') não traz o workspaceId
+      // no payload: casa por conter 'dashboards' na chave em vez de reconstruir a chave exata.
+      void queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey.includes('dashboards'),
+      });
+      return;
+    }
+    case 'widget.changed': {
+      const { dashboardId } = event.payload as { dashboardId: string };
+      void queryClient.invalidateQueries({ queryKey: qk.dashboardWidgets(dashboardId) });
+      void queryClient.invalidateQueries({ queryKey: qk.dashboardData(dashboardId) });
+      return;
+    }
+    case 'project_health.reported': {
+      if (boardId === null) return;
+      void queryClient.invalidateQueries({ queryKey: qk.projectHealth(boardId) });
+      // Um widget `project_health` de qualquer dashboard pode mostrar este board: sem o
+      // dashboardId no payload, invalida toda `dashboardData` em cache (mesmo padrão já usado
+      // para a lista de dashboards em `dashboard.changed`).
+      void queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey.includes('data') && query.queryKey.includes('dashboards'),
+      });
+      return;
+    }
     case 'notification.created':
       void queryClient.invalidateQueries({ queryKey: qk.notifications() });
       context.onNotification((event.payload as { title: string }).title);

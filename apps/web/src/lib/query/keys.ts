@@ -72,6 +72,11 @@ export const qk = {
   unreadCount: () => ['me', 'notifications', 'unread-count'] as const,
   week: (date: string) => ['me', 'week', date] as const,
   search: (query: string) => ['search', query] as const,
+  dashboardsOf: (workspaceId: string) => ['workspaces', workspaceId, 'dashboards'] as const,
+  dashboard: (dashboardId: string) => ['dashboards', dashboardId] as const,
+  dashboardWidgets: (dashboardId: string) => ['dashboards', dashboardId, 'widgets'] as const,
+  dashboardData: (dashboardId: string) => ['dashboards', dashboardId, 'data'] as const,
+  projectHealth: (boardId: string) => ['boards', boardId, 'project-health'] as const,
 };
 
 /** Há filtros que o cache local não sabe avaliar? (então eventos invalidam em vez de inserir) */

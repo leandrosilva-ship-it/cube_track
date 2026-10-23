@@ -65,6 +65,7 @@ const CREATABLE: ViewType[] = [
   'timeline',
   'gantt',
   'form',
+  'dashboard',
   'chart',
   'files',
   'workload',

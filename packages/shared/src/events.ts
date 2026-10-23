@@ -136,6 +136,19 @@ export const EVENT_PAYLOADS = {
     boardId: z.uuid(),
     change: z.enum(['captured', 'primary_changed', 'deleted']),
   }),
+  /** Dashboard criado/editado/excluído (ADR 0050): o cliente recarrega a lista/o dashboard aberto. */
+  'dashboard.changed': z.object({
+    dashboardId: z.uuid(),
+    change: z.enum(['created', 'updated', 'deleted']),
+  }),
+  /** Widget criado/editado/excluído/reordenado: o cliente refaz a consulta de dados do dashboard. */
+  'widget.changed': z.object({
+    widgetId: z.uuid(),
+    dashboardId: z.uuid(),
+    change: z.enum(['created', 'updated', 'deleted', 'reordered']),
+  }),
+  /** Novo relato de saúde do projeto (ADR 0050): widgets `project_health` do board recarregam. */
+  'project_health.reported': z.object({ healthId: z.uuid(), boardId: z.uuid() }),
   'notification.created': z.object({
     notificationId: z.uuid(),
     type: z.string(),

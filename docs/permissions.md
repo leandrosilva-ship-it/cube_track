@@ -172,3 +172,20 @@ Nenhuma permissão nova — todas as ações do painel reaproveitam `item.read`,
 | Preencher formulário público (com token, sem login)                      | nenhuma — autorização é o token + honeypot + captcha, nunca uma permissão de membro                |
 | Preencher formulário público com `requiresLogin`                         | sessão válida do **mesmo tenant** do board (`403 tenant_mismatch` caso contrário) — sem captcha     |
 | `POST /v1/email/inbound` (webhook de resposta por e-mail)                 | nenhuma sessão de usuário — segredo de servidor-a-servidor (`X-Webhook-Secret`), não é uma permissão de usuário |
+
+### Dashboards, widgets e saúde do projeto (Prompt 9, ADR 0050)
+
+A regra de `dashboard.read`/`dashboard.update` em `decide()` já existia desde o Prompt 3 (dono sempre acessa; visibilidade `workspace` segue `workspace.read`/`workspace.manage`) — este prompt só passou a expor `canEdit` no DTO e a usá-la de fato. Não existe uma permissão própria de widget: editar os widgets de um dashboard é editar o dashboard (`dashboard.update`). Relatar a saúde do projeto usa `board.manage` (não uma permissão nova) — o mesmo nível de quem administra o board.
+
+| Operação                                                        | Permissão exigida                                                                 |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Listar dashboards de um workspace                               | `workspace.read` (a lista já filtra: privados só do dono, `workspace` para todos que leem o workspace) |
+| Criar dashboard                                                 | `dashboard.create` (permissão de workspace, já existia no mapa de papéis, §2)    |
+| Ler um dashboard (`GET /v1/dashboards/:id`)                     | `dashboard.read`                                                                 |
+| Editar/excluir dashboard                                        | `dashboard.update` (dono, ou `workspace.manage` com visibilidade `workspace`)    |
+| Criar/editar/excluir widget de um dashboard                     | `dashboard.update` do dashboard a que ele pertence                              |
+| Ler dados computados dos widgets (`GET .../data`) ou exportar CSV | `dashboard.read`                                                                 |
+| Relatar saúde do projeto (`POST /v1/boards/:id/project-health`) | `board.manage`                                                                   |
+| Ler histórico de saúde do projeto                               | `board.read`                                                                     |
+
+Agregação de widgets: `widget-data.service.ts` consulta cada board de `config.boardIds` via `ItemsService.list` (mesmo motor da Tabela) — um board que o usuário não pode ler (`board.read` negado) contribui zero itens em vez de derrubar o dashboard inteiro; colunas ocultas e o escopo de itens de convidado valem exatamente como na Tabela.

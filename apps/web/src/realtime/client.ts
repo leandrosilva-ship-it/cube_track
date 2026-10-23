@@ -43,6 +43,11 @@ interface ItemSubscription {
   presenceState: Record<string, unknown>;
 }
 
+interface DashboardSubscription {
+  refs: number;
+  room: string | null;
+}
+
 /**
  * Cliente realtime: uma conexão Socket.IO por aba, assinaturas de board com contagem de referências,
  * aplicação ordenada por `seq` (lacuna → replay; replay impossível → resync), deduplicação por
@@ -52,6 +57,7 @@ export class RealtimeClient {
   private socket: Socket | null = null;
   private readonly boards = new Map<string, BoardSubscription>();
   private readonly items = new Map<string, ItemSubscription>();
+  private readonly dashboards = new Map<string, DashboardSubscription>();
   private readonly seen = new Set<string>();
   private heartbeat: ReturnType<typeof setInterval> | undefined;
   private readonly replaying = new Set<string>();
@@ -93,6 +99,7 @@ export class RealtimeClient {
       realtimeStore.setState({ status: 'online' });
       for (const boardId of this.boards.keys()) void this.subscribe(boardId);
       for (const itemId of this.items.keys()) void this.subscribeItem(itemId);
+      for (const dashboardId of this.dashboards.keys()) void this.subscribeDashboard(dashboardId);
     });
     socket.on('disconnect', () => {
       realtimeStore.setState({ status: 'offline' });
@@ -124,6 +131,7 @@ export class RealtimeClient {
     this.socket = null;
     this.boards.clear();
     this.items.clear();
+    this.dashboards.clear();
     this.seen.clear();
     realtimeStore.setState({ status: 'idle', presence: {} });
   }
@@ -227,6 +235,48 @@ export class RealtimeClient {
     const subscription = this.items.get(itemId);
     if (subscription?.room === null || subscription === undefined || this.socket?.connected !== true) return;
     this.socket.emit('presence.heartbeat', { room: 'item', id: itemId, state: subscription.presenceState });
+  }
+
+  /**
+   * Eventos de um dashboard (`dashboard.changed`/`widget.changed`): sem replay/seq nem presença,
+   * só entrega de eventos — o refetch de dados segue por `refreshIntervalSeconds` (ADR 0050).
+   */
+  watchDashboard(dashboardId: string): () => void {
+    const existing = this.dashboards.get(dashboardId);
+    if (existing !== undefined) {
+      existing.refs += 1;
+    } else {
+      this.dashboards.set(dashboardId, { refs: 1, room: null });
+      if (this.socket?.connected === true) void this.subscribeDashboard(dashboardId);
+    }
+    return () => {
+      this.unwatchDashboard(dashboardId);
+    };
+  }
+
+  private unwatchDashboard(dashboardId: string): void {
+    const subscription = this.dashboards.get(dashboardId);
+    if (subscription === undefined) return;
+    subscription.refs -= 1;
+    if (subscription.refs > 0) return;
+    this.dashboards.delete(dashboardId);
+    if (this.socket?.connected === true)
+      this.socket.emit('unsubscribe', { room: 'dashboard', id: dashboardId });
+  }
+
+  private async subscribeDashboard(dashboardId: string): Promise<void> {
+    const socket = this.socket;
+    if (socket === null || !this.dashboards.has(dashboardId)) return;
+    try {
+      const ack = (await socket
+        .timeout(10_000)
+        .emitWithAck('subscribe', { room: 'dashboard', id: dashboardId })) as SubscribeAck;
+      const subscription = this.dashboards.get(dashboardId);
+      if (!ack.ok || ack.room === undefined || subscription === undefined) return;
+      subscription.room = ack.room;
+    } catch {
+      // Sem ack (timeout): a próxima reconexão tenta de novo.
+    }
   }
 
   private unwatchBoard(boardId: string): void {

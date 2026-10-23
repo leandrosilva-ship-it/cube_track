@@ -29,6 +29,7 @@ export const IMPLEMENTED_VIEW_TYPES = new Set<ViewType>([
   'timeline',
   'gantt',
   'form',
+  'dashboard',
 ]);
 
 export function isViewType(value: string): value is ViewType {
@@ -147,6 +148,13 @@ export type GanttConfig = z.infer<typeof GanttConfigSchema>;
 export const FormViewConfigSchema = z.object({ formId: z.uuid().optional() }).strict();
 export type FormViewConfig = z.infer<typeof FormViewConfigSchema>;
 
+/**
+ * Configuração da view Dashboard: só referencia o dashboard (entidade de workspace, ADR 0050) que é
+ * embutido inline nas abas do board — o dashboard é a fonte da verdade dos widgets, não a view.
+ */
+export const DashboardConfigSchema = z.object({ dashboardId: z.uuid().optional() }).strict();
+export type DashboardViewConfig = z.infer<typeof DashboardConfigSchema>;
+
 /** Configurações de outros tipos de view (ainda sem tela própria): forma livre, limitada em tamanho. */
 export const GenericViewConfigSchema = z.record(z.string(), z.unknown());
 
@@ -158,5 +166,6 @@ export function parseViewConfig(type: ViewType, raw: unknown): Record<string, un
   if (type === 'timeline') return TimelineConfigSchema.parse(raw ?? {});
   if (type === 'gantt') return GanttConfigSchema.parse(raw ?? {});
   if (type === 'form') return FormViewConfigSchema.parse(raw ?? {});
+  if (type === 'dashboard') return DashboardConfigSchema.parse(raw ?? {});
   return GenericViewConfigSchema.parse(raw ?? {});
 }

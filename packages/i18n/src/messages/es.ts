@@ -1,6 +1,7 @@
 import type { Messages } from './pt-BR.js';
 import { calendarEs } from './calendar.es.js';
 import { itemPanelEs } from './collaboration.es.js';
+import { dashboardsEs } from './dashboards.es.js';
 import { formsEs } from './forms.es.js';
 import { ganttEs } from './gantt.es.js';
 import { kanbanEs } from './kanban.es.js';
@@ -384,6 +385,7 @@ export const es: Messages = {
   timeline: timelineEs,
   gantt: ganttEs,
   forms: formsEs,
+  dashboards: dashboardsEs,
   palette: {
     title: 'Paleta de comandos',
     placeholder: 'Buscar tableros, páginas y acciones…',
@@ -475,6 +477,7 @@ export const es: Messages = {
     folders: 'Carpetas',
     rootBoards: 'Sin carpeta',
     empty: 'Este espacio de trabajo aún no tiene tableros.',
+    dashboards: 'Paneles',
   },
   settings: {
     title: 'Configuración',

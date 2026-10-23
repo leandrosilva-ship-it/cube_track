@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   defaultKanbanConfig,
+  IMPLEMENTED_VIEW_TYPES,
   isViewType,
   KanbanConfigSchema,
   parseViewConfig,
@@ -86,6 +87,16 @@ describe('parseViewConfig por tipo', () => {
     expect(parseViewConfig('form', { formId: '01a13ae4-0000-7000-8000-000000000001' })).toEqual({
       formId: '01a13ae4-0000-7000-8000-000000000001',
     });
+    expect(parseViewConfig('dashboard', {})).toEqual({});
+    expect(
+      parseViewConfig('dashboard', { dashboardId: '01a13ae4-0000-7000-8000-000000000002' }),
+    ).toEqual({ dashboardId: '01a13ae4-0000-7000-8000-000000000002' });
     expect(parseViewConfig('map', { bogus: true })).toEqual({ bogus: true });
+  });
+});
+
+describe('tipos de view implementados', () => {
+  it('inclui dashboard (ADR 0050)', () => {
+    expect(IMPLEMENTED_VIEW_TYPES.has('dashboard')).toBe(true);
   });
 });

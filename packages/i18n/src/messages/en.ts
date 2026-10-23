@@ -1,6 +1,7 @@
 import type { Messages } from './pt-BR.js';
 import { calendarEn } from './calendar.en.js';
 import { itemPanelEn } from './collaboration.en.js';
+import { dashboardsEn } from './dashboards.en.js';
 import { formsEn } from './forms.en.js';
 import { ganttEn } from './gantt.en.js';
 import { kanbanEn } from './kanban.en.js';
@@ -384,6 +385,7 @@ export const en: Messages = {
   timeline: timelineEn,
   gantt: ganttEn,
   forms: formsEn,
+  dashboards: dashboardsEn,
   palette: {
     title: 'Command palette',
     placeholder: 'Search boards, pages and actions…',
@@ -475,6 +477,7 @@ export const en: Messages = {
     folders: 'Folders',
     rootBoards: 'No folder',
     empty: 'This workspace has no boards yet.',
+    dashboards: 'Dashboards',
   },
   settings: {
     title: 'Settings',

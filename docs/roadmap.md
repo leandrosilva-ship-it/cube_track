@@ -12,7 +12,7 @@ Legenda: ✅ concluído · 🟡 aguardando validação · ⏳ pendente · 🔄 e
 | 6   | Kanban e views salvas                              | ✅ Concluído            | Views salvas (pessoais/compartilhadas, padrão, duplicar, link público), Kanban com raias/WIP/arrasta-e-solta, `docs/views.md`                                                                                                 | 0044–0047 |
 | 7   | Painel do item                                     | ✅ Concluído            | Drawer com deep link, abas (Atualizações com @menções e resposta por e-mail, Arquivos, Atividade, Campos, Checklist, Dependências, Aprovações, Seguir), presença e navegação anterior/próximo, `docs/item-panel.md`           | 0048      |
 | 8   | Calendário, Timeline, Gantt e Formulários          | ✅ Concluído            | Campos nativos de agendamento, Calendário, Timeline/Roadmap, Gantt (EAP/WBS, caminho crítico, baselines, importação MS Project), Formulários (público e interno), `docs/views.md` atualizado                                 | 0049      |
-| 9   | Dashboards                                         | ⏳                      | Widgets, agregações, Project Health, exportação                                                                                                                                                                               | —         |
+| 9   | Dashboards                                         | ✅ Concluído            | Dashboards de workspace, 6 tipos de widget, agregação no servidor, saúde do projeto, exportação PNG/PDF/CSV                                                                                                                    | 0050      |
 | 10  | Automações, Processos e Notificações               | ⏳                      | Motor de regras, fases com SLA, workflows, inbox, e-mail                                                                                                                                                                      | —         |
 | 11  | Capacity e Timesheet                               | ⏳                      | Alocação, carga por pessoa, apontamento de horas, aprovações                                                                                                                                                                  | —         |
 | 12  | Portfólio                                          | ⏳                      | Programas, portfólios, scoring, rollups, visão executiva                                                                                                                                                                      | —         |
@@ -252,7 +252,7 @@ pnpm --filter @cube-track/web lighthouse       # relatórios em apps/web/lightho
 
 - Arquivos na coluna Arquivos e rich text do Texto longo: Prompt 7 (painel do item).
 - O botão dispara automações no Prompt 10. Até lá, a coluna exibe o rótulo com uma dica.
-- Agregados de rodapé e agrupamento por coluna são calculados no cliente sobre os itens carregados. Agregação no servidor para boards muito grandes fica para o Prompt 9.
+- Agregados de rodapé e agrupamento por coluna são calculados no cliente sobre os itens carregados. O Prompt 9 entregou agregação no servidor para o caso dos dashboards (`widget-data.service.ts`, reaproveitando `ItemsService.list`); migrar os rodapés da própria Tabela para o mesmo mecanismo é um retrofit à parte, ainda não feito.
 - Larguras, ordem, fixação e colunas ocultas ficam na sessão (e, para quem gerencia colunas, como padrão do board) até as views salvas do Prompt 6.
 - O carregamento completo de 50 mil itens leva cerca de 17 s neste ambiente; a primeira página aparece de imediato.
 
@@ -415,3 +415,48 @@ pnpm --filter @cube-track/web test:e2e -- planning.spec.ts forms.spec.ts
 ```
 
 **Próximos passos:** Prompt 9, com Dashboards (widgets, agregações, Project Health e exportação), reaproveitando os dados de cronograma e formulários deste prompt nos widgets de agregação.
+
+## Prompt 9 — Resumo
+
+**Feito**
+
+- **Dashboards de workspace** (`dashboards`/`widgets`, schema já existente desde o Prompt 2): CRUD completo (`DashboardsService`/`WidgetsService`), visibilidade `private`/`workspace` reaproveitando a regra `decide()` já implementada no Prompt 3 (dono sempre edita; `workspace.manage` edita os de visibilidade `workspace`) — este prompt só passou a expor `canEdit` no DTO.
+- **6 tipos de widget** (`packages/shared/src/widgets.ts`, registro no mesmo molde do registro de colunas): `number`, `chart_bar`, `chart_pie`, `battery` (bateria de prazos: no prazo × replanejado × atrasado), `workload` (carga por pessoa) e `project_health`. `aggregate` reaproveita o catálogo `ROLLUP_AGGREGATES` das colunas de rollup — nenhum catálogo novo.
+- **Agregação no servidor** (`widget-data.service.ts`): `GET /v1/dashboards/:id/data` é o endpoint único que computa todos os widgets de um dashboard, reaproveitando `ItemsService.list`/`ItemQueryBuilder` (mesmo motor de permissão/filtro/colunas ocultas da Tabela) — um board que o usuário não pode ler contribui zero itens em vez de derrubar o dashboard. Resolve, para o caso de dashboards, a pendência de "agregação no servidor para boards muito grandes" registrada no Prompt 5 (os rodapés da própria Tabela continuam agregando no cliente — ver pendências).
+- **Saúde do projeto** (`project_health`, schema do Prompt 2/Portfólio): série histórica append-only, sempre manual (`board.manage` relata: 6 dimensões coloridas + percentual/SPI/CPI/resumo opcionais, sem motor de EVM automático).
+- **Frontend** (`apps/web/src/features/dashboards`): grade de widgets (empilhamento + mover para cima/baixo, sem arrastar-e-redimensionar livre), construtor de widget por tipo, diálogo de relato de saúde, exportação PNG/PDF do dashboard inteiro (reaproveita o padrão `html2canvas`/`jspdf` do Gantt) e CSV por widget. View de board `type: 'dashboard'` (`{ dashboardId }`, mesmo padrão da view Formulário) embutida nas abas, e página standalone em `/w/:workspaceId/dashboards/:id` com lista e criação.
+- **Gráficos**: `Chart` novo em `packages/ui` — wrapper fino do ECharts tree-shaken (`echarts/core`, só `BarChart`/`PieChart`/`SVGRenderer`), cores lidas do hex já gravado em rótulos/opções de coluna.
+- **Tempo real**: `dashboard.changed`/`widget.changed` (room `dashboard`, nova — `RealtimeClient.watchDashboard`, mesmo molde de `watchItem`) e `project_health.reported` (room `board`). Dashboard/widget CRUD e novo relato de saúde refletem sem recarregar a página.
+- **Correção encontrada no caminho**: a leitura de valor de coluna do motor de agregação não era ciente de `binding` — uma coluna vinculada a um campo nativo (ex. `c_termino_planejado` → `plannedEndDate`, exatamente o caso do widget "bateria" já semeado) sempre lia vazio. Corrigido para espelhar a mesma regra do export CSV/Excel antes de qualquer teste manual.
+- **Testes**: `packages/shared` em 196 (+13: `widgets.test.ts`, `project-health.test.ts`, extensão de `views.test.ts`); `packages/ui` em 53 (+2: `chart.test.tsx`); `packages/i18n` em 10 (paridade mantida com o namespace `dashboards` novo); `apps/web` em 121 (+9: `features/dashboards/model.test.ts`); `apps/api`: `dashboards.e2e.test.ts` novo (10 casos — CRUD, visibilidade privada/workspace, agregação por tipo de widget, config inválida ⇒ 422, CSV, saúde do projeto, exclusão) — **não executado neste ambiente** (sandbox sem PostgreSQL/Redis), mesma limitação documentada desde o Prompt 3. E2E Playwright: `dashboards.spec.ts` novo (2 cenários — criar widget aparece em tempo real no outro navegador; relatar saúde do projeto atualiza o widget em tempo real) — também não executado neste ambiente (sem stack de dev completa).
+- **Documentação**: ADR 0050, `docs/views.md` (nova seção 7, demais seções renumeradas), `docs/permissions.md` (seção "Dashboards, widgets e saúde do projeto") e `docs/realtime-events.md` (`dashboard.changed`, `widget.changed`, `project_health.reported`) atualizados.
+
+**Critérios de aceite**
+
+- ✅ **O dashboard "Project Health – PMSP" do seed é renderizável de ponta a ponta:** os 6 widgets semeados (`number` ×2, `chart_bar`, `chart_pie`, `battery`, `workload`) batem exatamente com os schemas de `config` implementados; a correção de `binding` garante que a bateria de prazos não fique zerada.
+- ✅ **Agregação no servidor, sem recálculo no cliente:** `GET /v1/dashboards/:id/data` devolve os dados já computados; o frontend só renderiza.
+- ✅ **Um board sem permissão não derruba o dashboard:** `widget-data.service.ts` ignora (zero itens) em vez de lançar erro.
+- ⚠️ Os critérios de aceite que dependem de API/Postgres/Redis (CRUD completo, visibilidade, agregação ponta a ponta) estão cobertos por testes escritos e revisados, mas **não confirmados em execução** neste ambiente — ver pendências.
+
+**Pendências**
+
+- `apps/api`: `dashboards.e2e.test.ts` escrito mas não executado nesta sessão (sandbox sem Postgres/Redis/Testcontainers); o spec Playwright `dashboards.spec.ts` também não executado (sem stack de dev completa). Rodar `pnpm db:reset && pnpm db:seed && pnpm test` e `pnpm --filter @cube-track/web test:e2e` num ambiente com a infraestrutura antes de considerar o prompt validado em produção.
+- Grade de widgets sem arrastar-e-soltar livre nem redimensionar (só empilhar + mover para cima/baixo) — lacuna de usabilidade documentada na ADR 0050, mesma categoria da limitação já aceita para o Gantt (ADR 0049).
+- O construtor de widget usa as colunas do **primeiro** board de `sourceBoardIds` para os seletores, mesmo quando o widget agrega vários boards — assume convenção de chaves compartilhada entre eles.
+- `project_health.reported` viaja pela room do board, não pela room do dashboard: um dashboard standalone que agregue um board diferente do que está aberto em outra aba só atualiza no próximo refetch (poll por `refreshIntervalSeconds`, se configurado, ou reabrindo a tela).
+- Os rodapés de agregação da própria Tabela continuam calculando no cliente sobre os itens carregados — migrá-los para o mesmo mecanismo de agregação no servidor dos dashboards é um retrofit de uma tela já estável, não coberto por este prompt.
+- `docs/openapi.json` não foi regenerado nesta sessão (`pnpm --filter @cube-track/api openapi:export` exige Postgres/Redis vivos) — regenerar num ambiente com a infraestrutura.
+
+**Como rodar e testar**
+
+```bash
+pnpm infra:up && pnpm db:reset && pnpm db:seed
+pnpm build
+pnpm --filter @cube-track/api start      # API :3001
+pnpm --filter @cube-track/worker start   # relay, notificações, recálculos
+pnpm --filter @cube-track/web start      # web :3000 — ana.ribeiro@empresademo.com.br / CubeTrack@2026
+pnpm lint && pnpm typecheck && pnpm test
+pnpm --filter @cube-track/web test:e2e -- dashboards.spec.ts
+```
+
+**Próximos passos:** Prompt 10, com Automações, Processos e Notificações (motor de regras "quando → se → então", fases com SLA, workflows, inbox).

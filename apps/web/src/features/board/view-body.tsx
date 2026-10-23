@@ -3,6 +3,7 @@
 import { EmptyState } from '@cube-track/ui';
 import { useTranslations } from 'next-intl';
 
+import { DashboardBoardView } from '../dashboards/dashboard-board-view';
 import { FormBuilderView } from '../forms/form-builder-view';
 import { KanbanView } from '../kanban/kanban-view';
 import { CalendarView } from '../planning/calendar-view';
@@ -31,6 +32,7 @@ export function BoardViewBody({ board, view, searchRef }: BoardViewBodyProps) {
   if (view.type === 'timeline') return <TimelineView key={view.id} board={board} view={view} />;
   if (view.type === 'gantt') return <GanttView key={view.id} board={board} view={view} />;
   if (view.type === 'form') return <FormBuilderView key={view.id} board={board} view={view} />;
+  if (view.type === 'dashboard') return <DashboardBoardView key={view.id} board={board} view={view} />;
   return <ComingSoonView type={view.type} />;
 }
 

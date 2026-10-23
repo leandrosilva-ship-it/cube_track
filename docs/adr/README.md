@@ -51,3 +51,4 @@
 | [0047](0047-links-publicos-de-view.md)                          | Link público somente leitura de uma view               | Aceita                          |
 | [0048](0048-painel-do-item.md)                                  | Painel do item: e-mail, menções, aprovações, dependências reaproveitadas | Aceita             |
 | [0049](0049-cronograma-gantt-e-formularios.md)                  | Cronograma (Gantt/caminho crítico/baselines) e Formulários | Aceita                        |
+| [0050](0050-dashboards-widgets-e-saude-do-projeto.md)           | Dashboards, widgets e saúde do projeto                  | Aceita                           |

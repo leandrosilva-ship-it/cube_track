@@ -2,6 +2,7 @@ export * from './brand/logo';
 export * from './components/avatar';
 export * from './components/badge';
 export * from './components/button';
+export * from './components/chart';
 export * from './components/command';
 export * from './components/date-picker';
 export * from './components/dialog';

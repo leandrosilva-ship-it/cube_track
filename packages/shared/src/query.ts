@@ -42,13 +42,13 @@ export const FILTER_OPERATORS = [
 ] as const;
 export type FilterOperator = (typeof FILTER_OPERATORS)[number];
 
-const scalar = z.union([z.string().max(1_000), z.number(), z.boolean()]);
+export const FilterScalarSchema = z.union([z.string().max(1_000), z.number(), z.boolean()]);
 
 export const FilterConditionSchema = z
   .object({
     field: z.string().min(1).max(64),
     operator: z.enum(FILTER_OPERATORS),
-    value: z.union([scalar, z.array(scalar).max(200), z.null()]).optional(),
+    value: z.union([FilterScalarSchema, z.array(FilterScalarSchema).max(200), z.null()]).optional(),
   })
   .strict();
 export type FilterCondition = z.infer<typeof FilterConditionSchema>;

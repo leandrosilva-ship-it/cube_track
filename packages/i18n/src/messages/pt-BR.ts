@@ -4,6 +4,7 @@
  */
 import { calendarPtBR } from './calendar.pt-BR.js';
 import { itemPanelPtBR } from './collaboration.pt-BR.js';
+import { dashboardsPtBR } from './dashboards.pt-BR.js';
 import { formsPtBR } from './forms.pt-BR.js';
 import { ganttPtBR } from './gantt.pt-BR.js';
 import { kanbanPtBR } from './kanban.pt-BR.js';
@@ -387,6 +388,7 @@ export const ptBR = {
   timeline: timelinePtBR,
   gantt: ganttPtBR,
   forms: formsPtBR,
+  dashboards: dashboardsPtBR,
   palette: {
     title: 'Paleta de comandos',
     placeholder: 'Buscar boards, páginas e ações…',
@@ -478,6 +480,7 @@ export const ptBR = {
     folders: 'Pastas',
     rootBoards: 'Sem pasta',
     empty: 'Este workspace ainda não tem boards.',
+    dashboards: 'Dashboards',
   },
   settings: {
     title: 'Configurações',

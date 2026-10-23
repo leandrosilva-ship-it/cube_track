@@ -214,18 +214,64 @@ A autorização do envio público é **o próprio link** (token + captcha/login,
 
 `POST /v1/forms/:id/submit` com `{ answers }` — exige `item.create` no board (mesma permissão da criação normal de item pela Tabela); os valores de coluna passam pela **mesma validação de permissão por coluna** do `item-writer` (ao contrário do caminho público, que não checa permissão de coluna).
 
-## 7. Transições de status (ADR 0046)
+## 7. Dashboards (`DashboardConfigSchema`, ADR 0050)
+
+```ts
+{ dashboardId?: string } // a view só referencia o dashboard — ele é a fonte da verdade, não a view
+```
+
+Mesmo padrão da view Formulário (§6): a view embutida nas abas do board e a página standalone em `/w/:workspaceId/dashboards/:id` renderizam o mesmo dashboard, sem duplicar config nem dados. `dashboards`/`widgets` (schema desde o Prompt 2) vivem no **workspace**, não no board — um dashboard pode agregar vários `sourceBoardIds`.
+
+### 7.1 CRUD de dashboard (`dashboard.create` no workspace para criar; `dashboard.read`/`dashboard.update` por dashboard, ver `docs/permissions.md`)
+
+| Rota                                            | Observação |
+| -------------------------------------------------- | ------------ |
+| `GET/POST /v1/workspaces/:workspaceId/dashboards` | lista filtra por visibilidade (privado só do dono); criar aceita `name`, `description`, `visibility`, `sourceBoardIds`, `filters`, `refreshIntervalSeconds` |
+| `GET/PATCH/DELETE /v1/dashboards/:id`           | resposta inclui `canEdit` (computado com a mesma `decide()` do caso `'dashboard'`) |
+
+### 7.2 Widgets (`dashboard.update` do dashboard para escrever; `dashboard.read` para ler)
+
+| Rota                                   | Observação |
+| ----------------------------------------- | ------------ |
+| `GET/POST /v1/dashboards/:id/widgets`  | `config` validado conforme `type` (`packages/shared/src/widgets.ts`); `layout` é `{x,y,w,h}` numa grade de 12 colunas |
+| `PATCH/DELETE /v1/widgets/:id`         | — |
+| `GET /v1/dashboards/:id/data`          | **endpoint único** com os dados já computados de todos os widgets — o cliente nunca recalcula (mesmo princípio do Gantt, ADR 0049) |
+| `GET /v1/widgets/:id/export.csv`       | exporta o dado já computado do widget em CSV |
+
+Tipos de widget (`WIDGET_TYPES`) e a forma de `config`/`data` de cada um:
+
+| Tipo             | `config`                                                                 | `data`                                                                 |
+| ------------------ | --------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `number`         | `{ boardIds, columnKey?, aggregate, filter? }` (sem `columnKey` = contagem) | `{ kind: 'number', value }`                                                |
+| `chart_bar`      | `{ boardIds, xColumnKey, yColumnKey?, aggregate, filter? }`                | `{ kind: 'chart', categories: [{ key, label, value, color }] }`           |
+| `chart_pie`      | `{ boardIds, columnKey, filter? }`                                         | `{ kind: 'chart', categories: [...] }` (contagem por valor distinto)      |
+| `battery`        | `{ boardIds, plannedColumnKey, replannedColumnKey?, actualColumnKey?, filter? }` | `{ kind: 'battery', onTime, replanned, late, noDate, total }`      |
+| `workload`       | `{ boardIds, peopleColumnKey, valueColumnKey?, aggregate?, filter? }`      | `{ kind: 'workload', people: [{ personId, personName, value }] }`         |
+| `project_health` | `{ boardId }`                                                              | `{ kind: 'project_health', latest, history }` (ver §7.3)                  |
+
+`filter` é um recorte simples (não a árvore `FilterGroup` completa da Tabela): `{ groupIds }` ou `{ columnKey, operator, value }`. A agregação roda no servidor (`widget-data.service.ts`), reaproveitando `ItemsService.list`/`ItemQueryBuilder` — um board de `boardIds` que o usuário não pode ler contribui zero itens, sem erro.
+
+### 7.3 Saúde do projeto (`project_health`, independente de dashboard)
+
+| Rota                                        | Permissão      | Observação |
+| ---------------------------------------------- | --------------- | ------------ |
+| `GET /v1/boards/:boardId/project-health`    | `board.read`   | histórico (mais recentes primeiro, até 50) |
+| `POST /v1/boards/:boardId/project-health`   | `board.manage` | série **append-only**: cada relato é uma linha nova, nunca editada; sem cálculo automático (SPI/CPI/percentual são informados por quem relata) |
+
+O widget `project_health` lê o board referenciado em `config.boardId`, não precisa que o board esteja entre os `sourceBoardIds` do dashboard.
+
+## 8. Transições de status (ADR 0046)
 
 Coluna do tipo `status` pode ter `settings.transitions: { [rótuloOrigemId]: [rótuloDestinoId, ...] }` (até 50 destinos por origem), editável via `PATCH /v1/boards/:boardId/columns/:columnId` (campo `settings`, mesma rota do Prompt 5). Sem regra configurada para o rótulo de origem, a mudança é livre. A regra é imposta no servidor (`422 invalid_transition`) em qualquer escrita de item — Tabela, Kanban, importação — porque vive no `item-writer`, não numa tela. Ver `packages/shared/src/columns/registry.ts` (`isTransitionAllowed`).
 
-## 8. Filtros, ordenação e agrupamento
+## 9. Filtros, ordenação e agrupamento
 
 - `filters`: a mesma AST `{ op: 'and'|'or', conditions: [...] }` do resto do produto (`FilterGroupSchema`, ADR 0005) — inclusive os tokens de data (`today`, `this_week`, `overdue`…) e `me` para colunas de pessoas.
 - `sort`: lista de até 3 `{ columnKey, direction }`; `viewSortToQueryString` converte para o parâmetro `field:dir` usado pela listagem de itens.
 - `groupBy`: até 3 níveis (`'group'` ou chave de coluna) — mesma convenção da Tabela.
 - `hiddenColumnKeys`: colunas ocultas **desta view**, além da redação por permissão de coluna (que vale em toda superfície, inclusive link público).
 
-## 9. Governança (ADR 0044)
+## 10. Governança (ADR 0044)
 
 - **Pessoal** (`ownerId` preenchido): só o dono lê, edita ou exclui; não entra na contagem de padrão do board.
 - **Compartilhada** (`ownerId` nulo): qualquer um com `board.read` lê; editar exige `view.manage`. `isDefault`, `isLocked` e `isRestricted` só mudam com `view.manage`, mesmo que o usuário já pudesse editar a view por outro motivo.
@@ -237,7 +283,7 @@ Coluna do tipo `status` pode ter `settings.transitions: { [rótuloOrigemId]: [r�
 
 `POST /v1/views/:id/duplicate` copia tipo, `config`, `filters`, `sort`, `groupBy` e `hiddenColumnKeys` para uma view nova e **independente** — editar a cópia nunca muda a original. Nasce não padrão, não bloqueada e não restrita; `personal` pode ser escolhido na duplicação (padrão: mesma visibilidade da origem).
 
-## 10. Link público (ADR 0047)
+## 11. Link público (ADR 0047)
 
 Link somente leitura de uma **view específica** (não do board inteiro), com senha e expiração opcionais. Gerenciar exige `board.share` no board da view.
 
@@ -264,10 +310,10 @@ Qualquer falha (token inexistente, revogado, expirado, senha errada) responde `4
 - **Filtros, ordenação e agrupamento da própria view não são aplicados na leitura pública** nesta entrega — fica para quando uma tela pública de Tabela/Kanban precisar deles de verdade. A API devolve o board (grupos e colunas) e os itens; montar a mesma visualização da view é trabalho futuro do front-end público.
 - Sem tela pública no `apps/web` ainda (só a API) — entra quando o link for exposto na UI de gerenciamento de views.
 
-## 11. Filtros salvos
+## 12. Filtros salvos
 
 `saved_filters` (pessoal ou compartilhado) reutiliza a mesma AST de `filters`. `GET/POST /v1/boards/:boardId/saved-filters` (pessoal exige `board.read`, compartilhado exige `view.manage`); `DELETE /v1/saved-filters/:id` exige ser o dono ou `view.manage`. Não aparecem como view — são atalhos de filtro reutilizáveis entre views do mesmo board (ex.: o mesmo filtro "Sem replanejamento" usado na Tabela e no Kanban).
 
-## 12. Permissões
+## 13. Permissões
 
 Tabela completa em `docs/permissions.md` ("Views, link público e filtros salvos").

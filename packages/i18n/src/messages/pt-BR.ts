@@ -300,12 +300,14 @@ export const ptBR = {
       renamed: 'View renomeada.',
       setDefault: 'Tornar padrão',
       madeDefault: '"{name}" agora é a view padrão.',
-      dragHint: 'Pressione espaço para pegar uma aba. Use as setas para reordenar. Pressione espaço para soltar, ou Esc para cancelar.',
+      dragHint:
+        'Pressione espaço para pegar uma aba. Use as setas para reordenar. Pressione espaço para soltar, ou Esc para cancelar.',
       moved: '{name} movida.',
       comingSoon: 'Esta view ainda não tem tela própria — disponível em um próximo prompt.',
       shareLink: {
         title: 'Link público',
-        description: 'Quem tiver o link acompanha esta view sem entrar na organização, somente leitura.',
+        description:
+          'Quem tiver o link acompanha esta view sem entrar na organização, somente leitura.',
         create: 'Criar link público',
         active: 'Link ativo',
         password: 'Senha (opcional)',
@@ -504,6 +506,24 @@ export const ptBR = {
     currentPassword: 'Senha atual',
     newPassword: 'Nova senha',
     passwordChanged: 'Senha alterada. Outras sessões foram encerradas.',
+    notifications: 'Notificações por e-mail',
+    notificationsPrefs: {
+      emailOnly: 'Controla apenas o e-mail. Notificações no app continuam aparecendo no Inbox.',
+      saved: 'Preferência salva.',
+      eventType: {
+        mention: 'Menções e respostas',
+        approval: 'Aprovações',
+        sla: 'Alertas de SLA',
+        automation: 'Automações',
+        other: 'Demais notificações',
+      },
+      frequency: {
+        instant: 'Instantâneo',
+        hourly: 'Resumo a cada hora',
+        daily: 'Resumo diário',
+        off: 'Desativado',
+      },
+    },
     mfa: {
       title: 'Verificação em duas etapas (TOTP)',
       enabled: 'Ativada',

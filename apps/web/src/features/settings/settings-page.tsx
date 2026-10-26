@@ -23,6 +23,7 @@ import {
 } from '@/stores/preferences';
 
 import { useMe } from '../shell/hooks';
+import { NotificationPreferencesSection } from './notification-preferences-section';
 
 function Section({ title, children, id }: { title: string; children: ReactNode; id: string }) {
   return (
@@ -299,6 +300,9 @@ export function SettingsPage() {
               />
             </Field>
           </div>
+        </Section>
+        <Section title={t('notifications')} id="settings-notifications">
+          <NotificationPreferencesSection />
         </Section>
         <Section title={t('security')} id="settings-security">
           <div className="flex flex-col gap-8">

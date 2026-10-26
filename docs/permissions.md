@@ -25,15 +25,15 @@ Os papéis de sistema são criados em todo tenant (`packages/db/src/provisioning
 | `viewer`       | —                                    | papel implícito `workspace_viewer` em workspaces abertos                |
 | `guest`        | —                                    | **somente** concessões explícitas; vê apenas itens em que é responsável |
 
-| Papel               | Escopo    | Permissões principais                                                                                                                    |
-| ------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `workspace_admin`   | workspace | `workspace.manage`, `folder.manage`, `board.create`, `portfolio.manage`, contratos…                                                      |
-| `workspace_member`  | workspace | `workspace.read`, `board.create`, `dashboard.create`, `portfolio.read`, `contract.read`                                                  |
-| `workspace_viewer`  | workspace | `workspace.read`, `portfolio.read`                                                                                                       |
-| `board_owner`       | board     | editor + `board.manage`, `board.share`, `column.manage`, `automation.manage`, `form.manage`, `schedule.manage`, `process.manage`, `webhook.manage`         |
-| `board_editor`      | board     | `board.read`, `board.export`, `group.manage`, `view.manage`, `item.create/update/delete`, `item.comment`, `file.upload`, `timesheet.log` |
-| `board_contributor` | board     | `board.read`, `item.update_assigned`, `item.comment`, `file.upload`, `timesheet.log`                                                     |
-| `board_viewer`      | board     | `board.read`, `item.comment`                                                                                                             |
+| Papel               | Escopo    | Permissões principais                                                                                                                              |
+| ------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `workspace_admin`   | workspace | `workspace.manage`, `folder.manage`, `board.create`, `portfolio.manage`, contratos…                                                                |
+| `workspace_member`  | workspace | `workspace.read`, `board.create`, `dashboard.create`, `portfolio.read`, `contract.read`                                                            |
+| `workspace_viewer`  | workspace | `workspace.read`, `portfolio.read`                                                                                                                 |
+| `board_owner`       | board     | editor + `board.manage`, `board.share`, `column.manage`, `automation.manage`, `form.manage`, `schedule.manage`, `process.manage`, `webhook.manage` |
+| `board_editor`      | board     | `board.read`, `board.export`, `group.manage`, `view.manage`, `item.create/update/delete`, `item.comment`, `file.upload`, `timesheet.log`           |
+| `board_contributor` | board     | `board.read`, `item.update_assigned`, `item.comment`, `file.upload`, `timesheet.log`                                                               |
+| `board_viewer`      | board     | `board.read`, `item.comment`                                                                                                                       |
 
 ## 3. Permissões efetivas
 
@@ -113,16 +113,16 @@ A escrita numa coluna sem permissão de edição, ou num campo nativo vinculado 
 
 ### Views, link público e filtros salvos (Prompt 6, ADRs 0044, 0046, 0047)
 
-| Rota                                                                    | Permissão exigida                                                                  |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| `POST /v1/views/:id/duplicate`                                          | `view.read` na origem; `view.manage` (cópia compartilhada) ou `board.read` (pessoal) |
-| `PATCH /v1/views/:id` com `isDefault`/`isLocked`/`isRestricted`         | `view.manage` no board, além de `view.update`                                       |
-| `GET/PUT/DELETE /v1/views/:id/share-link`                               | `board.share` no board da view                                                      |
-| `GET /v1/public/share/:token/info`, `POST /v1/public/share/:token/verify` | nenhuma (link válido, não revogado/expirado; senha se o link exigir)                |
-| `GET /v1/public/share/board`, `GET /v1/public/share/items`               | sessão de link público válida (cabeçalho `X-Share-Session`, 1h)                      |
-| `GET/POST /v1/boards/:id/saved-filters`                                 | `board.read` (pessoal) ou `view.manage` (compartilhado)                             |
-| `DELETE /v1/saved-filters/:id`                                          | dono do filtro ou `view.manage` no board                                           |
-| Transições de status (coluna `status` com `settings.transitions`)      | imposta na escrita do item (`item.update`), não uma permissão própria              |
+| Rota                                                                      | Permissão exigida                                                                    |
+| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `POST /v1/views/:id/duplicate`                                            | `view.read` na origem; `view.manage` (cópia compartilhada) ou `board.read` (pessoal) |
+| `PATCH /v1/views/:id` com `isDefault`/`isLocked`/`isRestricted`           | `view.manage` no board, além de `view.update`                                        |
+| `GET/PUT/DELETE /v1/views/:id/share-link`                                 | `board.share` no board da view                                                       |
+| `GET /v1/public/share/:token/info`, `POST /v1/public/share/:token/verify` | nenhuma (link válido, não revogado/expirado; senha se o link exigir)                 |
+| `GET /v1/public/share/board`, `GET /v1/public/share/items`                | sessão de link público válida (cabeçalho `X-Share-Session`, 1h)                      |
+| `GET/POST /v1/boards/:id/saved-filters`                                   | `board.read` (pessoal) ou `view.manage` (compartilhado)                              |
+| `DELETE /v1/saved-filters/:id`                                            | dono do filtro ou `view.manage` no board                                             |
+| Transições de status (coluna `status` com `settings.transitions`)         | imposta na escrita do item (`item.update`), não uma permissão própria                |
 
 ### Boards, colunas e itens (Prompt 5, ADRs 0038–0042)
 
@@ -143,49 +143,64 @@ A escrita numa coluna sem permissão de edição, ou num campo nativo vinculado 
 
 Nenhuma permissão nova — todas as ações do painel reaproveitam `item.read`, `item.comment` e `item.update` (ou `schedule.manage`, já existente, para dependências via `item.update`).
 
-| Operação                                                                  | Permissão exigida                                                                                 |
-| ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Ler atualizações/respostas/atividade/checklists/arquivos/aprovações       | `item.read`                                                                                        |
-| Postar atualização/resposta; reagir (emoji)                               | `item.comment`                                                                                     |
-| Editar/excluir a própria atualização ou resposta                          | autor **ou** `item.update`                                                                         |
-| Fixar/desafixar uma atualização                                           | `item.update`                                                                                      |
-| Criar/renomear/excluir checklist; adicionar/editar/excluir/marcar item    | `item.update`                                                                                      |
-| Seguir/deixar de seguir o item                                            | `item.read` (qualquer um que vê o item pode seguir)                                                |
-| Pedir aprovação; cancelar pedido pendente                                 | `item.update`                                                                                      |
-| Decidir um pedido de aprovação (aprovar/rejeitar)                         | ser um dos aprovadores designados daquele pedido (`403 not_an_approver` caso contrário), independente de `item.update` |
-| Upload/exclusão de arquivo do item; versões                               | `file.upload` no board (exclusão também exige `item.update` quando o anexo tem item)               |
+| Operação                                                               | Permissão exigida                                                                                                      |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Ler atualizações/respostas/atividade/checklists/arquivos/aprovações    | `item.read`                                                                                                            |
+| Postar atualização/resposta; reagir (emoji)                            | `item.comment`                                                                                                         |
+| Editar/excluir a própria atualização ou resposta                       | autor **ou** `item.update`                                                                                             |
+| Fixar/desafixar uma atualização                                        | `item.update`                                                                                                          |
+| Criar/renomear/excluir checklist; adicionar/editar/excluir/marcar item | `item.update`                                                                                                          |
+| Seguir/deixar de seguir o item                                         | `item.read` (qualquer um que vê o item pode seguir)                                                                    |
+| Pedir aprovação; cancelar pedido pendente                              | `item.update`                                                                                                          |
+| Decidir um pedido de aprovação (aprovar/rejeitar)                      | ser um dos aprovadores designados daquele pedido (`403 not_an_approver` caso contrário), independente de `item.update` |
+| Upload/exclusão de arquivo do item; versões                            | `file.upload` no board (exclusão também exige `item.update` quando o anexo tem item)                                   |
 
 ### Cronograma e Formulários (Prompt 8, ADR 0049)
 
 `schedule.manage` e `form.manage` já existiam no mapa de papéis (§2) sem uso até este prompt — agora cobrem Gantt/marcos/baselines/importação e a gestão de formulários, respectivamente. Preencher um formulário (público ou interno) usa as mesmas permissões de escrita de item que a Tabela já exige, nunca `form.manage`.
 
-| Operação                                                                  | Permissão exigida                                                                                 |
-| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Ler dados do Gantt (tarefas, dependências, caminho crítico)               | `board.read`                                                                                       |
-| Arrastar barra (reagendar), alternar marco/modo manual                    | `item.update`                                                                                      |
-| Criar/editar/excluir dependência (predecessores)                         | `item.update` (mesma regra de "Dependências" do painel, §Painel do item)                           |
-| Criar/editar/excluir marco do board (entidade própria, não item)          | `schedule.manage`                                                                                  |
-| Capturar/definir primária/excluir baseline                               | `schedule.manage`                                                                                  |
-| Pré-visualizar e confirmar importação de cronograma (MS Project .xml)     | `schedule.manage` + `item.create` no grupo de destino                                              |
-| Criar/editar/excluir formulário e seus campos; emitir/revogar link público | `form.manage`                                                                                       |
-| Preencher formulário internamente (`POST /v1/forms/:id/submit`)          | `item.create` no board do formulário — as mesmas permissões por coluna da Tabela valem para `values` |
-| Preencher formulário público (com token, sem login)                      | nenhuma — autorização é o token + honeypot + captcha, nunca uma permissão de membro                |
-| Preencher formulário público com `requiresLogin`                         | sessão válida do **mesmo tenant** do board (`403 tenant_mismatch` caso contrário) — sem captcha     |
-| `POST /v1/email/inbound` (webhook de resposta por e-mail)                 | nenhuma sessão de usuário — segredo de servidor-a-servidor (`X-Webhook-Secret`), não é uma permissão de usuário |
+| Operação                                                                   | Permissão exigida                                                                                               |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Ler dados do Gantt (tarefas, dependências, caminho crítico)                | `board.read`                                                                                                    |
+| Arrastar barra (reagendar), alternar marco/modo manual                     | `item.update`                                                                                                   |
+| Criar/editar/excluir dependência (predecessores)                           | `item.update` (mesma regra de "Dependências" do painel, §Painel do item)                                        |
+| Criar/editar/excluir marco do board (entidade própria, não item)           | `schedule.manage`                                                                                               |
+| Capturar/definir primária/excluir baseline                                 | `schedule.manage`                                                                                               |
+| Pré-visualizar e confirmar importação de cronograma (MS Project .xml)      | `schedule.manage` + `item.create` no grupo de destino                                                           |
+| Criar/editar/excluir formulário e seus campos; emitir/revogar link público | `form.manage`                                                                                                   |
+| Preencher formulário internamente (`POST /v1/forms/:id/submit`)            | `item.create` no board do formulário — as mesmas permissões por coluna da Tabela valem para `values`            |
+| Preencher formulário público (com token, sem login)                        | nenhuma — autorização é o token + honeypot + captcha, nunca uma permissão de membro                             |
+| Preencher formulário público com `requiresLogin`                           | sessão válida do **mesmo tenant** do board (`403 tenant_mismatch` caso contrário) — sem captcha                 |
+| `POST /v1/email/inbound` (webhook de resposta por e-mail)                  | nenhuma sessão de usuário — segredo de servidor-a-servidor (`X-Webhook-Secret`), não é uma permissão de usuário |
 
 ### Dashboards, widgets e saúde do projeto (Prompt 9, ADR 0050)
 
 A regra de `dashboard.read`/`dashboard.update` em `decide()` já existia desde o Prompt 3 (dono sempre acessa; visibilidade `workspace` segue `workspace.read`/`workspace.manage`) — este prompt só passou a expor `canEdit` no DTO e a usá-la de fato. Não existe uma permissão própria de widget: editar os widgets de um dashboard é editar o dashboard (`dashboard.update`). Relatar a saúde do projeto usa `board.manage` (não uma permissão nova) — o mesmo nível de quem administra o board.
 
-| Operação                                                        | Permissão exigida                                                                 |
-| ---------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Listar dashboards de um workspace                               | `workspace.read` (a lista já filtra: privados só do dono, `workspace` para todos que leem o workspace) |
-| Criar dashboard                                                 | `dashboard.create` (permissão de workspace, já existia no mapa de papéis, §2)    |
-| Ler um dashboard (`GET /v1/dashboards/:id`)                     | `dashboard.read`                                                                 |
-| Editar/excluir dashboard                                        | `dashboard.update` (dono, ou `workspace.manage` com visibilidade `workspace`)    |
-| Criar/editar/excluir widget de um dashboard                     | `dashboard.update` do dashboard a que ele pertence                              |
-| Ler dados computados dos widgets (`GET .../data`) ou exportar CSV | `dashboard.read`                                                                 |
-| Relatar saúde do projeto (`POST /v1/boards/:id/project-health`) | `board.manage`                                                                   |
-| Ler histórico de saúde do projeto                               | `board.read`                                                                     |
+| Operação                                                          | Permissão exigida                                                                                      |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Listar dashboards de um workspace                                 | `workspace.read` (a lista já filtra: privados só do dono, `workspace` para todos que leem o workspace) |
+| Criar dashboard                                                   | `dashboard.create` (permissão de workspace, já existia no mapa de papéis, §2)                          |
+| Ler um dashboard (`GET /v1/dashboards/:id`)                       | `dashboard.read`                                                                                       |
+| Editar/excluir dashboard                                          | `dashboard.update` (dono, ou `workspace.manage` com visibilidade `workspace`)                          |
+| Criar/editar/excluir widget de um dashboard                       | `dashboard.update` do dashboard a que ele pertence                                                     |
+| Ler dados computados dos widgets (`GET .../data`) ou exportar CSV | `dashboard.read`                                                                                       |
+| Relatar saúde do projeto (`POST /v1/boards/:id/project-health`)   | `board.manage`                                                                                         |
+| Ler histórico de saúde do projeto                                 | `board.read`                                                                                           |
 
 Agregação de widgets: `widget-data.service.ts` consulta cada board de `config.boardIds` via `ItemsService.list` (mesmo motor da Tabela) — um board que o usuário não pode ler (`board.read` negado) contribui zero itens em vez de derrubar o dashboard inteiro; colunas ocultas e o escopo de itens de convidado valem exatamente como na Tabela.
+
+### Automações, Processos/SLA, Webhooks e preferências de notificação (Prompt 10, ADR 0051)
+
+Três permissões novas de board, cada uma reaproveitada por workspace inteiro quando o recurso é criado sem `boardId` (automações e webhooks aceitam escopo de workspace; `workspace.manage` substitui a permissão de board nesse caso). Transições de fase não têm uma permissão própria — `allowedRoleIds` da regra de transição lista papéis do próprio board, e `board.manage` sempre pode sobrepor.
+
+| Operação                                                                                       | Permissão exigida                                                                                         |
+| ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Listar/criar/editar/excluir/duplicar automação de board                                        | `automation.manage` (board) ou `workspace.manage` (automação de workspace)                                |
+| Clicar num botão com automação (`POST .../buttons/:columnKey`)                                 | `item.update` do item (mesma permissão de editar o item — não há permissão própria de "clicar botão")     |
+| Listar/criar/editar fases, pipe, regras de transição, SLA de um board                          | `process.manage`                                                                                          |
+| Mover um item entre fases (transição)                                                          | `item.update` do item **e** (se a regra tiver `allowedRoleIds`) um dos papéis listados, ou `board.manage` |
+| Listar webhooks de board / criar / editar / regenerar segredo / excluir                        | `webhook.manage` (board) ou `workspace.manage` (webhook de workspace)                                     |
+| Ler/gravar as próprias preferências de notificação (`GET/PUT /v1/me/notification-preferences`) | sessão autenticada — sempre as próprias, nunca as de outra pessoa (não há parâmetro de usuário na rota)   |
+
+`clickButton()` tem uma segunda trava além de `item.update`: a coluna precisa apontar (`settings.automationId`) para uma automação cujo gatilho seja `button_clicked` com o mesmo `columnKey` — sem isso, a API recusa com `button_without_automation`/`button_automation_mismatch` mesmo que a pessoa tenha permissão de editar o item.

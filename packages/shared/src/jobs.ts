@@ -31,6 +31,7 @@ export const EMAIL_TEMPLATES = [
   'invitation',
   'mention',
   'approval_requested',
+  'notification_digest',
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
@@ -96,6 +97,8 @@ export const MAINTENANCE_JOBS = [
   'recompute-volatile',
   'automations-date-check',
   'sla-check',
+  'notification-digest-hourly',
+  'notification-digest-daily',
 ] as const;
 export type MaintenanceJob = (typeof MAINTENANCE_JOBS)[number];
 

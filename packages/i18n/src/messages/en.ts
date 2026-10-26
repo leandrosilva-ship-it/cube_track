@@ -297,12 +297,15 @@ export const en: Messages = {
       renamed: 'View renamed.',
       setDefault: 'Set as default',
       madeDefault: '"{name}" is now the default view.',
-      dragHint: 'Press space to pick up a tab. Use the arrow keys to reorder. Press space to drop, or Esc to cancel.',
+      dragHint:
+        'Press space to pick up a tab. Use the arrow keys to reorder. Press space to drop, or Esc to cancel.',
       moved: '{name} moved.',
-      comingSoon: "This view type doesn't have its own screen yet — available in an upcoming prompt.",
+      comingSoon:
+        "This view type doesn't have its own screen yet — available in an upcoming prompt.",
       shareLink: {
         title: 'Public link',
-        description: 'Anyone with the link can follow this view without joining the organization, read-only.',
+        description:
+          'Anyone with the link can follow this view without joining the organization, read-only.',
         create: 'Create public link',
         active: 'Link active',
         password: 'Password (optional)',
@@ -501,6 +504,24 @@ export const en: Messages = {
     currentPassword: 'Current password',
     newPassword: 'New password',
     passwordChanged: 'Password changed. Other sessions were signed out.',
+    notifications: 'Email notifications',
+    notificationsPrefs: {
+      emailOnly: 'Controls email only. In-app notifications still show up in the Inbox.',
+      saved: 'Preference saved.',
+      eventType: {
+        mention: 'Mentions and replies',
+        approval: 'Approvals',
+        sla: 'SLA alerts',
+        automation: 'Automations',
+        other: 'Everything else',
+      },
+      frequency: {
+        instant: 'Instant',
+        hourly: 'Hourly digest',
+        daily: 'Daily digest',
+        off: 'Off',
+      },
+    },
     mfa: {
       title: 'Two-step verification (TOTP)',
       enabled: 'Enabled',

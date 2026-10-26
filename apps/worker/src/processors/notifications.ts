@@ -60,7 +60,11 @@ async function notifyMentions(
       ? (event.payload[sourceType === 'update' ? 'updateId' : 'replyId'] as string)
       : '';
   const updateId =
-    sourceType === 'update' ? sourceId : typeof event.payload.updateId === 'string' ? event.payload.updateId : sourceId;
+    sourceType === 'update'
+      ? sourceId
+      : typeof event.payload.updateId === 'string'
+        ? event.payload.updateId
+        : sourceId;
   const bodyText = typeof event.payload.bodyText === 'string' ? event.payload.bodyText : '';
   const boardId = event.boardId;
   const itemId = event.itemId;
@@ -70,7 +74,12 @@ async function notifyMentions(
     deps.database,
     deps.redis,
     event.tenantId,
-    { kind: 'system', causationId: event.eventId, depth: event.depth, correlationId: event.eventId },
+    {
+      kind: 'system',
+      causationId: event.eventId,
+      depth: event.depth,
+      correlationId: event.eventId,
+    },
     async (unit) => {
       const rows = await unit.tx
         .select()
@@ -78,7 +87,8 @@ async function notifyMentions(
         .where(and(eq(mentions.sourceType, sourceType), eq(mentions.sourceId, sourceId)));
       const recipients = new Set<string>();
       for (const mention of rows) {
-        if (mention.targetType === 'user' && mention.targetId !== null) recipients.add(mention.targetId);
+        if (mention.targetType === 'user' && mention.targetId !== null)
+          recipients.add(mention.targetId);
         if (mention.targetType === 'team' && mention.targetId !== null) {
           const members = await unit.tx
             .select({ userId: teamMembers.userId })
@@ -97,11 +107,17 @@ async function notifyMentions(
       if (event.actorId !== null) recipients.delete(event.actorId);
       if (recipients.size === 0) return 0;
 
-      const [item] = await unit.tx.select({ name: items.name }).from(items).where(eq(items.id, itemId));
+      const [item] = await unit.tx
+        .select({ name: items.name })
+        .from(items)
+        .where(eq(items.id, itemId));
       const [actor] =
         event.actorId === null
           ? [undefined]
-          : await unit.tx.select({ name: users.name }).from(users).where(eq(users.id, event.actorId));
+          : await unit.tx
+              .select({ name: users.name })
+              .from(users)
+              .where(eq(users.id, event.actorId));
       const actorName = actor?.name ?? 'Alguém';
       const title = `${actorName} mencionou você em "${item?.name ?? 'um item'}"`;
       const recipientList = [...recipients];
@@ -120,6 +136,15 @@ async function notifyMentions(
         );
 
       for (const userId of recipientList) {
+        const userPreferences = preferences.filter((preference) => preference.userId === userId);
+        const specific = userPreferences.find((preference) => preference.eventType === 'mention');
+        const fallback = userPreferences.find((preference) => preference.eventType === '*');
+        const effective = specific ?? fallback;
+        const instantEmail =
+          effective === undefined || (effective.enabled && effective.frequency === 'instant');
+        const email = people.find((person) => person.id === userId)?.email;
+        const willSendInstant = instantEmail && email !== undefined;
+
         const [created] = await unit.tx
           .insert(notifications)
           .values({
@@ -133,6 +158,7 @@ async function notifyMentions(
             itemId,
             entityType: sourceType,
             entityId: sourceId,
+            emailSentAt: willSendInstant ? new Date() : null,
           })
           .returning({ id: notifications.id });
         if (created === undefined) continue;
@@ -143,13 +169,7 @@ async function notifyMentions(
           userId,
           payload: { notificationId: created.id, type: 'mention', title, itemId, boardId },
         });
-        const userPreferences = preferences.filter((preference) => preference.userId === userId);
-        const specific = userPreferences.find((preference) => preference.eventType === 'mention');
-        const fallback = userPreferences.find((preference) => preference.eventType === '*');
-        const effective = specific ?? fallback;
-        const instantEmail = effective === undefined || (effective.enabled && effective.frequency === 'instant');
-        const email = people.find((person) => person.id === userId)?.email;
-        if (instantEmail && email !== undefined) {
+        if (willSendInstant) {
           emailJobs.push({
             to: email,
             template: 'mention',
@@ -172,7 +192,9 @@ async function notifyMentions(
     },
   );
   for (const email of emailJobs)
-    await deps.emails.add('mention', email, { jobId: `mention.${sourceType}.${sourceId}.${email.to}` });
+    await deps.emails.add('mention', email, {
+      jobId: `mention.${sourceType}.${sourceId}.${email.to}`,
+    });
   return { notified };
 }
 
@@ -193,9 +215,17 @@ async function notifyApproval(
     deps.database,
     deps.redis,
     event.tenantId,
-    { kind: 'system', causationId: event.eventId, depth: event.depth, correlationId: event.eventId },
+    {
+      kind: 'system',
+      causationId: event.eventId,
+      depth: event.depth,
+      correlationId: event.eventId,
+    },
     async (unit) => {
-      const [item] = await unit.tx.select({ name: items.name }).from(items).where(eq(items.id, itemId));
+      const [item] = await unit.tx
+        .select({ name: items.name })
+        .from(items)
+        .where(eq(items.id, itemId));
       const itemName = item?.name ?? 'um item';
       const recipients: string[] =
         status === 'pending'
@@ -221,11 +251,29 @@ async function notifyApproval(
         .select({ id: users.id, email: users.email })
         .from(users)
         .where(inArray(users.id, recipients));
+      const preferences = await unit.tx
+        .select()
+        .from(notificationPreferences)
+        .where(
+          and(
+            inArray(notificationPreferences.userId, recipients),
+            eq(notificationPreferences.channel, 'email'),
+          ),
+        );
       const title =
         status === 'pending'
           ? `${requester?.name ?? 'Alguém'} pediu sua aprovação em "${itemName}"`
           : `Seu pedido de aprovação em "${itemName}" foi ${status === 'approved' ? 'aprovado' : status === 'rejected' ? 'rejeitado' : 'cancelado'}`;
       for (const userId of recipients) {
+        const userPreferences = preferences.filter((preference) => preference.userId === userId);
+        const specific = userPreferences.find((preference) => preference.eventType === 'approval');
+        const fallback = userPreferences.find((preference) => preference.eventType === '*');
+        const effective = specific ?? fallback;
+        const instantEmail =
+          effective === undefined || (effective.enabled && effective.frequency === 'instant');
+        const email = people.find((person) => person.id === userId)?.email;
+        const willSendInstant = status === 'pending' && instantEmail && email !== undefined;
+
         const [created] = await unit.tx
           .insert(notifications)
           .values({
@@ -238,6 +286,7 @@ async function notifyApproval(
             itemId,
             entityType: 'approval_request',
             entityId: requestId,
+            emailSentAt: willSendInstant ? new Date() : null,
           })
           .returning({ id: notifications.id });
         if (created === undefined) continue;
@@ -248,8 +297,7 @@ async function notifyApproval(
           userId,
           payload: { notificationId: created.id, type: 'approval', title, itemId, boardId },
         });
-        const email = people.find((person) => person.id === userId)?.email;
-        if (status === 'pending' && email !== undefined) {
+        if (willSendInstant) {
           emailJobs.push({
             to: email,
             template: 'approval_requested',
@@ -267,6 +315,8 @@ async function notifyApproval(
     },
   );
   for (const email of emailJobs)
-    await deps.emails.add('approval_requested', email, { jobId: `approval.${requestId}.${email.to}` });
+    await deps.emails.add('approval_requested', email, {
+      jobId: `approval.${requestId}.${email.to}`,
+    });
   return { notified };
 }

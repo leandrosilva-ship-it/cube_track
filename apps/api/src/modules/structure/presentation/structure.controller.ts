@@ -8,6 +8,7 @@ import { Endpoint, Input } from '../../../core/http/endpoint.js';
 import { IdParams } from '../../../core/http/schemas.js';
 import { WorkspaceSchema } from '../../work/presentation/schemas.js';
 import { InboxService } from '../application/inbox.service.js';
+import { NotificationPreferencesService } from '../application/notification-preferences.service.js';
 import { ShareLinksService } from '../application/share-links.service.js';
 import { StructureService } from '../application/structure.service.js';
 import * as S from './schemas.js';
@@ -20,6 +21,7 @@ export class StructureController {
     private readonly structure: StructureService,
     private readonly inbox: InboxService,
     private readonly shareLinks: ShareLinksService,
+    private readonly notificationPreferences: NotificationPreferencesService,
   ) {}
 
   @Post('workspaces')
@@ -384,5 +386,34 @@ export class StructureController {
     @Input('query') query: z.infer<typeof S.WeekQuery>,
   ) {
     return this.inbox.week(user, query.date ?? new Date().toISOString().slice(0, 10));
+  }
+
+  @Get('me/notification-preferences')
+  @Endpoint({
+    summary: 'Preferências de notificação do usuário (canal × tipo de evento)',
+    description:
+      'Só combinações customizadas são devolvidas; uma combinação ausente usa o padrão ' +
+      '(canal `email` habilitado, frequência `instant`).',
+    tags: ['me'],
+    response: z.object({ data: z.array(S.NotificationPreferenceSchema) }),
+  })
+  async notificationPreferencesList(@CurrentPrincipal() user: AuthPrincipal) {
+    return { data: await this.notificationPreferences.list(user) };
+  }
+
+  @Put('me/notification-preferences')
+  @Audited({ action: 'notification_preference.update', entityType: 'notification_preference' })
+  @Endpoint({
+    summary: 'Substitui (upsert) preferências de notificação do usuário',
+    description: 'Cada entrada é upsert por `(canal, tipo de evento)`; não afeta as demais.',
+    tags: ['me'],
+    body: S.UpdateNotificationPreferencesBody,
+    response: z.object({ data: z.array(S.NotificationPreferenceSchema) }),
+  })
+  async updateNotificationPreferences(
+    @CurrentPrincipal() user: AuthPrincipal,
+    @Input('body') body: z.infer<typeof S.UpdateNotificationPreferencesBody>,
+  ) {
+    return { data: await this.notificationPreferences.update(user, body.preferences) };
   }
 }

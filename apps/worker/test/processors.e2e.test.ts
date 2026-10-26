@@ -40,6 +40,7 @@ const {
   auditLogs,
   outboxEvents,
   notifications,
+  notificationPreferences,
   dependencies,
   holidays,
   updates,
@@ -325,7 +326,10 @@ describe('automações', () => {
         .where(eq(automationRuns.automationId, rule?.id ?? '')),
     ).toHaveLength(1);
 
-    await admin.db.update(automations).set({ isEnabled: false }).where(eq(automations.id, rule?.id ?? ''));
+    await admin.db
+      .update(automations)
+      .set({ isEnabled: false })
+      .where(eq(automations.id, rule?.id ?? ''));
   });
 });
 
@@ -480,10 +484,7 @@ describe('recálculo de cronograma', () => {
     });
     const result = await scheduleProcessor({ database: app, redis })(fakeJob(event));
     expect(result.rescheduled).toBe(0);
-    const [unchanged] = await admin.db
-      .select()
-      .from(items)
-      .where(eq(items.id, manualSuccessor.id));
+    const [unchanged] = await admin.db.select().from(items).where(eq(items.id, manualSuccessor.id));
     expect(unchanged).toMatchObject({
       plannedStartDate: '2026-11-10',
       plannedEndDate: '2026-11-11',
@@ -703,7 +704,10 @@ describe('notificações de aprovação', () => {
     expect(rows.map((row) => row.userId)).toEqual([carlos]);
     const jobs = await queues[QUEUES.emails].getJobs(['waiting', 'delayed']);
     expect(jobs.map((job) => job.data as unknown)).toContainEqual(
-      expect.objectContaining({ to: 'carlos.lima@empresademo.com.br', template: 'approval_requested' }),
+      expect.objectContaining({
+        to: 'carlos.lima@empresademo.com.br',
+        template: 'approval_requested',
+      }),
     );
   });
 
@@ -740,7 +744,12 @@ describe('notificações de aprovação', () => {
           boardId: demo.boardId,
           itemId: item.id,
           actorId: carlos,
-          payload: { requestId: request?.id, itemId: item.id, status: 'approved', requestedBy: ana },
+          payload: {
+            requestId: request?.id,
+            itemId: item.id,
+            status: 'approved',
+            requestedBy: ana,
+          },
         }),
       ),
     );
@@ -750,6 +759,69 @@ describe('notificações de aprovação', () => {
       .from(notifications)
       .where(eq(notifications.entityId, request?.id ?? ''));
     expect(rows.map((row) => row.userId)).toEqual([ana]);
+  });
+
+  it('não envia e-mail instantâneo quando a preferência do aprovador é `daily` (ADR 0051)', async () => {
+    const ana = demo.users['ana.ribeiro'] ?? '';
+    const fernanda = demo.users['fernanda.souza'] ?? '';
+    await admin.db.insert(notificationPreferences).values({
+      tenantId: demo.tenantId,
+      userId: fernanda,
+      channel: 'email',
+      eventType: 'approval',
+      enabled: true,
+      frequency: 'daily',
+    });
+    const item = await createItem('Aprovação — preferência diária', 'Demandas em Análise');
+    const [request] = await admin.db
+      .insert(approvalRequests)
+      .values({
+        tenantId: demo.tenantId,
+        boardId: demo.boardId,
+        itemId: item.id,
+        requestedBy: ana,
+        mode: 'any',
+        status: 'pending',
+      })
+      .returning();
+    await admin.db.insert(approvalApprovers).values({
+      tenantId: demo.tenantId,
+      requestId: request?.id ?? '',
+      userId: fernanda,
+    });
+    await queues[QUEUES.emails].obliterate({ force: true });
+    const process = notificationsProcessor({
+      database: app,
+      redis,
+      emails: queues[QUEUES.emails],
+      appUrl: 'http://app.test',
+      jwtSecret: JWT_SECRET,
+      mailReplyDomain: MAIL_REPLY_DOMAIN,
+    });
+    const result = await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'approval.changed',
+          boardId: demo.boardId,
+          itemId: item.id,
+          actorId: ana,
+          payload: { requestId: request?.id, itemId: item.id, status: 'pending', requestedBy: ana },
+        }),
+      ),
+    );
+    expect(result.notified).toBe(1);
+    const rows = await admin.db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.entityId, request?.id ?? ''));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.emailSentAt).toBeNull();
+    const jobs = await queues[QUEUES.emails].getJobs(['waiting', 'delayed']);
+    expect(jobs.map((job) => job.data as unknown)).not.toContainEqual(
+      expect.objectContaining({ to: 'fernanda.souza@empresademo.com.br' }),
+    );
   });
 });
 

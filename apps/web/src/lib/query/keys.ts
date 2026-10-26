@@ -70,6 +70,7 @@ export const qk = {
   notificationList: (unreadOnly: boolean) =>
     ['me', 'notifications', 'list', { unreadOnly }] as const,
   unreadCount: () => ['me', 'notifications', 'unread-count'] as const,
+  notificationPreferences: () => ['me', 'notification-preferences'] as const,
   week: (date: string) => ['me', 'week', date] as const,
   search: (query: string) => ['search', query] as const,
   dashboardsOf: (workspaceId: string) => ['workspaces', workspaceId, 'dashboards'] as const,

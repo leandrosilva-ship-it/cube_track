@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { WorkServicesModule } from '../work/work.module.js';
 import { BoardBlueprintWriter } from './application/board-blueprint.js';
 import { InboxService } from './application/inbox.service.js';
+import { NotificationPreferencesService } from './application/notification-preferences.service.js';
 import { PublicShareService } from './application/public-share.service.js';
 import { ShareLinksService } from './application/share-links.service.js';
 import { StructureService } from './application/structure.service.js';
@@ -20,6 +21,7 @@ import { StructureController } from './presentation/structure.controller.js';
   providers: [
     StructureService,
     InboxService,
+    NotificationPreferencesService,
     BoardBlueprintWriter,
     ShareLinksService,
     PublicShareService,

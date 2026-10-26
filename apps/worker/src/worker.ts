@@ -16,6 +16,7 @@ import { computedProcessor } from './processors/computed.js';
 import { createMailer, emailProcessor } from './processors/email.js';
 import { fileScanProcessor } from './processors/file-scan.js';
 import { maintenanceProcessor, scheduleMaintenance } from './processors/maintenance.js';
+import { createNotificationDigest } from './processors/notification-digest.js';
 import { notificationsProcessor } from './processors/notifications.js';
 import { scheduleProcessor } from './processors/schedule.js';
 import { createSlaCheck } from './processors/sla.js';
@@ -62,6 +63,13 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
   };
   const automations = automationsProcessor({ database: appDb, redis, logger });
   const checkSla = createSlaCheck({ database: appDb, redis, logger });
+  const checkNotificationDigest = createNotificationDigest({
+    database: appDb,
+    redis,
+    emails: queues[QUEUES.emails],
+    appUrl: config.APP_URL,
+    logger,
+  });
 
   const workers: Worker[] = [
     createWorker(
@@ -101,6 +109,7 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
         logger,
         checkDateArrives: automations.checkDateArrives,
         checkSla,
+        checkNotificationDigest,
       }),
       { ...common, concurrency: 1 },
     ),

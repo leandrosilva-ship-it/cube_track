@@ -28,6 +28,7 @@ import { useState } from 'react';
 import type { Automation, BoardDetail } from '@/lib/api/types';
 import { useErrorMessage } from '@/lib/errors/use-error-message';
 
+import { useColumnMutations } from '../table/hooks';
 import {
   useAutomations,
   useCreateAutomation,
@@ -100,6 +101,7 @@ function AutomationsList({
   const update = useUpdateAutomation(board.id);
   const duplicate = useDuplicateAutomation(board.id);
   const del = useDeleteAutomation(board.id);
+  const columnMutations = useColumnMutations(board.id);
   const errorMessage = useErrorMessage();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -141,7 +143,9 @@ function AutomationsList({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium text-fg">{automation.name}</p>
-                    <p className="truncate text-xs text-fg-muted">{t(trigger.key, trigger.values)}</p>
+                    <p className="truncate text-xs text-fg-muted">
+                      {t(trigger.key, trigger.values)}
+                    </p>
                     <p className="truncate text-xs text-fg-subtle">{actionText}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
@@ -204,6 +208,18 @@ function AutomationsList({
                         del.mutate(automation.id, {
                           onSuccess: () => {
                             setConfirmDeleteId(null);
+                            // Desvincula o botão cuja automação acabou de ser excluída (ADR 0051).
+                            const trigger = automation.trigger;
+                            if (trigger.type === 'button_clicked') {
+                              const columnKey = trigger.config.columnKey;
+                              const column = columns.find((entry) => entry.key === columnKey);
+                              if (column?.settings.automationId === automation.id) {
+                                columnMutations.update.mutate({
+                                  columnId: column.id,
+                                  input: { settings: { ...column.settings, automationId: null } },
+                                });
+                              }
+                            }
                           },
                           onError: (error) => {
                             toast.error(errorMessage(error));
@@ -235,7 +251,15 @@ interface ActionRowState {
 }
 
 function defaultActionRow(type: AutomationActionType = 'notify'): ActionRowState {
-  return { type, groupId: '', columnKey: '', value: '', useToday: false, message: '', peopleColumnKey: '' };
+  return {
+    type,
+    groupId: '',
+    columnKey: '',
+    value: '',
+    useToday: false,
+    message: '',
+    peopleColumnKey: '',
+  };
 }
 
 function toActionRow(action: AutomationActionSpec): ActionRowState {
@@ -246,7 +270,9 @@ function toActionRow(action: AutomationActionSpec): ActionRowState {
     const columnKey = 'columnKey' in action.config ? action.config.columnKey : '';
     const raw = action.config.value;
     const useToday =
-      typeof raw === 'object' && raw !== null && (raw as { relative?: unknown }).relative === 'today';
+      typeof raw === 'object' &&
+      raw !== null &&
+      (raw as { relative?: unknown }).relative === 'today';
     const value = useToday || raw === null || typeof raw === 'object' ? '' : raw;
     return { ...defaultActionRow('set_column_value'), columnKey, value, useToday };
   }
@@ -257,7 +283,9 @@ function toActionRow(action: AutomationActionSpec): ActionRowState {
   };
 }
 
-function buildActionConfig(row: ActionRowState): { type: string; config: Record<string, unknown> } | null {
+function buildActionConfig(
+  row: ActionRowState,
+): { type: string; config: Record<string, unknown> } | null {
   if (row.type === 'move_to_group') {
     return row.groupId === '' ? null : { type: 'move_to_group', config: { groupId: row.groupId } };
   }
@@ -266,7 +294,10 @@ function buildActionConfig(row: ActionRowState): { type: string; config: Record<
       ? null
       : {
           type: 'set_column_value',
-          config: { columnKey: row.columnKey, value: row.useToday ? { relative: 'today' } : row.value },
+          config: {
+            columnKey: row.columnKey,
+            value: row.useToday ? { relative: 'today' } : row.value,
+          },
         };
   }
   if (row.message.trim() === '') return null;
@@ -295,13 +326,16 @@ function AutomationForm({
   const errorMessage = useErrorMessage();
   const create = useCreateAutomation(board.id);
   const update = useUpdateAutomation(board.id);
+  const columnMutations = useColumnMutations(board.id);
   const isEdit = automation !== undefined;
 
   const [name, setName] = useState(automation?.name ?? '');
   const [description, setDescription] = useState(automation?.description ?? '');
   const [isEnabled, setIsEnabled] = useState(automation?.isEnabled ?? true);
 
-  const [triggerType, setTriggerType] = useState<AutomationTriggerType>(automation?.trigger.type ?? 'item_created');
+  const [triggerType, setTriggerType] = useState<AutomationTriggerType>(
+    automation?.trigger.type ?? 'item_created',
+  );
   const [triggerGroupId, setTriggerGroupId] = useState(
     automation?.trigger.type === 'item_created' ? (automation.trigger.config.groupId ?? '') : '',
   );
@@ -349,17 +383,25 @@ function AutomationForm({
 
   const buildTrigger = (): { type: string; config: Record<string, unknown> } | null => {
     if (triggerType === 'item_created') {
-      return { type: 'item_created', config: triggerGroupId === '' ? {} : { groupId: triggerGroupId } };
+      return {
+        type: 'item_created',
+        config: triggerGroupId === '' ? {} : { groupId: triggerGroupId },
+      };
     }
     if (triggerType === 'column_value_changed') {
       if (statusColumnKey === '') return null;
       return {
         type: 'column_value_changed',
-        config: { columnKey: statusColumnKey, ...(statusLabelIds.length > 0 ? { to: statusLabelIds } : {}) },
+        config: {
+          columnKey: statusColumnKey,
+          ...(statusLabelIds.length > 0 ? { to: statusLabelIds } : {}),
+        },
       };
     }
     if (triggerType === 'button_clicked') {
-      return buttonColumnKey === '' ? null : { type: 'button_clicked', config: { columnKey: buttonColumnKey } };
+      return buttonColumnKey === ''
+        ? null
+        : { type: 'button_clicked', config: { columnKey: buttonColumnKey } };
     }
     return dateColumnKey === ''
       ? null
@@ -390,8 +432,34 @@ function AutomationForm({
       isEnabled,
     };
     try {
-      if (isEdit) await update.mutateAsync({ id: automation.id, input: body });
-      else await create.mutateAsync(body);
+      const saved = isEdit
+        ? await update.mutateAsync({ id: automation.id, input: body })
+        : await create.mutateAsync(body);
+      // Vincula/desvincula a coluna de botão à automação (ADR 0051) — `clickButton()` na API exige
+      // `column.settings.automationId` apontando para uma automação com o mesmo gatilho e coluna.
+      const previousTrigger = automation?.trigger;
+      const previousButtonKey =
+        previousTrigger?.type === 'button_clicked' ? previousTrigger.config.columnKey : null;
+      const nextButtonKey =
+        trigger.type === 'button_clicked' ? (trigger.config.columnKey as string) : null;
+      if (previousButtonKey !== null && previousButtonKey !== nextButtonKey) {
+        const previousColumn = board.columns.find((column) => column.key === previousButtonKey);
+        if (previousColumn?.settings.automationId === saved.id) {
+          await columnMutations.update.mutateAsync({
+            columnId: previousColumn.id,
+            input: { settings: { ...previousColumn.settings, automationId: null } },
+          });
+        }
+      }
+      if (nextButtonKey !== null) {
+        const nextColumn = board.columns.find((column) => column.key === nextButtonKey);
+        if (nextColumn !== undefined && nextColumn.settings.automationId !== saved.id) {
+          await columnMutations.update.mutateAsync({
+            columnId: nextColumn.id,
+            input: { settings: { ...nextColumn.settings, automationId: saved.id } },
+          });
+        }
+      }
       onClose();
     } catch (error) {
       toast.error(errorMessage(error));
@@ -473,7 +541,10 @@ function AutomationForm({
                 <Field label={t('triggerColumn')}>
                   <Select
                     value={statusColumnKey}
-                    options={boardStatusColumns.map((column) => ({ value: column.key, label: column.title }))}
+                    options={boardStatusColumns.map((column) => ({
+                      value: column.key,
+                      label: column.title,
+                    }))}
                     onValueChange={(value) => {
                       setStatusColumnKey(value);
                       setStatusLabelIds([]);
@@ -482,23 +553,24 @@ function AutomationForm({
                 </Field>
                 <fieldset className="flex flex-col gap-1.5">
                   <legend className="text-sm text-fg-muted">{t('triggerLabels')}</legend>
-                  {(boardStatusColumns.find((column) => column.key === statusColumnKey)?.labels ?? []).map(
-                    (label) => (
-                      <label key={label.id} className="flex items-center gap-2 text-sm">
-                        <Checkbox
-                          checked={statusLabelIds.includes(label.id)}
-                          onCheckedChange={(checked) => {
-                            setStatusLabelIds((current) =>
-                              checked === true
-                                ? [...current, label.id]
-                                : current.filter((id) => id !== label.id),
-                            );
-                          }}
-                        />
-                        {label.label}
-                      </label>
-                    ),
-                  )}
+                  {(
+                    boardStatusColumns.find((column) => column.key === statusColumnKey)?.labels ??
+                    []
+                  ).map((label) => (
+                    <label key={label.id} className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={statusLabelIds.includes(label.id)}
+                        onCheckedChange={(checked) => {
+                          setStatusLabelIds((current) =>
+                            checked === true
+                              ? [...current, label.id]
+                              : current.filter((id) => id !== label.id),
+                          );
+                        }}
+                      />
+                      {label.label}
+                    </label>
+                  ))}
                 </fieldset>
               </>
             )
@@ -511,7 +583,10 @@ function AutomationForm({
               <Field label={t('triggerButtonColumn')}>
                 <Select
                   value={buttonColumnKey}
-                  options={boardButtonColumns.map((column) => ({ value: column.key, label: column.title }))}
+                  options={boardButtonColumns.map((column) => ({
+                    value: column.key,
+                    label: column.title,
+                  }))}
                   onValueChange={setButtonColumnKey}
                 />
               </Field>
@@ -521,7 +596,11 @@ function AutomationForm({
           {triggerType === 'date_arrives' ? (
             <>
               <Field label={t('triggerDateColumn')}>
-                <Select value={dateColumnKey} options={dateFieldOptions} onValueChange={setDateColumnKey} />
+                <Select
+                  value={dateColumnKey}
+                  options={dateFieldOptions}
+                  onValueChange={setDateColumnKey}
+                />
               </Field>
               <Field label={t('offsetDays')} hint={t('offsetDaysHint')}>
                 <Input
@@ -556,7 +635,10 @@ function AutomationForm({
                 className="w-40"
                 value={row.field}
                 placeholder={t('conditionColumn')}
-                options={board.columns.map((column) => ({ value: column.key, label: column.title }))}
+                options={board.columns.map((column) => ({
+                  value: column.key,
+                  label: column.title,
+                }))}
                 onValueChange={(value) => {
                   setConditionRows((rows) =>
                     rows.map((entry, i) => (i === index ? { ...entry, field: value } : entry)),
@@ -620,7 +702,10 @@ function AutomationForm({
           {actionRows.map((row, index) => {
             const selectedColumn = writable.find((column) => column.key === row.columnKey);
             return (
-              <div key={index} className="flex flex-col gap-2 border-t border-border pt-2 first:border-t-0 first:pt-0">
+              <div
+                key={index}
+                className="flex flex-col gap-2 border-t border-border pt-2 first:border-t-0 first:pt-0"
+              >
                 <div className="flex items-center gap-2">
                   <Select
                     className="flex-1"
@@ -650,10 +735,15 @@ function AutomationForm({
                   <Field label={t('actionGroup')}>
                     <Select
                       value={row.groupId}
-                      options={board.groups.map((group) => ({ value: group.id, label: group.name }))}
+                      options={board.groups.map((group) => ({
+                        value: group.id,
+                        label: group.name,
+                      }))}
                       onValueChange={(value) => {
                         setActionRows((rows) =>
-                          rows.map((entry, i) => (i === index ? { ...entry, groupId: value } : entry)),
+                          rows.map((entry, i) =>
+                            i === index ? { ...entry, groupId: value } : entry,
+                          ),
                         );
                       }}
                     />
@@ -664,7 +754,10 @@ function AutomationForm({
                     <Field label={t('actionColumn')}>
                       <Select
                         value={row.columnKey}
-                        options={writable.map((column) => ({ value: column.key, label: column.title }))}
+                        options={writable.map((column) => ({
+                          value: column.key,
+                          label: column.title,
+                        }))}
                         onValueChange={(value) => {
                           setActionRows((rows) =>
                             rows.map((entry, i) =>
@@ -713,7 +806,9 @@ function AutomationForm({
                         onChange={(event) => {
                           const value = event.target.value;
                           setActionRows((rows) =>
-                            rows.map((entry, i) => (i === index ? { ...entry, message: value } : entry)),
+                            rows.map((entry, i) =>
+                              i === index ? { ...entry, message: value } : entry,
+                            ),
                           );
                         }}
                       />

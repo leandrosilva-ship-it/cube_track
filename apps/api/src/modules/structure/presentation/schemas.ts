@@ -324,6 +324,32 @@ export const NotificationPage = z.object({
 });
 export const MarkReadBody = z.object({ ids: z.array(z.uuid()).min(1).max(500).optional() });
 
+export const NotificationPreferenceSchema = z.object({
+  id: z.uuid(),
+  channel: z.enum(['in_app', 'email', 'push']),
+  eventType: z.string(),
+  enabled: z.boolean(),
+  frequency: z.enum(['instant', 'hourly', 'daily', 'never']),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+});
+/** `'weekly'` existe no enum do banco mas nenhuma rotina de digest a esvazia hoje (ADR 0051): fora da API. */
+export const UpdateNotificationPreferencesBody = z
+  .object({
+    preferences: z
+      .array(
+        z.object({
+          channel: z.enum(['in_app', 'email', 'push']),
+          eventType: z.string().trim().min(1).max(100),
+          enabled: z.boolean(),
+          frequency: z.enum(['instant', 'hourly', 'daily', 'never']),
+        }),
+      )
+      .min(1)
+      .max(100),
+  })
+  .strict();
+
 export const WeekQuery = z.object({
   date: z.iso.date().optional(),
 });

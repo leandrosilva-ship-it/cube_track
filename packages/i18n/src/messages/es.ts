@@ -297,12 +297,15 @@ export const es: Messages = {
       renamed: 'Vista renombrada.',
       setDefault: 'Marcar como predeterminada',
       madeDefault: '"{name}" ahora es la vista predeterminada.',
-      dragHint: 'Presiona espacio para tomar una pestaña. Usa las flechas para reordenar. Presiona espacio para soltar, o Esc para cancelar.',
+      dragHint:
+        'Presiona espacio para tomar una pestaña. Usa las flechas para reordenar. Presiona espacio para soltar, o Esc para cancelar.',
       moved: '{name} movida.',
-      comingSoon: 'Este tipo de vista todavía no tiene pantalla propia — disponible en un próximo prompt.',
+      comingSoon:
+        'Este tipo de vista todavía no tiene pantalla propia — disponible en un próximo prompt.',
       shareLink: {
         title: 'Enlace público',
-        description: 'Quien tenga el enlace puede seguir esta vista sin unirse a la organización, solo lectura.',
+        description:
+          'Quien tenga el enlace puede seguir esta vista sin unirse a la organización, solo lectura.',
         create: 'Crear enlace público',
         active: 'Enlace activo',
         password: 'Contraseña (opcional)',
@@ -316,7 +319,8 @@ export const es: Messages = {
         regenerate: 'Generar nuevo enlace',
         regenerateConfirm: 'Generar un nuevo enlace invalida el anterior. ¿Continuar?',
         revoke: 'Revocar enlace',
-        revokeConfirm: '¿Revocar el enlace público de esta vista? Quien tenga el enlace perderá el acceso.',
+        revokeConfirm:
+          '¿Revocar el enlace público de esta vista? Quien tenga el enlace perderá el acceso.',
         revoked: 'Enlace revocado.',
         saved: 'Enlace actualizado.',
         requiresPassword: 'Exige contraseña',
@@ -501,6 +505,25 @@ export const es: Messages = {
     currentPassword: 'Contraseña actual',
     newPassword: 'Nueva contraseña',
     passwordChanged: 'Contraseña cambiada. Se cerraron las demás sesiones.',
+    notifications: 'Notificaciones por correo',
+    notificationsPrefs: {
+      emailOnly:
+        'Controla solo el correo. Las notificaciones en la app siguen apareciendo en el Inbox.',
+      saved: 'Preferencia guardada.',
+      eventType: {
+        mention: 'Menciones y respuestas',
+        approval: 'Aprobaciones',
+        sla: 'Alertas de SLA',
+        automation: 'Automatizaciones',
+        other: 'Demás notificaciones',
+      },
+      frequency: {
+        instant: 'Instantáneo',
+        hourly: 'Resumen cada hora',
+        daily: 'Resumen diario',
+        off: 'Desactivado',
+      },
+    },
     mfa: {
       title: 'Verificación en dos pasos (TOTP)',
       enabled: 'Activada',

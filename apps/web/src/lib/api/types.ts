@@ -755,7 +755,13 @@ export interface PublicFormDefinition {
 
 // --------------------------------------------------------------------------- dashboards ---
 
-export type WidgetType = 'number' | 'chart_bar' | 'chart_pie' | 'battery' | 'workload' | 'project_health';
+export type WidgetType =
+  | 'number'
+  | 'chart_bar'
+  | 'chart_pie'
+  | 'battery'
+  | 'workload'
+  | 'project_health';
 
 export interface Dashboard {
   id: string;
@@ -795,8 +801,18 @@ export type HealthStatus = 'green' | 'yellow' | 'red' | 'grey';
 
 export type WidgetData =
   | { kind: 'number'; value: string | null }
-  | { kind: 'chart'; categories: { key: string; label: string; value: number; color: string | null }[] }
-  | { kind: 'battery'; onTime: number; replanned: number; late: number; noDate: number; total: number }
+  | {
+      kind: 'chart';
+      categories: { key: string; label: string; value: number; color: string | null }[];
+    }
+  | {
+      kind: 'battery';
+      onTime: number;
+      replanned: number;
+      late: number;
+      noDate: number;
+      total: number;
+    }
   | { kind: 'workload'; people: { personId: string; personName: string; value: number }[] }
   | {
       kind: 'project_health';
@@ -947,4 +963,20 @@ export interface Webhook {
 /** Só na criação e na regeneração: o segredo HMAC em texto simples (nunca mais é devolvido). */
 export interface WebhookWithSecret extends Webhook {
   secret: string;
+}
+
+// --------------------------------------------------------------- preferências de notificação ---
+
+export type NotificationChannel = 'in_app' | 'email' | 'push';
+/** `'weekly'` existe no banco mas nenhuma rotina de digest a esvazia hoje — fora da API (ADR 0051). */
+export type NotificationFrequency = 'instant' | 'hourly' | 'daily' | 'never';
+
+export interface NotificationPreference {
+  id: string;
+  channel: NotificationChannel;
+  eventType: string;
+  enabled: boolean;
+  frequency: NotificationFrequency;
+  createdAt: string;
+  updatedAt: string;
 }

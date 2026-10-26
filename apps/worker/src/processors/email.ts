@@ -69,6 +69,14 @@ const TEMPLATES: Record<
     ],
     action: { label: 'Ver pedido de aprovação', url: data.link ?? '' },
   }),
+  notification_digest: (data) => ({
+    subject: `${data.count ?? '0'} novidade(s) no CUBE TRACK`,
+    lines: [
+      'Resumo de notificações pendentes:',
+      ...(data.items ?? '').split('\n').filter((line) => line !== ''),
+    ],
+    action: { label: 'Ver tudo no CUBE TRACK', url: data.link ?? '' },
+  }),
 };
 
 /** Renderiza o e-mail (texto e HTML com escape de todo conteúdo dinâmico). */

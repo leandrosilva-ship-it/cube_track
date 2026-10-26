@@ -213,6 +213,8 @@ export const notifications = tenantTable(
     data: jsonb('data').$type<Record<string, unknown>>().notNull().default({}),
     readAt: timestamp('read_at', { withTimezone: true }),
     archivedAt: timestamp('archived_at', { withTimezone: true }),
+    /** Quando um e-mail (instantâneo ou de digest) já foi enviado para esta notificação (ADR 0051). */
+    emailSentAt: timestamp('email_sent_at', { withTimezone: true }),
   },
   (t) => [
     tenantFk('notifications', t.tenantId, t.boardId, boards),

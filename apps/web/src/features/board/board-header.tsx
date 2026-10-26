@@ -23,6 +23,7 @@ import {
   Share2,
   Star,
   UserPlus,
+  Workflow,
   Zap,
   LayoutTemplate,
 } from 'lucide-react';
@@ -33,7 +34,10 @@ import type { BoardDetail } from '@/lib/api/types';
 import { openDialog } from '@/stores/shell';
 import { useSession } from '@/stores/session';
 
+import { AutomationsDialog } from '../automations/automations-dialog';
+import { ProcessSettingsDialog } from '../processes/process-settings-dialog';
 import { useFavorites, useToggleFavorite } from '../workspace/hooks';
+import { WebhooksDialog } from '../webhooks/webhooks-dialog';
 import { InviteDialog, ShareDialog } from './board-dialogs';
 import { useUpdateBoardDetails } from './hooks';
 import { IconPicker } from './board-icon';
@@ -75,10 +79,15 @@ export function BoardHeader({ board }: { board: BoardDetail }) {
   const toggleFavorite = useToggleFavorite();
   const update = useUpdateBoardDetails(board.id);
   const canManage = board.permissions.includes('board.manage');
+  const canAutomate = board.permissions.includes('automation.manage');
+  const canManageProcess = board.kind === 'process' && board.permissions.includes('process.manage');
+  const canManageWebhooks = board.permissions.includes('webhook.manage');
   const canInvite = useSession((state) => state.tenant !== null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(board.description ?? '');
-  const [dialog, setDialog] = useState<'invite' | 'share' | null>(null);
+  const [dialog, setDialog] = useState<'invite' | 'share' | 'automate' | 'process' | 'webhooks' | null>(
+    null,
+  );
   const isFavorite = (favorites.data ?? []).some((entry) => entry.entityId === board.id);
 
   const saveDescription = () => {
@@ -239,17 +248,61 @@ export function BoardHeader({ board }: { board: BoardDetail }) {
               />
             ) : null}
             {dialog === 'share' ? <ShareDialog boardId={board.id} canManage={canManage} /> : null}
+            {dialog === 'automate' && canAutomate ? <AutomationsDialog board={board} /> : null}
+            {canAutomate ? (
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDialog('automate');
+                  }}
+                >
+                  <Zap aria-hidden="true" />
+                  <span className="hidden xl:inline">{t('automate')}</span>
+                  <span className="sr-only xl:hidden">{t('automate')}</span>
+                </Button>
+              </DialogTrigger>
+            ) : (
+              <ModuleButton icon={<Zap aria-hidden="true" />} label={t('automate')} hint={t('featureLater')} />
+            )}
+            {dialog === 'process' && canManageProcess ? (
+              <ProcessSettingsDialog board={board} />
+            ) : null}
+            {canManageProcess ? (
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDialog('process');
+                  }}
+                >
+                  <Workflow aria-hidden="true" />
+                  <span className="hidden xl:inline">{t('process')}</span>
+                  <span className="sr-only xl:hidden">{t('process')}</span>
+                </Button>
+              </DialogTrigger>
+            ) : null}
+            {dialog === 'webhooks' && canManageWebhooks ? <WebhooksDialog board={board} /> : null}
+            {canManageWebhooks ? (
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDialog('webhooks');
+                  }}
+                >
+                  <Plug aria-hidden="true" />
+                  <span className="hidden xl:inline">{t('integrate')}</span>
+                  <span className="sr-only xl:hidden">{t('integrate')}</span>
+                </Button>
+              </DialogTrigger>
+            ) : (
+              <ModuleButton icon={<Plug aria-hidden="true" />} label={t('integrate')} hint={t('featureLater')} />
+            )}
           </Dialog>
-          <ModuleButton
-            icon={<Plug aria-hidden="true" />}
-            label={t('integrate')}
-            hint={t('featureLater')}
-          />
-          <ModuleButton
-            icon={<Zap aria-hidden="true" />}
-            label={t('automate')}
-            hint={t('featureLater')}
-          />
           <ModuleButton
             icon={<Bot aria-hidden="true" />}
             label={t('agents')}

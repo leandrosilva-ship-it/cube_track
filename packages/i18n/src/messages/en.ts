@@ -1,4 +1,5 @@
 import type { Messages } from './pt-BR.js';
+import { automationsEn } from './automations.en.js';
 import { calendarEn } from './calendar.en.js';
 import { itemPanelEn } from './collaboration.en.js';
 import { dashboardsEn } from './dashboards.en.js';
@@ -6,8 +7,10 @@ import { formsEn } from './forms.en.js';
 import { ganttEn } from './gantt.en.js';
 import { kanbanEn } from './kanban.en.js';
 import { planningEn } from './planning.en.js';
+import { processesEn } from './processes.en.js';
 import { tableEn } from './table.en.js';
 import { timelineEn } from './timeline.en.js';
+import { webhooksEn } from './webhooks.en.js';
 
 export const en: Messages = {
   common: {
@@ -254,6 +257,7 @@ export const en: Messages = {
     share: 'Share',
     integrate: 'Integrate',
     automate: 'Automate',
+    process: 'Process',
     agents: 'Agents',
     featureLater: 'Available when the module is enabled for this organization.',
     inviteDialog: {
@@ -386,6 +390,9 @@ export const en: Messages = {
   gantt: ganttEn,
   forms: formsEn,
   dashboards: dashboardsEn,
+  automations: automationsEn,
+  processes: processesEn,
+  webhooks: webhooksEn,
   palette: {
     title: 'Command palette',
     placeholder: 'Search boards, pages and actions…',

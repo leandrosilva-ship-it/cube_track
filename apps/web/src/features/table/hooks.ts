@@ -273,6 +273,15 @@ interface RequiredProblem {
   fields?: { key: string; title: string }[];
 }
 
+/** Códigos de transição de fase (ADR 0051): já vêm com `detail` pronto do servidor; nunca abrem o
+ * diálogo de obrigatórios de `RequiredProblem` mesmo quando também têm uma chave `fields`. */
+const TRANSITION_ERROR_CODES = new Set([
+  'transition_required_fields',
+  'transition_conditions_not_met',
+  'transition_requires_approval',
+  'transition_role_forbidden',
+]);
+
 /** Mantém o item do painel (`qk.item`, aberto num drawer) em sincronia com a própria escrita. */
 function patchStandaloneItem(queryClient: QueryClient, updated: Item): void {
   queryClient.setQueryData<Item>(qk.item(updated.id), (current) =>
@@ -417,7 +426,9 @@ export function useItemWriter(board: BoardDetail) {
       try {
         await send(completed, true);
       } catch (error) {
-        const problem = isApiError(error, 422) ? (error.problem as RequiredProblem) : null;
+        const isTransitionError = isApiError(error) && TRANSITION_ERROR_CODES.has(error.code);
+        const problem =
+          !isTransitionError && isApiError(error, 422) ? (error.problem as RequiredProblem) : null;
         if (problem?.fields !== undefined && error instanceof Error && isApiError(error)) {
           // O servidor sabe de algo que o cliente não sabia (ex.: regra alterada agora).
           const keys = new Set(problem.fields.map((field) => field.key));
@@ -445,7 +456,12 @@ export function useItemWriter(board: BoardDetail) {
           });
           return true;
         }
-        if (!isApiError(error, 409)) toast.error(errorMessage(error));
+        if (isTransitionError && isApiError(error)) {
+          // Mensagem específica do servidor (ex.: "exige aprovação") em vez do genérico 403/422.
+          toast.error(error.problem.detail ?? errorMessage(error));
+        } else if (!isApiError(error, 409)) {
+          toast.error(errorMessage(error));
+        }
         return false;
       }
       pushUndo(board.id, {
@@ -489,6 +505,8 @@ function optimisticItem(board: BoardDetail, input: CreateInput, tempId: string):
     parentItemId: input.parentItemId ?? null,
     name: input.name,
     position: '￿',
+    phaseId: null,
+    phaseEnteredAt: null,
     values: input.values ?? {},
     fieldVersions: {},
     version: 0,
@@ -797,6 +815,16 @@ export function useTimer(boardId: string) {
         ...(current.indicators === undefined ? {} : { indicators: current.indicators }),
       }));
     },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+}
+
+/** Clique numa coluna `button` (ADR 0051): dispara (assíncrono) a automação configurada na coluna. */
+export function useClickButton() {
+  const errorMessage = useErrorMessage();
+  return useMutation({
+    mutationFn: ({ itemId, columnKey }: { itemId: string; columnKey: string }) =>
+      api<undefined>(`/v1/items/${itemId}/buttons/${columnKey}`, { method: 'POST' }),
     onError: (error) => toast.error(errorMessage(error)),
   });
 }

@@ -35,6 +35,9 @@ export interface CellContext {
   isDone: (item: Item) => boolean;
   onTimer: (item: Item, column: BoardColumn, action: 'start' | 'stop') => void;
   onVote: (item: Item, column: BoardColumn) => void;
+  onButtonClick: (item: Item, column: BoardColumn) => void;
+  /** `${itemId}:${columnKey}` do clique de botão em andamento (desabilita o botão até concluir). */
+  pendingButtonKey: string | null;
   /** Tradutor de `table.cells`, criado uma vez (evita um hook por célula ao rolar). */
   t: CellTranslator;
 }
@@ -322,11 +325,22 @@ export const CellDisplay = memo(function CellDisplay({
     case 'button': {
       const label =
         typeof column.settings.label === 'string' ? column.settings.label : column.title;
+      const hasAutomation = typeof column.settings.automationId === 'string';
+      const pending = context.pendingButtonKey === `${item.id}:${column.key}`;
       return (
-        <Tooltip content={t('buttonNoAutomation')}>
-          <span className="mx-auto inline-flex h-6 items-center rounded-md border border-border px-2 text-xs text-fg-muted">
+        <Tooltip content={hasAutomation ? label : t('buttonNoAutomation')}>
+          <button
+            type="button"
+            tabIndex={-1}
+            disabled={!hasAutomation || pending}
+            className="mx-auto inline-flex h-6 items-center rounded-md border border-border px-2 text-xs text-fg-muted enabled:hover:border-primary enabled:hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={(event) => {
+              event.stopPropagation();
+              context.onButtonClick(item, column);
+            }}
+          >
             {label}
-          </span>
+          </button>
         </Tooltip>
       );
     }

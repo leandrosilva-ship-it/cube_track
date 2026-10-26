@@ -1,5 +1,5 @@
 import { outboxRowToMessage, schema, type DatabaseHandle } from '@cube-track/db';
-import { EVENT_CONSUMERS, REALTIME_CHANNEL, type DomainEventJob } from '@cube-track/shared';
+import { EVENT_CONSUMERS, QUEUES, REALTIME_CHANNEL, type DomainEventJob } from '@cube-track/shared';
 import { and, asc, inArray, isNull, isNotNull, lt, sql } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
 
@@ -67,8 +67,9 @@ export class OutboxRelay {
       await pipeline.exec();
 
       for (const row of rows) {
-        const consumers = EVENT_CONSUMERS[row.eventType] ?? [];
-        if (consumers.length === 0) continue;
+        // Webhooks: todo evento durável é candidato (filtra pelas assinaturas ativas ao processar,
+        // ADR 0051) — diferente dos demais consumidores, cujo mapa é uma lista fixa por tipo.
+        const consumers = [...(EVENT_CONSUMERS[row.eventType] ?? []), QUEUES.webhooks];
         const job: DomainEventJob = {
           eventId: row.id,
           tenantId: row.tenantId,

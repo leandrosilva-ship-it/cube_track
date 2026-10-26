@@ -24,8 +24,12 @@ export function redisClient(): Redis {
 }
 
 /** Job mínimo para chamar processadores diretamente (sem fila). */
-export function fakeJob<T>(data: T, id = 'test-job'): Job<T> {
-  return { id, data, name: 'test', attemptsMade: 0, opts: {} } as unknown as Job<T>;
+export function fakeJob<T>(
+  data: T,
+  id = 'test-job',
+  overrides: Partial<Job<T>> = {},
+): Job<T> {
+  return { id, data, name: 'test', attemptsMade: 0, opts: {}, ...overrides } as unknown as Job<T>;
 }
 
 export interface DemoContext {

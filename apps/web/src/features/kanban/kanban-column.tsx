@@ -1,7 +1,7 @@
 'use client';
 
 import type { CellTextDirectory, CellTextLocale } from '@cube-track/shared';
-import { Button, IconButton, cn } from '@cube-track/ui';
+import { Badge, Button, IconButton, cn } from '@cube-track/ui';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -10,10 +10,13 @@ import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useCallback, useRef, type MouseEvent } from 'react';
 
-import type { BoardColumn, Item, Member } from '@/lib/api/types';
+import type { BoardColumn, Item, Member, PhaseKind } from '@/lib/api/types';
 
+import type { SlaBadge } from '../processes/model';
 import { KanbanCard } from './kanban-card';
 import type { KanbanBucketDef } from './model';
+
+const PHASE_KIND_TONE = { start: 'info', intermediate: 'neutral', done: 'success', cancelled: 'danger' } as const;
 
 const CARD_HEIGHT_ESTIMATE = 96;
 
@@ -25,6 +28,7 @@ function SortableCard({
   directory,
   locale,
   selected,
+  slaBadge,
   onOpen,
   onToggleSelect,
 }: {
@@ -35,6 +39,7 @@ function SortableCard({
   directory: CellTextDirectory;
   locale: CellTextLocale;
   selected: boolean;
+  slaBadge: SlaBadge | null;
   onOpen: () => void;
   onToggleSelect: (event: MouseEvent) => void;
 }) {
@@ -51,6 +56,7 @@ function SortableCard({
       directory={directory}
       locale={locale}
       selected={selected}
+      slaBadge={slaBadge}
       dragging={isDragging}
       style={{ transform: CSS.Translate.toString(transform), transition }}
       onClick={(event) => {
@@ -87,6 +93,10 @@ export interface KanbanColumnProps {
   onQuickCreate: (() => void) | null;
   isDragActive: boolean;
   width: number;
+  /** Tipo da fase (board `kind: 'process'`, ADR 0051) desta coluna, se houver. */
+  phaseKind?: PhaseKind | null;
+  /** Indicador de SLA mais urgente por item desta coluna (ADR 0051). */
+  slaBadges?: ReadonlyMap<string, SlaBadge>;
 }
 
 /** Uma coluna do Kanban (dentro de uma raia): cabeçalho com contagem/WIP e a lista de cartões. */
@@ -108,8 +118,11 @@ export function KanbanColumn({
   onQuickCreate,
   isDragActive,
   width,
+  phaseKind,
+  slaBadges,
 }: KanbanColumnProps) {
   const t = useTranslations('kanban');
+  const tProcesses = useTranslations('processes');
   const scrollRef = useRef<HTMLDivElement>(null);
   const { setNodeRef: setDroppableRef } = useDroppable({ id: cellId });
   const setBodyRef = useCallback(
@@ -154,6 +167,9 @@ export function KanbanColumn({
               aria-hidden="true"
             />
             <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-fg">{bucket.label}</h3>
+            {phaseKind === null || phaseKind === undefined ? null : (
+              <Badge tone={PHASE_KIND_TONE[phaseKind]}>{tProcesses(`kind.${phaseKind}`)}</Badge>
+            )}
             <span
               className={cn(
                 'shrink-0 rounded-full px-1.5 py-0.5 text-xs font-medium',
@@ -185,6 +201,7 @@ export function KanbanColumn({
                       directory={directory}
                       locale={locale}
                       selected={selected.has(item.id)}
+                      slaBadge={slaBadges?.get(item.id) ?? null}
                       onOpen={() => {
                         onOpenItem(item.id);
                       }}
@@ -215,6 +232,7 @@ export function KanbanColumn({
                           directory={directory}
                           locale={locale}
                           selected={selected.has(item.id)}
+                          slaBadge={slaBadges?.get(item.id) ?? null}
                           onOpen={() => {
                             onOpenItem(item.id);
                           }}

@@ -1,8 +1,10 @@
 import { z } from 'zod';
 
 /**
- * Regras puras das automações (sem banco): leitura do gatilho, avaliação de condições sobre os
- * valores do item e resolução de valores dinâmicos das ações. O processador cuida de I/O.
+ * Regras puras das automações (ADR 0029/0051): leitura do gatilho, avaliação de condições sobre os
+ * valores do item e resolução de valores dinâmicos das ações. A execução (I/O, transação, outbox)
+ * fica no worker (`apps/worker/src/processors/automations.ts`); aqui só o que pode ser validado e
+ * testado sem banco — inclusive pelo construtor de automações do frontend.
  */
 
 /** Profundidade máxima da cadeia automação → evento → automação (proteção contra loops). */
@@ -27,12 +29,30 @@ const TriggerSchema = z.discriminatedUnion('type', [
       toLabel: z.string().optional(),
     }),
   }),
+  z.object({
+    type: z.literal('button_clicked'),
+    config: z.object({ columnKey: z.string().min(1) }),
+  }),
+  z.object({
+    type: z.literal('date_arrives'),
+    config: z.object({
+      /** Campo nativo (`plannedEndDate`...) ou chave de coluna `date`. */
+      columnKey: z.string().min(1),
+      /** Dias de deslocamento: negativo = antes da data, 0 = no dia, positivo = depois. */
+      offsetDays: z.number().int().min(-365).max(365).default(0),
+    }),
+  }),
 ]);
 export type AutomationTriggerSpec = z.infer<typeof TriggerSchema>;
-export type EventTriggerType = AutomationTriggerSpec['type'];
-export const EVENT_TRIGGER_TYPES: readonly EventTriggerType[] = [
-  'item_created',
-  'column_value_changed',
+export type AutomationTriggerType = AutomationTriggerSpec['type'];
+
+/** Gatilhos disparados por um evento de item (`item.created`/`item.updated`/`item.button_clicked`). */
+export const EVENT_TRIGGER_TYPES = ['item_created', 'column_value_changed', 'button_clicked'] as const;
+/** Gatilhos verificados por varredura periódica (sem evento correspondente). */
+export const DATE_TRIGGER_TYPES = ['date_arrives'] as const;
+export const AUTOMATION_TRIGGER_TYPES: readonly AutomationTriggerType[] = [
+  ...EVENT_TRIGGER_TYPES,
+  ...DATE_TRIGGER_TYPES,
 ];
 
 const DynamicValueSchema = z.union([
@@ -66,6 +86,12 @@ export const ActionSchema = z.discriminatedUnion('type', [
   }),
 ]);
 export type AutomationActionSpec = z.infer<typeof ActionSchema>;
+export type AutomationActionType = AutomationActionSpec['type'];
+export const AUTOMATION_ACTION_TYPES: readonly AutomationActionType[] = [
+  'move_to_group',
+  'set_column_value',
+  'notify',
+];
 
 export function parseTrigger(raw: unknown): AutomationTriggerSpec {
   const parsed = TriggerSchema.safeParse(raw);
@@ -103,30 +129,41 @@ export function scalarsOf(value: unknown): Scalar[] {
   return out;
 }
 
-function isEmpty(value: unknown): boolean {
+/** Valor de data (AAAA-MM-DD) de um campo nativo (string direta) ou de uma coluna `date` (`{d}`). */
+export function dateValueOf(value: unknown): string | null {
+  const [first] = scalarsOf(value);
+  return typeof first === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(first) ? first : null;
+}
+
+/** Vazio para fins de obrigatoriedade/condições: `null`, string vazia, lista vazia, `false`. */
+export function isEmptyValue(value: unknown): boolean {
   return scalarsOf(value).filter((entry) => entry !== '' && entry !== false).length === 0;
 }
 
-const ConditionSchema = z.object({
-  columnKey: z.string().optional(),
-  field: z.string().optional(),
-  operator: z.enum([
-    'is',
-    'is_not',
-    'any_of',
-    'none_of',
-    'contains',
-    'not_contains',
-    'gt',
-    'gte',
-    'lt',
-    'lte',
-    'is_empty',
-    'is_not_empty',
-  ]),
-  value: z.unknown().optional(),
-});
-interface ConditionGroup {
+const ConditionSchema = z
+  .object({
+    columnKey: z.string().optional(),
+    field: z.string().optional(),
+    operator: z.enum([
+      'is',
+      'is_not',
+      'any_of',
+      'none_of',
+      'contains',
+      'not_contains',
+      'gt',
+      'gte',
+      'lt',
+      'lte',
+      'is_empty',
+      'is_not_empty',
+    ]),
+    value: z.unknown().optional(),
+  })
+  .refine((data) => data.columnKey !== undefined || data.field !== undefined, {
+    message: 'Condição sem coluna.',
+  });
+export interface ConditionGroup {
   op: 'and' | 'or';
   conditions: (z.infer<typeof ConditionSchema> | ConditionGroup)[];
 }
@@ -193,9 +230,9 @@ function evaluateCondition(
         return result <= 0;
       });
     case 'is_empty':
-      return isEmpty(current);
+      return isEmptyValue(current);
     case 'is_not_empty':
-      return !isEmpty(current);
+      return !isEmptyValue(current);
   }
 }
 
@@ -206,6 +243,17 @@ function evaluateGroup(group: ConditionGroup, fields: Readonly<Record<string, un
   return group.op === 'and' ? results.every(Boolean) : results.some(Boolean);
 }
 
+/** Valida a estrutura das condições sem avaliá-las (`null` = sem condições). Uso: CRUD e construtor. */
+export function parseConditions(raw: unknown): ConditionGroup | null {
+  if (raw === null || raw === undefined) return null;
+  const parsed = GroupSchema.safeParse(raw);
+  if (!parsed.success)
+    throw new AutomationConfigError(
+      `Condições inválidas: ${parsed.error.issues[0]?.message ?? ''}`,
+    );
+  return parsed.data;
+}
+
 /**
  * Avalia as condições (`null` = sempre verdadeiro). `fields` contém os valores das colunas e os
  * campos nativos do item (`name`, `groupId`, `plannedEndDate`…).
@@ -214,13 +262,8 @@ export function evaluateConditions(
   raw: unknown,
   fields: Readonly<Record<string, unknown>>,
 ): boolean {
-  if (raw === null || raw === undefined) return true;
-  const parsed = GroupSchema.safeParse(raw);
-  if (!parsed.success)
-    throw new AutomationConfigError(
-      `Condições inválidas: ${parsed.error.issues[0]?.message ?? ''}`,
-    );
-  return evaluateGroup(parsed.data, fields);
+  const parsed = parseConditions(raw);
+  return parsed === null ? true : evaluateGroup(parsed, fields);
 }
 
 export interface TriggerEvent {
@@ -228,6 +271,8 @@ export interface TriggerEvent {
   /** Campos alterados (para `item.updated`) com o novo valor. */
   changes: readonly { field: string; value: unknown }[];
   groupId: string | null;
+  /** Chave da coluna de botão clicada (para `item.button_clicked`). */
+  columnKey?: string | undefined;
 }
 
 /** O evento dispara o gatilho? `labelIds` traduz `toLabel` (nome → ids de rótulo da coluna). */
@@ -242,6 +287,10 @@ export function triggerMatches(
       (trigger.config.groupId === undefined || trigger.config.groupId === event.groupId)
     );
   }
+  if (trigger.type === 'button_clicked') {
+    return event.type === 'item.button_clicked' && event.columnKey === trigger.config.columnKey;
+  }
+  if (trigger.type === 'date_arrives') return false; // verificado por varredura, não por evento.
   if (event.type !== 'item.updated') return false;
   const change = event.changes.find((entry) => entry.field === trigger.config.columnKey);
   if (change === undefined) return false;
@@ -249,6 +298,24 @@ export function triggerMatches(
   if (trigger.config.to === undefined && trigger.config.toLabel === undefined) return true;
   const scalars = scalarsOf(change.value);
   return targets.some((target) => scalars.some((scalar) => String(scalar) === String(target)));
+}
+
+/** A data do campo (resolvida) bate com "hoje" + `offsetDays` do gatilho `date_arrives`? */
+export function dateArrivesMatches(
+  trigger: Extract<AutomationTriggerSpec, { type: 'date_arrives' }>,
+  fieldValue: unknown,
+  today: string,
+): boolean {
+  const date = dateValueOf(fieldValue);
+  if (date === null) return false;
+  return addDaysToIso(date, trigger.config.offsetDays) === today;
+}
+
+/** Soma dias a uma data `AAAA-MM-DD` (aritmética em UTC, sem fuso). */
+export function addDaysToIso(iso: string, days: number): string {
+  const date = new Date(`${iso}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 /** Data local (YYYY-MM-DD) no fuso do tenant. */

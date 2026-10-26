@@ -14,6 +14,8 @@ const itemColumns = {
   parentItemId: items.parentItemId,
   name: items.name,
   position: items.position,
+  phaseId: items.phaseId,
+  phaseEnteredAt: items.phaseEnteredAt,
   values: items.values,
   fieldVersions: items.fieldVersions,
   version: items.version,
@@ -46,6 +48,11 @@ export function rowToItem(row: Record<string, unknown>): ItemRecord {
     parentItemId: typeof row.parent_item_id === 'string' ? row.parent_item_id : null,
     name: String(row.name),
     position: String(row.position),
+    phaseId: typeof row.phase_id === 'string' ? row.phase_id : null,
+    phaseEnteredAt:
+      row.phase_entered_at === null || row.phase_entered_at === undefined
+        ? null
+        : new Date(row.phase_entered_at as string),
     values: row.values as ItemRecord['values'],
     fieldVersions: row.field_versions as ItemRecord['fieldVersions'],
     version: Number(row.version),

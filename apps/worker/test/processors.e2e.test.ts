@@ -8,14 +8,13 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { schema, type DatabaseHandle } from '@cube-track/db';
-import { QUEUES, SEARCH_INDEXES, newId, positionBetween } from '@cube-track/shared';
+import { QUEUES, SEARCH_INDEXES, localDate, newId, positionBetween } from '@cube-track/shared';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
 import { MeiliSearch } from 'meilisearch';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { inject } from 'vitest';
 
-import { localDate } from '../src/automation/rules.js';
 import { automationsProcessor } from '../src/processors/automations.js';
 import { fileScanProcessor } from '../src/processors/file-scan.js';
 import { notificationsProcessor } from '../src/processors/notifications.js';
@@ -103,7 +102,8 @@ async function createItem(
 describe('automações', () => {
   const now = new Date();
   const process = () =>
-    automationsProcessor({ database: app, redis, logger: silentLogger, now: () => now });
+    automationsProcessor({ database: app, redis, logger: silentLogger, now: () => now })
+      .processEvent;
 
   it('status → Concluído move o item e preenche o término real, com auditoria, outbox e execução registrada', async () => {
     const done = demo.statusLabels['Concluído'] ?? '';
@@ -280,6 +280,52 @@ describe('automações', () => {
       .update(automations)
       .set({ isEnabled: false })
       .where(inArray(automations.id, [broken?.id ?? '', notify?.id ?? '']));
+  });
+
+  it('date_arrives: a varredura diária dispara 2 dias antes do término planejado, uma vez por dia', async () => {
+    const twoDaysFromNow = new Date();
+    twoDaysFromNow.setUTCDate(twoDaysFromNow.getUTCDate() + 2);
+    const plannedEndDate = twoDaysFromNow.toISOString().slice(0, 10);
+    const item = await createItem('Automação — prazo chegando', 'Demandas em Andamento', {
+      plannedEndDate,
+    });
+    const [rule] = await admin.db
+      .insert(automations)
+      .values({
+        tenantId: demo.tenantId,
+        workspaceId: demo.workspaceId,
+        boardId: demo.boardId,
+        name: 'Avisar 2 dias antes do prazo',
+        trigger: { type: 'date_arrives', config: { columnKey: 'plannedEndDate', offsetDays: -2 } },
+        actions: [{ type: 'notify', config: { message: 'Prazo em 2 dias: {item.name}' } }],
+      })
+      .returning();
+
+    const dateCheck = () =>
+      automationsProcessor({ database: app, redis, logger: silentLogger }).checkDateArrives();
+
+    const first = await dateCheck();
+    expect(first.outcomes).toContainEqual({ automationId: rule?.id, status: 'succeeded' });
+    const runsAfterFirst = await admin.db
+      .select()
+      .from(automationRuns)
+      .where(eq(automationRuns.automationId, rule?.id ?? ''));
+    expect(runsAfterFirst).toHaveLength(1);
+    expect(runsAfterFirst[0]).toMatchObject({ itemId: item.id, status: 'succeeded' });
+
+    // Rodar de novo no mesmo dia não duplica (dedupe pelo triggerEventId sintético do dia).
+    const second = await dateCheck();
+    expect(second.outcomes.find((outcome) => outcome.automationId === rule?.id)?.status).toBe(
+      'duplicate',
+    );
+    expect(
+      await admin.db
+        .select()
+        .from(automationRuns)
+        .where(eq(automationRuns.automationId, rule?.id ?? '')),
+    ).toHaveLength(1);
+
+    await admin.db.update(automations).set({ isEnabled: false }).where(eq(automations.id, rule?.id ?? ''));
   });
 });
 

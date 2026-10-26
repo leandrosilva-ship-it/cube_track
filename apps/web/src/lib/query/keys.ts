@@ -77,6 +77,11 @@ export const qk = {
   dashboardWidgets: (dashboardId: string) => ['dashboards', dashboardId, 'widgets'] as const,
   dashboardData: (dashboardId: string) => ['dashboards', dashboardId, 'data'] as const,
   projectHealth: (boardId: string) => ['boards', boardId, 'project-health'] as const,
+  automations: (boardId: string) => ['boards', boardId, 'automations'] as const,
+  processConfig: (boardId: string) => ['boards', boardId, 'process-config'] as const,
+  slas: (boardId: string) => ['boards', boardId, 'slas'] as const,
+  slaTrackers: (boardId: string) => ['boards', boardId, 'sla-trackers'] as const,
+  webhooksOfBoard: (boardId: string) => ['boards', boardId, 'webhooks'] as const,
 };
 
 /** Há filtros que o cache local não sabe avaliar? (então eventos invalidam em vez de inserir) */

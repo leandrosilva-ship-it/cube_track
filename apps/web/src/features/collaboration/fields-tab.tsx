@@ -11,7 +11,7 @@ import type { CellContext } from '../table/cells';
 import { CellDisplay } from '../table/cells';
 import type { EditorValue } from '../table/editors';
 import { ValueField } from '../table/editors';
-import { useDirectory, useCellLocale, useItemWriter, useTimer } from '../table/hooks';
+import { useClickButton, useDirectory, useCellLocale, useItemWriter, useTimer } from '../table/hooks';
 import { canWriteColumn, cellValue, todayIn } from '../table/model';
 import { useMe } from '../shell/hooks';
 
@@ -28,6 +28,7 @@ export function FieldsTab({ board, item }: { board: BoardDetail; item: Item }) {
   const timezone = me.data?.user.timezone ?? 'America/Sao_Paulo';
   const { write } = useItemWriter(board);
   const timer = useTimer(board.id);
+  const clickButton = useClickButton();
   const [name, setName] = useState(item.name);
   const [nameFocused, setNameFocused] = useState(false);
   // Sincroniza com mudanças externas (ex.: outro usuário renomeou) sem sobrescrever uma edição em
@@ -51,6 +52,12 @@ export function FieldsTab({ board, item }: { board: BoardDetail; item: Item }) {
       onTimer: (target, column, action) => {
         timer.mutate({ itemId: target.id, columnKey: column.key, action });
       },
+      onButtonClick: (target, column) => {
+        clickButton.mutate({ itemId: target.id, columnKey: column.key });
+      },
+      pendingButtonKey: clickButton.isPending
+        ? `${clickButton.variables.itemId}:${clickButton.variables.columnKey}`
+        : null,
       onVote: (target, column) => {
         const current = (cellValue(target, column) as { userIds?: string[] } | null)?.userIds ?? [];
         const next = current.includes(userId)
@@ -62,7 +69,7 @@ export function FieldsTab({ board, item }: { board: BoardDetail; item: Item }) {
         );
       },
     }),
-    [directory, item.id, item.name, locale, t, timer, timezone, tCells, userId, write],
+    [clickButton, directory, item.id, item.name, locale, t, timer, timezone, tCells, userId, write],
   );
 
   const columns = board.columns.filter((column) => column.type !== 'dependency');

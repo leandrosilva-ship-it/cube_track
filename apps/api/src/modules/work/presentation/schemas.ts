@@ -10,6 +10,8 @@ export const ItemSchema = z.object({
   parentItemId: z.uuid().nullable(),
   name: z.string(),
   position: z.string(),
+  phaseId: z.uuid().nullable(),
+  phaseEnteredAt: z.string().nullable(),
   values: z.record(z.string(), z.unknown()),
   fieldVersions: z.record(z.string(), z.number().int()),
   version: z.number().int(),

@@ -144,6 +144,7 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
       'form.manage',
       'schedule.manage',
       'process.manage',
+      'webhook.manage',
     ],
   },
   {

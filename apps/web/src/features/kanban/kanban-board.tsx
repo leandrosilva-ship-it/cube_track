@@ -20,8 +20,10 @@ import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useTranslations } from 'next-intl';
 import { useMemo, useState, type MouseEvent } from 'react';
 
-import type { BoardDetail, Item, Member } from '@/lib/api/types';
+import type { BoardDetail, Item, Member, Phase } from '@/lib/api/types';
 
+import { useProcessConfig, useSlaTrackers } from '../processes/hooks';
+import { phasesByGroupId, slaBadgeFor, trackersByItemId, type SlaBadge } from '../processes/model';
 import type { ItemWrite } from '../table/hooks';
 import { KanbanCard } from './kanban-card';
 import { KanbanColumn } from './kanban-column';
@@ -87,6 +89,23 @@ export function KanbanBoard({
     [members, t],
   );
   const itemsById = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
+  const isProcessBoard = board.kind === 'process' && config.columnsBy === 'group';
+  const processConfig = useProcessConfig(board.id, isProcessBoard);
+  const slaTrackers = useSlaTrackers(board.id, isProcessBoard);
+  const phasesByGroup = useMemo<Map<string, Phase>>(
+    () => (isProcessBoard ? phasesByGroupId(processConfig.data ?? null) : new Map<string, Phase>()),
+    [isProcessBoard, processConfig.data],
+  );
+  const slaBadges = useMemo(() => {
+    const map = new Map<string, SlaBadge>();
+    if (!isProcessBoard || slaTrackers.data === undefined) return map;
+    const now = new Date();
+    for (const [itemId, tracker] of trackersByItemId(slaTrackers.data)) {
+      const badge = slaBadgeFor(tracker, now);
+      if (badge !== null) map.set(itemId, badge);
+    }
+    return map;
+  }, [isProcessBoard, slaTrackers.data]);
   const columns = useMemo(
     () => kanbanBucketsFor(board, config.columnsBy, items, labels, config.hideEmptyColumns),
     [board, config.columnsBy, config.hideEmptyColumns, items, labels],
@@ -298,7 +317,9 @@ export function KanbanBoard({
                     selected={selected}
                     onToggleSelect={onToggleSelect}
                     onOpenItem={onOpenItem}
-                    wipLimit={config.wipLimits[column.key]}
+                    wipLimit={config.wipLimits[column.key] ?? phasesByGroup.get(column.key)?.wipLimit ?? undefined}
+                    phaseKind={phasesByGroup.get(column.key)?.kind ?? null}
+                    slaBadges={slaBadges}
                     collapsed={collapsedColumnKeys.includes(column.key)}
                     onToggleCollapse={() => {
                       onToggleCollapse(column.key);
@@ -361,6 +382,7 @@ export function KanbanBoard({
             directory={directory}
             locale={locale}
             selected={false}
+            slaBadge={slaBadges.get(activeItem.id) ?? null}
             className="rotate-2 shadow-lg"
           />
         )}

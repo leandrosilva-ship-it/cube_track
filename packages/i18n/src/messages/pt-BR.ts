@@ -2,6 +2,7 @@
  * Mensagens da interface em pt-BR (idioma padrão e fonte da verdade das chaves).
  * Sintaxe ICU (next-intl): `{name}`, `{count, plural, one {...} other {...}}`.
  */
+import { automationsPtBR } from './automations.pt-BR.js';
 import { calendarPtBR } from './calendar.pt-BR.js';
 import { itemPanelPtBR } from './collaboration.pt-BR.js';
 import { dashboardsPtBR } from './dashboards.pt-BR.js';
@@ -9,8 +10,10 @@ import { formsPtBR } from './forms.pt-BR.js';
 import { ganttPtBR } from './gantt.pt-BR.js';
 import { kanbanPtBR } from './kanban.pt-BR.js';
 import { planningPtBR } from './planning.pt-BR.js';
+import { processesPtBR } from './processes.pt-BR.js';
 import { tablePtBR } from './table.pt-BR.js';
 import { timelinePtBR } from './timeline.pt-BR.js';
+import { webhooksPtBR } from './webhooks.pt-BR.js';
 
 export const ptBR = {
   common: {
@@ -257,6 +260,7 @@ export const ptBR = {
     share: 'Compartilhar',
     integrate: 'Integrar',
     automate: 'Automatizar',
+    process: 'Processo',
     agents: 'Agentes',
     featureLater: 'Disponível quando o módulo for habilitado para esta organização.',
     inviteDialog: {
@@ -389,6 +393,9 @@ export const ptBR = {
   gantt: ganttPtBR,
   forms: formsPtBR,
   dashboards: dashboardsPtBR,
+  automations: automationsPtBR,
+  processes: processesPtBR,
+  webhooks: webhooksPtBR,
   palette: {
     title: 'Paleta de comandos',
     placeholder: 'Buscar boards, páginas e ações…',

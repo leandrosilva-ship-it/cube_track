@@ -1,4 +1,5 @@
 import type { Messages } from './pt-BR.js';
+import { automationsEs } from './automations.es.js';
 import { calendarEs } from './calendar.es.js';
 import { itemPanelEs } from './collaboration.es.js';
 import { dashboardsEs } from './dashboards.es.js';
@@ -6,8 +7,10 @@ import { formsEs } from './forms.es.js';
 import { ganttEs } from './gantt.es.js';
 import { kanbanEs } from './kanban.es.js';
 import { planningEs } from './planning.es.js';
+import { processesEs } from './processes.es.js';
 import { tableEs } from './table.es.js';
 import { timelineEs } from './timeline.es.js';
+import { webhooksEs } from './webhooks.es.js';
 
 export const es: Messages = {
   common: {
@@ -254,6 +257,7 @@ export const es: Messages = {
     share: 'Compartir',
     integrate: 'Integrar',
     automate: 'Automatizar',
+    process: 'Proceso',
     agents: 'Agentes',
     featureLater: 'Disponible cuando el módulo se habilite para esta organización.',
     inviteDialog: {
@@ -386,6 +390,9 @@ export const es: Messages = {
   gantt: ganttEs,
   forms: formsEs,
   dashboards: dashboardsEs,
+  automations: automationsEs,
+  processes: processesEs,
+  webhooks: webhooksEs,
   palette: {
     title: 'Paleta de comandos',
     placeholder: 'Buscar tableros, páginas y acciones…',

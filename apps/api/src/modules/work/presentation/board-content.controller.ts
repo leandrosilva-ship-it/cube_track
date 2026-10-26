@@ -333,6 +333,25 @@ export class BoardContentController {
     return this.items.timer(user, params.id, params.columnKey, body.action);
   }
 
+  @Post('items/:id/buttons/:columnKey')
+  @Audited({ action: 'item.button_clicked', entityType: 'item' })
+  @Endpoint({
+    summary: 'Clicar no botão de uma coluna `button`',
+    description:
+      'Requer `item.update`. Dispara (de forma assíncrona) a automação configurada na coluna ' +
+      '(ADR 0051); responde 204 assim que o evento é registrado, sem esperar a execução.',
+    status: 204,
+    tags: ['items'],
+    params: S.TimerParams,
+    errors: [422],
+  })
+  async clickButton(
+    @CurrentPrincipal() user: AuthPrincipal,
+    @Input('params') params: z.infer<typeof S.TimerParams>,
+  ) {
+    await this.items.clickButton(user, params.id, params.columnKey);
+  }
+
   @Get('boards/:boardId/dependencies')
   @Endpoint({
     summary: 'Dependências entre itens do board',

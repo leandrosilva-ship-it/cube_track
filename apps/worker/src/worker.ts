@@ -18,7 +18,9 @@ import { fileScanProcessor } from './processors/file-scan.js';
 import { maintenanceProcessor, scheduleMaintenance } from './processors/maintenance.js';
 import { notificationsProcessor } from './processors/notifications.js';
 import { scheduleProcessor } from './processors/schedule.js';
+import { createSlaCheck } from './processors/sla.js';
 import { ensureSearchIndexes, searchIndexProcessor } from './processors/search-index.js';
+import { webhookDeliveryProcessor, webhookFanoutProcessor } from './processors/webhooks.js';
 import { createQueues, createWorker, type QueueRegistry } from './queues.js';
 import { ClamdScanner, DisabledScanner } from './scanner.js';
 
@@ -58,6 +60,8 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
     deadLetter: queues[QUEUES.deadLetter],
     logger,
   };
+  const automations = automationsProcessor({ database: appDb, redis, logger });
+  const checkSla = createSlaCheck({ database: appDb, redis, logger });
 
   const workers: Worker[] = [
     createWorker(
@@ -77,11 +81,7 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
       }),
       common,
     ),
-    createWorker(
-      QUEUES.automations,
-      automationsProcessor({ database: appDb, redis, logger }),
-      common,
-    ),
+    createWorker(QUEUES.automations, automations.processEvent, common),
     // Recálculo de cronograma serializado (concorrência 1) para evitar conflitos no mesmo board.
     createWorker(QUEUES.schedule, scheduleProcessor({ database: appDb, redis }), {
       ...common,
@@ -95,7 +95,13 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
     }),
     createWorker(
       QUEUES.maintenance,
-      maintenanceProcessor({ database: appDb, computedQueue: queues[QUEUES.computed], logger }),
+      maintenanceProcessor({
+        database: appDb,
+        computedQueue: queues[QUEUES.computed],
+        logger,
+        checkDateArrives: automations.checkDateArrives,
+        checkSla,
+      }),
       { ...common, concurrency: 1 },
     ),
     createWorker(
@@ -105,6 +111,20 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
         ...common,
         concurrency: Math.min(4, config.WORKER_CONCURRENCY),
       },
+    ),
+    createWorker(
+      QUEUES.webhooks,
+      webhookFanoutProcessor({
+        database: appDb,
+        deliveryQueue: queues[QUEUES.webhookDeliveries],
+        logger,
+      }),
+      common,
+    ),
+    createWorker(
+      QUEUES.webhookDeliveries,
+      webhookDeliveryProcessor({ database: appDb, encryptionKey: config.ENCRYPTION_KEY, logger }),
+      common,
     ),
   ] as Worker[];
 

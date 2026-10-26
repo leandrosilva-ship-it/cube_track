@@ -43,6 +43,7 @@ import {
 import { BoardDefinitionRepository } from '../infrastructure/board-definition.repository.js';
 import { ItemsRepository } from '../infrastructure/items.repository.js';
 import { ComputedFieldsService, type PreparedCompute } from './computed-fields.service.js';
+import { PhaseTransitionGuard } from './phase-transition-guard.js';
 
 export interface PositionInput {
   afterId?: string | undefined;
@@ -141,6 +142,7 @@ export class ItemWriter {
     private readonly access: AccessService,
     private readonly events: DomainEvents,
     private readonly computed: ComputedFieldsService,
+    private readonly phaseTransitions: PhaseTransitionGuard,
   ) {}
 
   // -------------------------------------------------------------------------------- contexto ---
@@ -256,13 +258,16 @@ export class ItemWriter {
     if (input.description !== undefined) fieldVersions.descriptionText = 1;
     if (input.isMilestone !== undefined) fieldVersions.isMilestone = 1;
     if (input.scheduleMode !== undefined) fieldVersions.scheduleMode = 1;
-    return this.repository.insert(tx, {
+    const phaseField = await this.phaseTransitions.resolvePhaseForGroup(input.groupId);
+    const created = await this.repository.insert(tx, {
       tenantId: context.user.tenantId,
       boardId: context.boardId,
       groupId: input.groupId,
       parentItemId: input.parentItemId ?? null,
       name: input.name,
       position: input.position,
+      phaseId: phaseField.phaseId,
+      phaseEnteredAt: phaseField.phaseEnteredAt,
       values,
       fieldVersions,
       ...Object.fromEntries(
@@ -283,6 +288,15 @@ export class ItemWriter {
       createdBy: context.user.userId,
       updatedBy: context.user.userId,
     });
+    if (phaseField.phaseId !== null) {
+      await this.phaseTransitions.startTrackersForNewItem(
+        context.user,
+        created,
+        phaseField.phaseId,
+        context.boardId,
+      );
+    }
+    return created;
   }
 
   /** Auditoria + evento `item.created` para um item que passou a existir na lista do board. */
@@ -610,6 +624,25 @@ export class ItemWriter {
         context.conditions,
       );
       this.assertNoMissing(missing);
+    }
+
+    if (checkPermissions && update.groupId !== undefined) {
+      const phaseUpdate = await this.phaseTransitions.apply(
+        context.user,
+        item,
+        update.groupId,
+        nextSnapshot,
+      );
+      if (phaseUpdate !== null) {
+        update.phaseId = phaseUpdate.phaseId;
+        update.phaseEnteredAt = phaseUpdate.phaseEnteredAt;
+        changes.push({
+          field: 'phase_id',
+          kind: 'native',
+          value: phaseUpdate.phaseId,
+          version: bump('phase_id'),
+        });
+      }
     }
 
     for (const [key, value] of this.computed.compute(

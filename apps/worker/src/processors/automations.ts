@@ -1,30 +1,35 @@
 import { schema, withTenant, type DatabaseHandle, type Transaction } from '@cube-track/db';
 import {
+  AutomationConfigError,
+  dateArrivesMatches,
   DomainEventJobSchema,
+  EVENT_TRIGGER_TYPES,
+  localDate,
+  MAX_AUTOMATION_DEPTH,
+  evaluateConditions,
   isColumnType,
+  parseActions,
   parseColumnValue,
+  parseTrigger,
   positionBetween,
+  renderMessage,
+  resolveDynamicValue,
+  triggerMatches,
+  type AutomationActionSpec,
+  type AutomationTriggerSpec,
   type DomainEventJob,
   type ItemFieldChange,
 } from '@cube-track/shared';
 import type { Job } from 'bullmq';
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
+import { v5 as uuidV5 } from 'uuid';
 
-import {
-  AutomationConfigError,
-  EVENT_TRIGGER_TYPES,
-  MAX_AUTOMATION_DEPTH,
-  evaluateConditions,
-  parseActions,
-  parseTrigger,
-  renderMessage,
-  resolveDynamicValue,
-  triggerMatches,
-  type AutomationActionSpec,
-} from '../automation/rules.js';
 import type { Logger } from '../logger.js';
 import { runAsSystem, type SystemUnit } from '../system-tx.js';
+
+/** Namespace fixo (uuid v5) para sintetizar o `triggerEventId` de dedupe do gatilho `date_arrives`. */
+const DATE_ARRIVES_NAMESPACE = 'b3f6a2b0-6b8e-4d9b-9e9a-6a6a6d7a5a10';
 
 const {
   automations,
@@ -99,6 +104,12 @@ function eventChanges(event: DomainEventJob): { field: string; value: unknown }[
       entry !== null &&
       typeof (entry as { field?: unknown }).field === 'string',
   );
+}
+
+/** Chave da coluna `button` clicada (evento `item.button_clicked`), quando presente. */
+function eventColumnKey(event: DomainEventJob): string | undefined {
+  const columnKey = (event.payload as { columnKey?: unknown }).columnKey;
+  return typeof columnKey === 'string' ? columnKey : undefined;
 }
 
 function personIdsOf(
@@ -452,38 +463,227 @@ export function automationsProcessor(deps: {
     });
   }
 
+  /**
+   * Executa as ações de uma regra já casada (gatilho e condições verificados pelo chamador):
+   * grava `automation_runs` (idempotente por `triggerEventId` + item), aplica as ações sobre o
+   * item e contabiliza `runCount`/`lastRunAt`. Reaproveitado pelo caminho por evento e pela
+   * varredura diária de `date_arrives`.
+   */
+  async function executeAutomation(
+    unit: SystemUnit,
+    rule: typeof automations.$inferSelect,
+    item: ItemRow,
+    columns: readonly ColumnRow[],
+    timezone: string,
+    triggerEventId: string | null,
+    depth: number,
+    startedAt: number,
+  ): Promise<AutomationOutcome['status']> {
+    const { tx } = unit;
+    const actions = parseActions(rule.actions);
+    const [run] = await tx
+      .insert(automationRuns)
+      .values({
+        tenantId: item.tenantId,
+        automationId: rule.id,
+        triggerEventId,
+        itemId: item.id,
+        status: 'running',
+        depth,
+        startedAt: now(),
+      })
+      .onConflictDoNothing()
+      .returning({ id: automationRuns.id });
+    if (run === undefined) return 'duplicate';
+
+    const draft: Draft = {
+      item,
+      values: { ...item.values },
+      fieldVersions: { ...item.fieldVersions },
+      update: {},
+      changes: [],
+      before: {},
+      after: {},
+      activity: [],
+      log: [],
+    };
+    for (const action of actions) await runAction(unit, draft, action, columns, timezone, rule.id);
+    await persistItem(unit, draft, columns, rule.id);
+    await unit.audit({
+      action: 'automation.executed',
+      entityType: 'automation',
+      entityId: rule.id,
+      metadata: { itemId: item.id, triggerEventId, actions: draft.log },
+    });
+    await tx
+      .update(automationRuns)
+      .set({
+        status: 'succeeded',
+        finishedAt: now(),
+        durationMs: Date.now() - startedAt,
+        log: draft.log,
+      })
+      .where(eq(automationRuns.id, run.id));
+    await tx
+      .update(automations)
+      .set({ runCount: sql`${automations.runCount} + 1`, lastRunAt: now() })
+      .where(eq(automations.id, rule.id));
+    return 'succeeded';
+  }
+
   async function recordFailure(
-    event: DomainEventJob,
+    context: { tenantId: string; triggerEventId: string | null; depth: number },
     automationId: string,
     itemId: string,
     error: Error,
   ): Promise<void> {
-    await withTenant(deps.database.db, { tenantId: event.tenantId, userId: null }, async (tx) => {
-      await tx
-        .insert(automationRuns)
-        .values({
-          tenantId: event.tenantId,
-          automationId,
-          triggerEventId: event.eventId,
-          itemId,
-          status: 'failed',
-          depth: event.depth + 1,
-          startedAt: now(),
-          finishedAt: now(),
-          durationMs: 0,
-          error: error.message.slice(0, 2000),
-        })
-        .onConflictDoNothing();
-      await tx
-        .update(automations)
-        .set({ errorCount: sql`${automations.errorCount} + 1`, lastRunAt: now() })
-        .where(eq(automations.id, automationId));
+    await withTenant(
+      deps.database.db,
+      { tenantId: context.tenantId, userId: null },
+      async (tx) => {
+        await tx
+          .insert(automationRuns)
+          .values({
+            tenantId: context.tenantId,
+            automationId,
+            triggerEventId: context.triggerEventId,
+            itemId,
+            status: 'failed',
+            depth: context.depth,
+            startedAt: now(),
+            finishedAt: now(),
+            durationMs: 0,
+            error: error.message.slice(0, 2000),
+          })
+          .onConflictDoNothing();
+        await tx
+          .update(automations)
+          .set({ errorCount: sql`${automations.errorCount} + 1`, lastRunAt: now() })
+          .where(eq(automations.id, automationId));
+      },
+    );
+  }
+
+  /** Resolve a regra `date_arrives` e o item candidatos a um trio devolvido pela varredura diária. */
+  async function loadDateArrivesCandidate(
+    tenantId: string,
+    automationId: string,
+    itemId: string,
+  ): Promise<{
+    rule: typeof automations.$inferSelect;
+    trigger: Extract<AutomationTriggerSpec, { type: 'date_arrives' }>;
+    item: ItemRow;
+    columns: ColumnRow[];
+    timezone: string;
+  } | null> {
+    return withTenant(deps.database.db, { tenantId, userId: null }, async (tx) => {
+      const [rule] = await tx
+        .select()
+        .from(automations)
+        .where(
+          and(
+            eq(automations.id, automationId),
+            eq(automations.isEnabled, true),
+            isNull(automations.deletedAt),
+          ),
+        );
+      if (rule === undefined) return null;
+      const trigger = parseTrigger(rule.trigger);
+      if (trigger.type !== 'date_arrives') return null;
+      const [item] = await tx
+        .select()
+        .from(items)
+        .where(and(eq(items.id, itemId), isNull(items.deletedAt)))
+        .for('update');
+      if (item === undefined) return null;
+      const [tenant] = await tx
+        .select({ timezone: tenants.timezone })
+        .from(tenants)
+        .where(eq(tenants.id, tenantId));
+      const columns = await boardColumns(tx, item.boardId);
+      return { rule, trigger, item, columns, timezone: tenant?.timezone ?? 'America/Sao_Paulo' };
     });
   }
 
-  return async (job: Job): Promise<{ outcomes: AutomationOutcome[]; skipped?: 'depth' }> => {
+  /**
+   * Varredura diária do gatilho `date_arrives` (rotina de manutenção `automations-date-check`):
+   * `app.date_arrives_candidates()` devolve os trios (tenant, automação, item) cuja data (deslocada
+   * pelo `offsetDays`) bate com hoje no fuso de cada tenant; cada trio é verificado de novo (condições
+   * e `dateArrivesMatches`) e executado via `executeAutomation`, com o mesmo controle de idempotência
+   * das automações por evento — aqui, por `triggerEventId` sintético (uuid v5 do dia + automação + item).
+   */
+  async function checkDateArrives(): Promise<{ outcomes: AutomationOutcome[] }> {
+    const today = now().toISOString().slice(0, 10);
+    const result = await deps.database.db.execute<{
+      tenant_id: string;
+      automation_id: string;
+      item_id: string;
+    }>(sql`select * from app.date_arrives_candidates()`);
+    const outcomes: AutomationOutcome[] = [];
+    for (const row of result.rows) {
+      const triggerEventId = uuidV5(
+        `${row.automation_id}:${row.item_id}:${today}`,
+        DATE_ARRIVES_NAMESPACE,
+      );
+      try {
+        const candidate = await loadDateArrivesCandidate(
+          row.tenant_id,
+          row.automation_id,
+          row.item_id,
+        );
+        if (candidate === null) {
+          outcomes.push({ automationId: row.automation_id, status: 'not_matched' });
+          continue;
+        }
+        const { rule, trigger, item, columns, timezone } = candidate;
+        const fields = itemFields(item);
+        const todayLocal = localDate(now(), timezone);
+        if (!dateArrivesMatches(trigger, fields[trigger.config.columnKey], todayLocal)) {
+          outcomes.push({ automationId: rule.id, status: 'not_matched' });
+          continue;
+        }
+        if (!evaluateConditions(rule.conditions, fields)) {
+          outcomes.push({ automationId: rule.id, status: 'not_matched' });
+          continue;
+        }
+        const started = Date.now();
+        const status = await runAsSystem(
+          deps.database,
+          deps.redis,
+          row.tenant_id,
+          { kind: 'automation', causationId: null, depth: 1, correlationId: triggerEventId },
+          (unit) =>
+            executeAutomation(unit, rule, item, columns, timezone, triggerEventId, 1, started),
+        );
+        outcomes.push({ automationId: rule.id, status });
+      } catch (error) {
+        if (!(error instanceof AutomationConfigError)) throw error;
+        deps.logger.warn(
+          { automationId: row.automation_id, itemId: row.item_id, err: error },
+          'Automação (date_arrives) com configuração inválida',
+        );
+        await recordFailure(
+          { tenantId: row.tenant_id, triggerEventId, depth: 1 },
+          row.automation_id,
+          row.item_id,
+          error,
+        );
+        outcomes.push({ automationId: row.automation_id, status: 'failed' });
+      }
+    }
+    return { outcomes };
+  }
+
+  async function processEvent(
+    job: Job,
+  ): Promise<{ outcomes: AutomationOutcome[]; skipped?: 'depth' }> {
     const event = DomainEventJobSchema.parse(job.data);
-    if (event.type !== 'item.created' && event.type !== 'item.updated') return { outcomes: [] };
+    if (
+      event.type !== 'item.created' &&
+      event.type !== 'item.updated' &&
+      event.type !== 'item.button_clicked'
+    )
+      return { outcomes: [] };
     if (event.boardId === null || event.itemId === null) return { outcomes: [] };
     if (event.depth >= MAX_AUTOMATION_DEPTH) {
       deps.logger.warn(
@@ -535,63 +735,22 @@ export function automationsProcessor(deps: {
             if (
               !triggerMatches(
                 trigger,
-                { type: event.type, changes, groupId: item.groupId },
+                { type: event.type, changes, groupId: item.groupId, columnKey: eventColumnKey(event) },
                 labelIds,
               )
             )
               return 'not_matched';
             if (!evaluateConditions(rule.conditions, itemFields(item))) return 'not_matched';
-            const actions = parseActions(rule.actions);
-
-            const [run] = await tx
-              .insert(automationRuns)
-              .values({
-                tenantId: event.tenantId,
-                automationId: rule.id,
-                triggerEventId: event.eventId,
-                itemId,
-                status: 'running',
-                depth: event.depth + 1,
-                startedAt: now(),
-              })
-              .onConflictDoNothing()
-              .returning({ id: automationRuns.id });
-            if (run === undefined) return 'duplicate';
-
-            const draft: Draft = {
+            return executeAutomation(
+              unit,
+              rule,
               item,
-              values: { ...item.values },
-              fieldVersions: { ...item.fieldVersions },
-              update: {},
-              changes: [],
-              before: {},
-              after: {},
-              activity: [],
-              log: [],
-            };
-            for (const action of actions)
-              await runAction(unit, draft, action, columns, context.timezone, rule.id);
-            await persistItem(unit, draft, columns, rule.id);
-            await unit.audit({
-              action: 'automation.executed',
-              entityType: 'automation',
-              entityId: rule.id,
-              metadata: { itemId, triggerEventId: event.eventId, actions: draft.log },
-            });
-            await tx
-              .update(automationRuns)
-              .set({
-                status: 'succeeded',
-                finishedAt: now(),
-                durationMs: Date.now() - started,
-                log: draft.log,
-              })
-              .where(eq(automationRuns.id, run.id));
-            await tx
-              .update(automations)
-              .set({ runCount: sql`${automations.runCount} + 1`, lastRunAt: now() })
-              .where(eq(automations.id, rule.id));
-            return 'succeeded';
+              columns,
+              context.timezone,
+              event.eventId,
+              event.depth + 1,
+              started,
+            );
           },
         );
         outcomes.push({ automationId: rule.id, status });
@@ -601,10 +760,17 @@ export function automationsProcessor(deps: {
           { automationId: rule.id, eventId: event.eventId, err: error },
           'Automação com configuração inválida',
         );
-        await recordFailure(event, rule.id, itemId, error);
+        await recordFailure(
+          { tenantId: event.tenantId, triggerEventId: event.eventId, depth: event.depth + 1 },
+          rule.id,
+          itemId,
+          error,
+        );
         outcomes.push({ automationId: rule.id, status: 'failed' });
       }
     }
     return { outcomes };
-  };
+  }
+
+  return { processEvent, checkDateArrives };
 }

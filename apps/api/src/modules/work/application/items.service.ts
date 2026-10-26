@@ -25,6 +25,7 @@ import { AccessService } from '../../access/application/access.service.js';
 import type { BoardColumn } from '../../access/infrastructure/access.repository.js';
 import { todayIn, type BoardDefinition } from '../domain/board-definition.js';
 import {
+  assigneeIds,
   toItemDto,
   type ColumnVisibility,
   type ItemDto,
@@ -43,7 +44,7 @@ import {
 
 export type { CreateItemInput, PositionInput, UpdateItemInput } from './item-writer.js';
 
-const { items, groups, itemReads, dependencies, memberships, users, teams } = schema;
+const { items, groups, itemReads, dependencies, memberships, users, teams, automations } = schema;
 
 export interface ListItemsQuery {
   filter: FilterGroup | null;
@@ -663,6 +664,54 @@ export class ItemsService {
       { checkPermissions: false, system: { keys: new Set([columnKey]) } },
     );
     return this.writer.dto(context, updated);
+  }
+
+  /**
+   * Clique numa coluna `button` (ADR 0051): emite `item.button_clicked`, que o worker casa com a
+   * automação `trigger.type: 'button_clicked'` cujo `config.columnKey` seja esta coluna.
+   */
+  async clickButton(user: AuthPrincipal, itemId: string, columnKey: string): Promise<void> {
+    const item = await this.lockedItem(itemId);
+    const context = await this.writer.context(user, item.boardId);
+    const column = this.writer.definitionColumn(context, columnKey);
+    if (column.type !== 'button')
+      throw new UnprocessableError('A coluna não é um botão.', 'not_button');
+    await this.access.assert(user, 'item.update', { type: 'item', item }, 'Item');
+    const automationId = column.settings.automationId;
+    if (typeof automationId !== 'string')
+      throw new UnprocessableError(
+        'Este botão não tem uma automação configurada.',
+        'button_without_automation',
+      );
+    const [automation] = await this.runner.tx
+      .select({ trigger: automations.trigger })
+      .from(automations)
+      .where(and(eq(automations.id, automationId), isNull(automations.deletedAt)));
+    const triggerConfig = automation?.trigger.config as { columnKey?: unknown } | undefined;
+    if (automation?.trigger.type !== 'button_clicked' || triggerConfig?.columnKey !== columnKey) {
+      throw new UnprocessableError(
+        'A automação deste botão está desalinhada; reconfigure o botão.',
+        'button_automation_mismatch',
+      );
+    }
+    this.events.recordChange({
+      action: 'item.button_clicked',
+      entityType: 'item',
+      entityId: item.id,
+      boardId: item.boardId,
+      after: { columnKey },
+    });
+    await this.events.emit({
+      tenantId: user.tenantId,
+      type: 'item.button_clicked',
+      aggregateType: 'item',
+      aggregateId: item.id,
+      boardId: item.boardId,
+      itemId: item.id,
+      payload: { itemId: item.id, columnKey },
+      routing: { assigneeIds: assigneeIds(item.values, context.peopleKeys) },
+      actorId: user.userId,
+    });
   }
 
   async dependencies(user: AuthPrincipal, boardId: string) {

@@ -30,7 +30,7 @@ Os papéis de sistema são criados em todo tenant (`packages/db/src/provisioning
 | `workspace_admin`   | workspace | `workspace.manage`, `folder.manage`, `board.create`, `portfolio.manage`, contratos…                                                      |
 | `workspace_member`  | workspace | `workspace.read`, `board.create`, `dashboard.create`, `portfolio.read`, `contract.read`                                                  |
 | `workspace_viewer`  | workspace | `workspace.read`, `portfolio.read`                                                                                                       |
-| `board_owner`       | board     | editor + `board.manage`, `board.share`, `column.manage`, `automation.manage`, `form.manage`, `schedule.manage`, `process.manage`         |
+| `board_owner`       | board     | editor + `board.manage`, `board.share`, `column.manage`, `automation.manage`, `form.manage`, `schedule.manage`, `process.manage`, `webhook.manage`         |
 | `board_editor`      | board     | `board.read`, `board.export`, `group.manage`, `view.manage`, `item.create/update/delete`, `item.comment`, `file.upload`, `timesheet.log` |
 | `board_contributor` | board     | `board.read`, `item.update_assigned`, `item.comment`, `file.upload`, `timesheet.log`                                                     |
 | `board_viewer`      | board     | `board.read`, `item.comment`                                                                                                             |

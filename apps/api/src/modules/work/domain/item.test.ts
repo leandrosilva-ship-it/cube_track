@@ -10,6 +10,8 @@ const item: ItemRecord = {
   parentItemId: null,
   name: 'Demanda',
   position: 'a0',
+  phaseId: null,
+  phaseEnteredAt: null,
   values: {
     c_ust: { n: '10' },
     c_status: { labelId: 'x' },

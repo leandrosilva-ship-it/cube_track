@@ -204,6 +204,8 @@ function snapshotToItem(snapshot: Record<string, unknown>): Item {
     parentItemId: (snapshot.parentItemId as string | null | undefined) ?? null,
     name: String(snapshot.name),
     position: String(snapshot.position),
+    phaseId: (snapshot.phaseId as string | null | undefined) ?? null,
+    phaseEnteredAt: (snapshot.phaseEnteredAt as string | null | undefined) ?? null,
     values: (snapshot.values as Record<string, unknown> | undefined) ?? {},
     fieldVersions: {},
     version: Number(snapshot.version ?? 1),
@@ -433,6 +435,35 @@ export function applyRealtimeEvent(
       const { baselineId } = event.payload as { baselineId: string };
       void queryClient.invalidateQueries({ queryKey: qk.baselines(boardId) });
       void queryClient.invalidateQueries({ queryKey: qk.baseline(baselineId) });
+      return;
+    }
+    case 'automation.changed': {
+      // Automação de workspace inteiro (boardId nulo) não tem UI de gestão nesta entrega.
+      if (boardId === null) return;
+      void queryClient.invalidateQueries({ queryKey: qk.automations(boardId) });
+      return;
+    }
+    case 'webhook.changed': {
+      // Webhook de workspace inteiro (boardId nulo) não tem UI de gestão nesta entrega.
+      if (boardId === null) return;
+      void queryClient.invalidateQueries({ queryKey: qk.webhooksOfBoard(boardId) });
+      return;
+    }
+    case 'phase.changed': {
+      const { boardId: eventBoardId } = event.payload as { boardId: string };
+      void queryClient.invalidateQueries({ queryKey: qk.processConfig(eventBoardId) });
+      return;
+    }
+    case 'process_config.changed': {
+      const { boardId: eventBoardId } = event.payload as { boardId: string };
+      void queryClient.invalidateQueries({ queryKey: qk.processConfig(eventBoardId) });
+      void queryClient.invalidateQueries({ queryKey: qk.slas(eventBoardId) });
+      return;
+    }
+    case 'sla.changed': {
+      const { boardId: eventBoardId } = event.payload as { boardId: string };
+      void queryClient.invalidateQueries({ queryKey: qk.slaTrackers(eventBoardId) });
+      void queryClient.invalidateQueries({ queryKey: qk.slas(eventBoardId) });
       return;
     }
     case 'approval.changed': {

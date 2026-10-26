@@ -10,6 +10,8 @@ import { scheduleVolatile } from './computed.js';
 export const MAINTENANCE_SCHEDULE: Record<MaintenanceJob, string> = {
   'purge-trash': '15 3 * * *',
   'recompute-volatile': '5 0 * * *',
+  'automations-date-check': '10 6 * * *',
+  'sla-check': '*/10 * * * *',
 };
 const TIMEZONE = 'America/Sao_Paulo';
 
@@ -24,6 +26,8 @@ interface MaintenanceDeps {
   database: DatabaseHandle;
   computedQueue: Queue;
   logger: Logger;
+  checkDateArrives: () => Promise<{ outcomes: { automationId: string; status: string }[] }>;
+  checkSla: () => Promise<{ outcomes: { trackerId: string; kind: string; status: string }[] }>;
 }
 
 /** Expurgo da lixeira (30 dias) com auditoria por tenant. */
@@ -71,6 +75,22 @@ export function maintenanceProcessor(deps: MaintenanceDeps) {
       case 'recompute-volatile': {
         const boards = await scheduleVolatile(deps.database, deps.computedQueue);
         deps.logger.info({ boards }, 'Recálculo de fórmulas voláteis agendado');
+        return;
+      }
+      case 'automations-date-check': {
+        const { outcomes } = await deps.checkDateArrives();
+        deps.logger.info(
+          { checked: outcomes.length, succeeded: outcomes.filter((o) => o.status === 'succeeded').length },
+          'Varredura diária de automações por data (date_arrives) concluída',
+        );
+        return;
+      }
+      case 'sla-check': {
+        const { outcomes } = await deps.checkSla();
+        deps.logger.info(
+          { checked: outcomes.length, applied: outcomes.filter((o) => o.status === 'applied').length },
+          'Verificação periódica de SLA concluída',
+        );
         return;
       }
       default:

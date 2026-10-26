@@ -7,6 +7,7 @@ import { GroupsService } from './application/groups.service.js';
 import { ImportExportService } from './application/import-export.service.js';
 import { ItemWriter } from './application/item-writer.js';
 import { ItemsService } from './application/items.service.js';
+import { PhaseTransitionGuard } from './application/phase-transition-guard.js';
 import { BoardDefinitionRepository } from './infrastructure/board-definition.repository.js';
 import { ItemsRepository } from './infrastructure/items.repository.js';
 import { WorkResolver } from './presentation/graphql/work.resolver.js';
@@ -19,6 +20,7 @@ import { WorkController } from './presentation/work.controller.js';
     ItemsRepository,
     BoardDefinitionRepository,
     ComputedFieldsService,
+    PhaseTransitionGuard,
     ItemWriter,
     ItemsService,
     ColumnsService,
@@ -30,6 +32,7 @@ import { WorkController } from './presentation/work.controller.js';
     ItemsRepository,
     BoardDefinitionRepository,
     ComputedFieldsService,
+    PhaseTransitionGuard,
     ItemWriter,
     ItemsService,
     ColumnsService,

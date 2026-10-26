@@ -10,6 +10,8 @@ export const QUEUES = {
   fileScan: 'file-scan',
   computed: 'computed',
   maintenance: 'maintenance',
+  webhooks: 'webhooks',
+  webhookDeliveries: 'webhook-deliveries',
   deadLetter: 'dead-letter',
 } as const;
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
@@ -56,6 +58,13 @@ export const DomainEventJobSchema = z.object({
 });
 export type DomainEventJob = z.infer<typeof DomainEventJobSchema>;
 
+/** Uma entrega (evento → um webhook específico), despachada pelo processador de fan-out. */
+export const WebhookDeliveryJobSchema = z.object({
+  webhookId: z.uuid(),
+  event: DomainEventJobSchema,
+});
+export type WebhookDeliveryJob = z.infer<typeof WebhookDeliveryJobSchema>;
+
 export const ScheduleJobSchema = z.object({
   tenantId: z.uuid(),
   boardId: z.uuid(),
@@ -82,7 +91,12 @@ export const ComputedJobSchema = z.object({
 export type ComputedJob = z.infer<typeof ComputedJobSchema>;
 
 /** Rotinas periódicas de manutenção (repeatable jobs do BullMQ). */
-export const MAINTENANCE_JOBS = ['purge-trash', 'recompute-volatile'] as const;
+export const MAINTENANCE_JOBS = [
+  'purge-trash',
+  'recompute-volatile',
+  'automations-date-check',
+  'sla-check',
+] as const;
 export type MaintenanceJob = (typeof MAINTENANCE_JOBS)[number];
 
 /** Itens e grupos na lixeira são excluídos definitivamente após este prazo. */
@@ -124,6 +138,7 @@ export const EVENT_CONSUMERS: Record<string, readonly QueueName[]> = {
   'item.created': [QUEUES.searchIndex, QUEUES.automations, QUEUES.computed],
   'item.updated': [QUEUES.searchIndex, QUEUES.automations, QUEUES.schedule, QUEUES.computed],
   'item.deleted': [QUEUES.searchIndex, QUEUES.computed],
+  'item.button_clicked': [QUEUES.automations],
   'column.created': [QUEUES.computed],
   'column.updated': [QUEUES.computed],
   'board.updated': [QUEUES.searchIndex],

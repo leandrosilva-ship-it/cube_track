@@ -23,6 +23,9 @@ export interface ItemRecord {
   parentItemId: string | null;
   name: string;
   position: string;
+  /** Fase corrente (board `kind: 'process'`, ADR 0051) — `null` fora de um pipe. */
+  phaseId: string | null;
+  phaseEnteredAt: Date | null;
   values: Record<string, Record<string, unknown>>;
   fieldVersions: Record<string, number>;
   version: number;
@@ -59,6 +62,8 @@ export interface ItemDto {
   parentItemId: string | null;
   name: string;
   position: string;
+  phaseId: string | null;
+  phaseEnteredAt: string | null;
   values: Record<string, unknown>;
   fieldVersions: Record<string, number>;
   version: number;
@@ -125,6 +130,8 @@ export function toItemDto(
     parentItemId: item.parentItemId,
     name: item.name,
     position: item.position,
+    phaseId: item.phaseId,
+    phaseEnteredAt: item.phaseEnteredAt?.toISOString() ?? null,
     values: redactValues(item.values, visibility),
     fieldVersions,
     version: item.version,

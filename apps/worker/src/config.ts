@@ -22,6 +22,13 @@ export const WorkerConfigSchema = z.object({
   EMAIL_FROM: z.string().default('CUBE TRACK <nao-responda@cubetrack.com.br>'),
   /** Mesmo segredo da API — assina/confere o endereço de resposta por e-mail (ADR 0048). */
   JWT_SECRET: z.string().min(32),
+  /** Mesma chave da API (AES-256-GCM, 32 bytes em base64) — decifra o segredo de webhooks para assinar a entrega (ADR 0051). */
+  ENCRYPTION_KEY: z
+    .string()
+    .refine(
+      (value) => Buffer.from(value, 'base64').length === 32,
+      'ENCRYPTION_KEY deve ter 32 bytes em base64',
+    ),
   MAIL_REPLY_DOMAIN: z.string().default('reply.cubetrack.local'),
   MEILI_URL: z.string().default('http://localhost:7700'),
   MEILI_API_KEY: z.string().default(''),

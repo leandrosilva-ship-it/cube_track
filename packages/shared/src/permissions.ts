@@ -55,6 +55,7 @@ export const BOARD_PERMISSIONS = [
   'timesheet.log',
   'schedule.manage',
   'process.manage',
+  'webhook.manage',
 ] as const;
 
 export type TenantPermission = (typeof TENANT_PERMISSIONS)[number];

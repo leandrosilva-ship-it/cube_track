@@ -59,6 +59,7 @@ import { toggleSort, type HeaderActions } from './grid-header';
 import { TableGrid } from './grid';
 import {
   useCellLocale,
+  useClickButton,
   useColumnMutations,
   useCreateTableItem,
   useDependencies,
@@ -165,6 +166,7 @@ export function TableView({
   const runAction = useItemActions(board);
   const openItem = useOpenItemPanel();
   const timer = useTimer(board.id);
+  const clickButton = useClickButton();
   const dependencies = useDependencies(
     board.id,
     board.columns.some((column) => column.type === 'dependency'),
@@ -268,6 +270,12 @@ export function TableView({
       onTimer: (item, column, action) => {
         timer.mutate({ itemId: item.id, columnKey: column.key, action });
       },
+      onButtonClick: (item, column) => {
+        clickButton.mutate({ itemId: item.id, columnKey: column.key });
+      },
+      pendingButtonKey: clickButton.isPending
+        ? `${clickButton.variables.itemId}:${clickButton.variables.columnKey}`
+        : null,
       onVote: (item, column) => {
         const current =
           (item.values[column.key] as { userIds?: string[] } | undefined)?.userIds ?? [];
@@ -280,7 +288,20 @@ export function TableView({
         );
       },
     }),
-    [board, directory, itemNames, locale, predecessors, t, tCells, timer, today, userId, write],
+    [
+      board,
+      clickButton,
+      directory,
+      itemNames,
+      locale,
+      predecessors,
+      t,
+      tCells,
+      timer,
+      today,
+      userId,
+      write,
+    ],
   );
 
   const selectedItems = useMemo(

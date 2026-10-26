@@ -13,6 +13,8 @@ export function makeItem(overrides: Partial<Item> = {}): Item {
     parentItemId: null,
     name: 'Item',
     position: 'a0',
+    phaseId: null,
+    phaseEnteredAt: null,
     values: {},
     fieldVersions: {},
     version: 1,

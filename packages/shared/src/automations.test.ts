@@ -1,16 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  addDaysToIso,
   AutomationConfigError,
+  dateArrivesMatches,
   evaluateConditions,
   localDate,
   parseActions,
+  parseConditions,
   parseTrigger,
   renderMessage,
   resolveDynamicValue,
   scalarsOf,
   triggerMatches,
-} from './rules.js';
+} from './automations.js';
 
 const LABEL_DONE = '0190a000-0000-7000-8000-000000000001';
 const LABEL_TODO = '0190a000-0000-7000-8000-000000000002';
@@ -101,8 +104,63 @@ describe('triggerMatches', () => {
     ).toBe(false);
   });
 
+  it('button_clicked casa pela columnKey do evento', () => {
+    const trigger2 = parseTrigger({ type: 'button_clicked', config: { columnKey: 'c_aprovar' } });
+    expect(
+      triggerMatches(trigger2, {
+        type: 'item.button_clicked',
+        changes: [],
+        groupId: null,
+        columnKey: 'c_aprovar',
+      }),
+    ).toBe(true);
+    expect(
+      triggerMatches(trigger2, {
+        type: 'item.button_clicked',
+        changes: [],
+        groupId: null,
+        columnKey: 'c_outro',
+      }),
+    ).toBe(false);
+  });
+
+  it('date_arrives nunca casa por evento (é verificado por varredura)', () => {
+    const trigger2 = parseTrigger({ type: 'date_arrives', config: { columnKey: 'plannedEndDate' } });
+    expect(triggerMatches(trigger2, { type: 'item.updated', changes: [], groupId: null })).toBe(
+      false,
+    );
+  });
+
   it('rejeita gatilho desconhecido como erro de configuração', () => {
-    expect(() => parseTrigger({ type: 'date_arrives', config: {} })).toThrow(AutomationConfigError);
+    expect(() => parseTrigger({ type: 'webhook_received', config: {} })).toThrow(
+      AutomationConfigError,
+    );
+  });
+});
+
+describe('dateArrivesMatches', () => {
+  const parsed = parseTrigger({
+    type: 'date_arrives',
+    config: { columnKey: 'plannedEndDate', offsetDays: -2 },
+  });
+  if (parsed.type !== 'date_arrives') throw new Error('esperava date_arrives');
+  const trigger = parsed;
+
+  it('casa quando a data (deslocada) bate com hoje', () => {
+    expect(dateArrivesMatches(trigger, '2026-03-05', '2026-03-03')).toBe(true);
+    expect(dateArrivesMatches(trigger, { d: '2026-03-05' }, '2026-03-03')).toBe(true);
+  });
+
+  it('não casa noutro dia, nem sem data', () => {
+    expect(dateArrivesMatches(trigger, '2026-03-05', '2026-03-04')).toBe(false);
+    expect(dateArrivesMatches(trigger, null, '2026-03-03')).toBe(false);
+  });
+});
+
+describe('addDaysToIso', () => {
+  it('soma e subtrai dias preservando o formato AAAA-MM-DD', () => {
+    expect(addDaysToIso('2026-03-01', 5)).toBe('2026-03-06');
+    expect(addDaysToIso('2026-03-01', -1)).toBe('2026-02-28');
   });
 });
 
@@ -179,6 +237,25 @@ describe('evaluateConditions', () => {
     expect(() =>
       evaluateConditions({ op: 'and', conditions: [{ operator: 'is', value: 1 }] }, fields),
     ).toThrow(AutomationConfigError);
+  });
+});
+
+describe('parseConditions', () => {
+  it('aceita null e valida a estrutura sem avaliar (uso pelo CRUD de automações)', () => {
+    expect(parseConditions(null)).toBeNull();
+    expect(
+      parseConditions({
+        op: 'and',
+        conditions: [{ field: 'c_ust', operator: 'gte', value: 40 }],
+      }),
+    ).toEqual({ op: 'and', conditions: [{ field: 'c_ust', operator: 'gte', value: 40 }] });
+  });
+
+  it('rejeita condição sem coluna e grupo com operador inválido', () => {
+    expect(() =>
+      parseConditions({ op: 'and', conditions: [{ operator: 'is', value: 1 }] }),
+    ).toThrow(AutomationConfigError);
+    expect(() => parseConditions({ op: 'xor', conditions: [] })).toThrow(AutomationConfigError);
   });
 });
 

@@ -7,7 +7,15 @@ import { forwardRef, type CSSProperties, type HTMLAttributes } from 'react';
 
 import type { BoardColumn, Item, Member } from '@/lib/api/types';
 
+import type { SlaBadge } from '../processes/model';
 import { cellTextOf, cellValue } from '../table/model';
+
+const SLA_BADGE_TONE = { ok: 'success', warning: 'warning', breached: 'danger' } as const;
+
+function SlaIndicator({ badge }: { badge: SlaBadge }) {
+  const t = useTranslations('processes');
+  return <Badge tone={SLA_BADGE_TONE[badge.variant]}>{t(badge.message.key, badge.message.values)}</Badge>;
+}
 
 function personIdsOf(value: unknown): string[] {
   const record = value as { personIds?: unknown } | null;
@@ -91,11 +99,26 @@ export interface KanbanCardProps extends HTMLAttributes<HTMLDivElement> {
   selected: boolean;
   dragging?: boolean;
   style?: CSSProperties;
+  /** Indicador de SLA (fase/processo, ADR 0051) do tracker mais urgente deste item. */
+  slaBadge?: SlaBadge | null;
 }
 
 /** Cartão do Kanban: nome e os campos escolhidos na configuração da view. */
 export const KanbanCard = forwardRef<HTMLDivElement, KanbanCardProps>(function KanbanCard(
-  { item, fields, density, members, directory, locale, selected, dragging, className, style, ...props },
+  {
+    item,
+    fields,
+    density,
+    members,
+    directory,
+    locale,
+    selected,
+    dragging,
+    className,
+    style,
+    slaBadge,
+    ...props
+  },
   ref,
 ) {
   const t = useTranslations('kanban.card');
@@ -132,15 +155,17 @@ export const KanbanCard = forwardRef<HTMLDivElement, KanbanCardProps>(function K
           ))}
         </div>
       ) : null}
-      {item.indicators !== undefined &&
-      (item.indicators.subitems > 0 || item.indicators.attachments > 0) ? (
-        <p className="flex items-center gap-2 text-xs text-fg-subtle">
-          {item.indicators.subitems > 0 ? (
+      {(item.indicators !== undefined &&
+        (item.indicators.subitems > 0 || item.indicators.attachments > 0)) ||
+      (slaBadge ?? null) !== null ? (
+        <p className="flex flex-wrap items-center gap-2 text-xs text-fg-subtle">
+          {item.indicators !== undefined && item.indicators.subitems > 0 ? (
             <span>{t('subitems', { count: item.indicators.subitems })}</span>
           ) : null}
-          {item.indicators.attachments > 0 ? (
+          {item.indicators !== undefined && item.indicators.attachments > 0 ? (
             <span>{t('attachments', { count: item.indicators.attachments })}</span>
           ) : null}
+          {slaBadge !== null && slaBadge !== undefined ? <SlaIndicator badge={slaBadge} /> : null}
         </p>
       ) : null}
     </div>

@@ -62,6 +62,8 @@ export const EVENT_PAYLOADS = {
     itemId: z.uuid(),
     reason: z.enum(['deleted', 'archived', 'moved']).optional(),
   }),
+  /** Botão de uma coluna `button` foi clicado (ADR 0051): dispara automações do tipo `button_clicked`. */
+  'item.button_clicked': z.object({ itemId: z.uuid(), columnKey: z.string() }),
   /** Grupos do board mudaram: o cliente recarrega a estrutura do board. */
   'group.changed': z.object({
     groupId: z.uuid(),
@@ -149,6 +151,48 @@ export const EVENT_PAYLOADS = {
   }),
   /** Novo relato de saúde do projeto (ADR 0050): widgets `project_health` do board recarregam. */
   'project_health.reported': z.object({ healthId: z.uuid(), boardId: z.uuid() }),
+  /** CRUD de automação (ADR 0051): `boardId` nulo = automação de workspace inteiro. */
+  'automation.changed': z.object({
+    automationId: z.uuid(),
+    workspaceId: z.uuid(),
+    boardId: z.uuid().nullable(),
+    change: z.enum(['created', 'updated', 'deleted']),
+  }),
+  /** CRUD de fase de um board `kind: 'process'` (ADR 0051): o cliente recarrega o pipe e o Kanban. */
+  'phase.changed': z.object({
+    phaseId: z.uuid(),
+    boardId: z.uuid(),
+    change: z.enum(['created', 'updated', 'deleted', 'reordered']),
+  }),
+  /** CRUD do pipe, de regras de transição ou de definições de SLA (ADR 0051): recarrega a config. */
+  'process_config.changed': z.object({
+    boardId: z.uuid(),
+    change: z.enum([
+      'pipe_created',
+      'pipe_updated',
+      'pipe_deleted',
+      'transition_rule_created',
+      'transition_rule_updated',
+      'transition_rule_deleted',
+      'sla_created',
+      'sla_updated',
+      'sla_deleted',
+    ]),
+  }),
+  /** Acompanhamento de SLA mudou de estado (ADR 0051): o cliente atualiza o indicador no item/cartão. */
+  'sla.changed': z.object({
+    trackerId: z.uuid(),
+    itemId: z.uuid(),
+    boardId: z.uuid(),
+    status: z.enum(['running', 'warning', 'paused', 'met', 'breached', 'stopped']),
+  }),
+  /** CRUD de webhook de saída (ADR 0051), incluindo habilitar/desabilitar e desabilitação automática. */
+  'webhook.changed': z.object({
+    webhookId: z.uuid(),
+    workspaceId: z.uuid().nullable(),
+    boardId: z.uuid().nullable(),
+    change: z.enum(['created', 'updated', 'deleted', 'enabled', 'disabled']),
+  }),
   'notification.created': z.object({
     notificationId: z.uuid(),
     type: z.string(),

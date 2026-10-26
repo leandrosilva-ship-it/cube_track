@@ -1,6 +1,13 @@
 /** Tipos das respostas da API REST v1 consumidas pela interface (contrato em docs/openapi.json). */
 
-import type { FilterGroup, ViewGroupBy, ViewSortTerm } from '@cube-track/shared';
+import type {
+  AutomationActionSpec,
+  AutomationTriggerSpec,
+  ConditionGroup,
+  FilterGroup,
+  ViewGroupBy,
+  ViewSortTerm,
+} from '@cube-track/shared';
 
 export interface SessionUser {
   id: string;
@@ -266,6 +273,9 @@ export interface Item {
   parentItemId: string | null;
   name: string;
   position: string;
+  /** Fase corrente (board `kind: 'process'`, ADR 0051) — `null` fora de um pipe. */
+  phaseId: string | null;
+  phaseEnteredAt: string | null;
   values: Record<string, unknown>;
   fieldVersions: Record<string, number>;
   version: number;
@@ -815,4 +825,126 @@ export interface ProjectHealthEntry {
   spi: string | null;
   cpi: string | null;
   summary: string | null;
+}
+
+// --------------------------------------------------------------------------- automações ---
+
+export interface Automation {
+  id: string;
+  workspaceId: string;
+  boardId: string | null;
+  name: string;
+  description: string | null;
+  trigger: AutomationTriggerSpec;
+  conditions: ConditionGroup | null;
+  actions: AutomationActionSpec[];
+  isEnabled: boolean;
+  ownerId: string | null;
+  templateKey: string | null;
+  runCount: number;
+  errorCount: number;
+  lastRunAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// -------------------------------------------------------------------------- processos/SLA ---
+
+export type PhaseKind = 'start' | 'intermediate' | 'done' | 'cancelled';
+
+export interface Pipe {
+  id: string;
+  boardId: string;
+  name: string;
+  description: string | null;
+  settings: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Phase {
+  id: string;
+  pipeId: string;
+  groupId: string;
+  name: string;
+  description: string | null;
+  kind: PhaseKind;
+  requiredColumnKeys: string[];
+  formId: string | null;
+  wipLimit: number | null;
+  position: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TransitionRule {
+  id: string;
+  pipeId: string;
+  fromPhaseId: string | null;
+  toPhaseId: string;
+  conditions: Record<string, unknown> | null;
+  requiredColumnKeys: string[];
+  allowedRoleIds: string[];
+  requiresApproval: boolean;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProcessConfig {
+  pipe: Pipe | null;
+  phases: Phase[];
+  transitionRules: TransitionRule[];
+}
+
+export type SlaTrackerStatus = 'running' | 'paused' | 'met' | 'breached' | 'stopped';
+
+export interface Sla {
+  id: string;
+  boardId: string;
+  pipeId: string | null;
+  phaseId: string | null;
+  name: string;
+  targetMinutes: number;
+  warningPercent: number;
+  useBusinessTime: boolean;
+  workCalendarId: string | null;
+  startCondition: Record<string, unknown> | null;
+  stopCondition: Record<string, unknown> | null;
+  pauseCondition: Record<string, unknown> | null;
+  isEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SlaTracker {
+  id: string;
+  slaId: string;
+  itemId: string;
+  status: SlaTrackerStatus;
+  startedAt: string;
+  dueAt: string;
+  warningAt: string | null;
+}
+
+// ----------------------------------------------------------------------------- webhooks ---
+
+export interface Webhook {
+  id: string;
+  workspaceId: string;
+  boardId: string | null;
+  name: string;
+  url: string;
+  events: string[];
+  headers: Record<string, string>;
+  isEnabled: boolean;
+  consecutiveFailures: number;
+  disabledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Só na criação e na regeneração: o segredo HMAC em texto simples (nunca mais é devolvido). */
+export interface WebhookWithSecret extends Webhook {
+  secret: string;
 }

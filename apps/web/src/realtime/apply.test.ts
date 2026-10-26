@@ -394,4 +394,49 @@ describe('Prompt 7: painel do item (atualizações, arquivos, checklists, aprova
     expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.baselines(BOARD_ID) });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.baseline('b1') });
   });
+
+  it('phase/process_config/sla.changed invalidam a config de processo e os SLAs do board', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('phase.changed', { phaseId: 'ph1', boardId: BOARD_ID, change: 'created' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.processConfig(BOARD_ID) });
+
+    invalidate.mockClear();
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('process_config.changed', { boardId: BOARD_ID, change: 'sla_created' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.processConfig(BOARD_ID) });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.slas(BOARD_ID) });
+
+    invalidate.mockClear();
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('sla.changed', { trackerId: 't1', itemId: 'i1', boardId: BOARD_ID, status: 'warning' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.slaTrackers(BOARD_ID) });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.slas(BOARD_ID) });
+  });
+
+  it('webhook.changed invalida a lista de webhooks do board', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('webhook.changed', {
+        webhookId: 'w1',
+        workspaceId: null,
+        boardId: BOARD_ID,
+        change: 'created',
+      }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.webhooksOfBoard(BOARD_ID) });
+  });
 });

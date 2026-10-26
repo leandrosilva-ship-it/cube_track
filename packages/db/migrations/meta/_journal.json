@@ -99,6 +99,20 @@
       "when": 1792615330753,
       "tag": "0013_item_schedule_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793020590653,
+      "tag": "0014_automation_date_arrives_candidates",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1793022677010,
+      "tag": "0015_sla_tracker_alerts",
+      "breakpoints": true
     }
   ]
 }

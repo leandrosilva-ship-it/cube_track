@@ -6,14 +6,16 @@ import { CapacityService } from './application/capacity.service.js';
 import { ResourceProfilesService } from './application/resource-profiles.service.js';
 import { ResourceRequestsService } from './application/resource-requests.service.js';
 import { SkillsService } from './application/skills.service.js';
+import { TeamsService } from './application/teams.service.js';
 import { ResourcesController } from './presentation/resources.controller.js';
 
-/** Perfis de recurso, skills, alocações, ausências, solicitações e motor de capacidade (ADR 0052). */
+/** Perfis de recurso, skills, times, alocações, ausências, solicitações e motor de capacidade (ADR 0052). */
 @Module({
   controllers: [ResourcesController],
   providers: [
     ResourceProfilesService,
     SkillsService,
+    TeamsService,
     AllocationsService,
     AbsencesService,
     ResourceRequestsService,

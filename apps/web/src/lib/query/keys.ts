@@ -83,7 +83,32 @@ export const qk = {
   slas: (boardId: string) => ['boards', boardId, 'slas'] as const,
   slaTrackers: (boardId: string) => ['boards', boardId, 'sla-trackers'] as const,
   webhooksOfBoard: (boardId: string) => ['boards', boardId, 'webhooks'] as const,
+  resourceProfiles: () => ['resource-profiles'] as const,
+  resourceProfile: (userId: string) => ['users', userId, 'resource-profile'] as const,
+  teams: () => ['teams'] as const,
+  skills: () => ['skills'] as const,
+  userSkills: (userId: string) => ['users', userId, 'skills'] as const,
+  allocationsOfBoard: (boardId: string, from?: string, to?: string) =>
+    ['boards', boardId, 'allocations', { from, to }] as const,
+  allocationsOfUser: (userId: string, from: string, to: string) =>
+    ['users', userId, 'allocations', { from, to }] as const,
+  absencesOfUser: (userId: string) => ['users', userId, 'absences'] as const,
+  resourceRequestsOfBoard: (boardId: string) => ['boards', boardId, 'resource-requests'] as const,
+  openResourceRequests: () => ['resource-requests', 'open'] as const,
+  capacityHeatmap: (params: CapacityScopeParams) => ['capacity', 'heatmap', params] as const,
+  capacityLeveling: (params: CapacityScopeParams) => ['capacity', 'leveling', params] as const,
+  capacityForecast: (months: number) => ['capacity', 'forecast', months] as const,
 };
+
+export interface CapacityScopeParams {
+  from: string;
+  to: string;
+  granularity?: 'day' | 'week' | 'month';
+  userIds?: string;
+  teamIds?: string;
+  skillId?: string;
+  boardId?: string;
+}
 
 /** Há filtros que o cache local não sabe avaliar? (então eventos invalidam em vez de inserir) */
 export function isFiltered(params: ItemListParams): boolean {

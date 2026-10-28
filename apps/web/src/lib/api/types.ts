@@ -980,3 +980,128 @@ export interface NotificationPreference {
   createdAt: string;
   updatedAt: string;
 }
+
+// ------------------------------------------------------- capacity, recursos e timesheet (ADR 0052) ---
+
+export interface ResourceProfile {
+  userId: string;
+  userName: string;
+  jobTitle: string | null;
+  department: string | null;
+  managerId: string | null;
+  managerName: string | null;
+  capacityHoursPerWeek: string;
+  costRateHour: string | null;
+  billRateHour: string | null;
+  workCalendarId: string | null;
+  location: string | null;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+}
+
+export interface Skill {
+  id: string;
+  name: string;
+  category: string | null;
+}
+
+export interface UserSkill {
+  skillId: string;
+  skillName: string;
+  level: number;
+}
+
+export type AllocationStatus = 'tentative' | 'confirmed';
+
+export interface Allocation {
+  id: string;
+  userId: string;
+  boardId: string;
+  itemId: string | null;
+  startDate: string;
+  endDate: string;
+  hoursPerDay: string;
+  status: AllocationStatus;
+  notes: string | null;
+}
+
+export type AbsenceType = 'vacation' | 'sick_leave' | 'training' | 'day_off' | 'other';
+export type AbsenceStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
+
+export interface Absence {
+  id: string;
+  userId: string;
+  type: AbsenceType;
+  startDate: string;
+  endDate: string;
+  hoursPerDay: string | null;
+  status: AbsenceStatus;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  notes: string | null;
+}
+
+export type ResourceRequestStatus = 'open' | 'fulfilled' | 'cancelled';
+
+export interface ResourceRequest {
+  id: string;
+  boardId: string;
+  itemId: string | null;
+  skillId: string | null;
+  roleTitle: string;
+  hours: string;
+  startDate: string;
+  endDate: string;
+  status: ResourceRequestStatus;
+  assignedUserId: string | null;
+  notes: string | null;
+}
+
+export type CapacityGranularity = 'day' | 'week' | 'month';
+
+export interface CapacityBucket {
+  bucket: string;
+  nominalHours: number;
+  availableHours: number;
+  allocatedHours: number;
+  utilization: number;
+  overallocated: boolean;
+}
+
+export interface CapacityHeatmapRow {
+  userId: string;
+  userName: string;
+  teamIds: string[];
+  skillIds: string[];
+  buckets: CapacityBucket[];
+}
+
+export interface CapacityHeatmapResponse {
+  from: string;
+  to: string;
+  granularity: CapacityGranularity;
+  rows: CapacityHeatmapRow[];
+}
+
+export interface LevelingSuggestion {
+  userId: string;
+  allocationId: string;
+  fromDate: string;
+  toDate: string;
+  hours: number;
+}
+
+export interface ForecastBucket {
+  month: string;
+  capacityHours: number;
+  demandHours: number;
+  gapHours: number;
+}
+
+export interface WhatIfResponse {
+  real: CapacityBucket[];
+  simulated: CapacityBucket[];
+}

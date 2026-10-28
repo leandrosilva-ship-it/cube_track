@@ -44,6 +44,8 @@ export const UpsertResourceProfileBody = z
 
 // -------------------------------------------------------------------------------- Skills ---
 
+export const TeamSchema = z.object({ id: z.uuid(), name: z.string() });
+
 export const SkillSchema = z.object({ id: z.uuid(), name: z.string(), category: z.string().nullable() });
 export const CreateSkillBody = z
   .object({ name: z.string().min(1).max(100), category: z.string().max(100).nullable().optional() })

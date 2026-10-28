@@ -12,6 +12,7 @@ import { CapacityService } from '../application/capacity.service.js';
 import { ResourceProfilesService } from '../application/resource-profiles.service.js';
 import { ResourceRequestsService } from '../application/resource-requests.service.js';
 import { SkillsService } from '../application/skills.service.js';
+import { TeamsService } from '../application/teams.service.js';
 import * as S from './schemas.js';
 
 /**
@@ -27,7 +28,20 @@ export class ResourcesController {
     private readonly absences: AbsencesService,
     private readonly requests: ResourceRequestsService,
     private readonly capacity: CapacityService,
+    private readonly teams: TeamsService,
   ) {}
+
+  // ----------------------------------------------------------------------------------- teams ---
+
+  @Get('teams')
+  @Endpoint({
+    summary: 'Listar times do tenant (só leitura, usado para agrupar a Carga de trabalho)',
+    tags: ['resources'],
+    response: z.object({ data: z.array(S.TeamSchema) }),
+  })
+  async listTeams() {
+    return { data: await this.teams.list() };
+  }
 
   // ----------------------------------------------------------------------- resource profiles ---
 

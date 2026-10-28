@@ -18,8 +18,10 @@ import { PlanningModule } from './modules/planning/planning.module.js';
 import { ProcessesModule } from './modules/processes/processes.module.js';
 import { WebhooksModule } from './modules/webhooks/webhooks.module.js';
 import { RealtimeModule } from './modules/realtime/realtime.module.js';
+import { ResourcesModule } from './modules/resources/resources.module.js';
 import { SearchModule } from './modules/search/search.module.js';
 import { StructureModule } from './modules/structure/structure.module.js';
+import { TimesheetModule } from './modules/timesheet/timesheet.module.js';
 import { WorkModule } from './modules/work/work.module.js';
 
 @Module({
@@ -47,6 +49,8 @@ import { WorkModule } from './modules/work/work.module.js';
     AutomationsModule,
     ProcessesModule,
     WebhooksModule,
+    ResourcesModule,
+    TimesheetModule,
     SearchModule,
     // Com REALTIME_MODE=separate o gateway roda só no processo main.realtime (ADR 0027).
     ...(loadConfig().REALTIME_MODE === 'embedded' ? [RealtimeModule] : []),

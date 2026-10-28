@@ -3,6 +3,7 @@ import { schema } from '@cube-track/db';
 import {
   Decimal,
   filterDepth,
+  isoWeekStart,
   positionBetween,
   remapColumnValue,
   TRASH_RETENTION_DAYS,
@@ -44,7 +45,18 @@ import {
 
 export type { CreateItemInput, PositionInput, UpdateItemInput } from './item-writer.js';
 
-const { items, groups, itemReads, dependencies, memberships, users, teams, automations } = schema;
+const {
+  items,
+  groups,
+  itemReads,
+  dependencies,
+  memberships,
+  users,
+  teams,
+  automations,
+  timeEntries,
+  timesheetApprovals,
+} = schema;
 
 export interface ListItemsQuery {
   filter: FilterGroup | null;
@@ -648,12 +660,16 @@ export class ItemsService {
     const current = (item.values[columnKey] ?? { n: '0' }) as { n?: string; runningSince?: string };
     const hours = current.n ?? '0';
     let next: Record<string, unknown>;
+    let startedAt: Date | null = null;
+    let elapsedMinutes = 0;
     if (action === 'start') {
       if (current.runningSince !== undefined) return this.writer.dto(context, item);
       next = { n: hours, runningSince: new Date().toISOString() };
     } else {
       if (current.runningSince === undefined) return this.writer.dto(context, item);
-      const elapsedMs = Date.now() - new Date(current.runningSince).getTime();
+      startedAt = new Date(current.runningSince);
+      const elapsedMs = Date.now() - startedAt.getTime();
+      elapsedMinutes = Math.round(elapsedMs / 60_000);
       const total = new Decimal(hours).plus(new Decimal(elapsedMs).dividedBy(3_600_000));
       next = { n: total.toDecimalPlaces(4).toString() };
     }
@@ -663,7 +679,72 @@ export class ItemsService {
       { values: { [columnKey]: next } },
       { checkPermissions: false, system: { keys: new Set([columnKey]) } },
     );
+    if (action === 'stop' && startedAt !== null && elapsedMinutes > 0)
+      await this.recordTimerEntry(user, updated, startedAt, elapsedMinutes);
     return this.writer.dto(context, updated);
+  }
+
+  /**
+   * Ao parar o cronômetro, grava um apontamento em `time_entries` (fonte `timer`) para alimentar o
+   * timesheet (ADR 0052) — sem importar o módulo `timesheet` (mesma decisão de `PhaseTransitionGuard`:
+   * consulta/gravação direta via schema). Período já aprovado: o cronômetro para normalmente, mas a
+   * hora não é lançada (a pessoa lança manualmente num período aberto, se for o caso).
+   */
+  private async recordTimerEntry(
+    user: AuthPrincipal,
+    item: ItemRecord,
+    startedAt: Date,
+    minutes: number,
+  ): Promise<void> {
+    const [profile] = await this.runner.tx
+      .select({ timezone: users.timezone })
+      .from(users)
+      .where(eq(users.id, user.userId));
+    const entryDate = todayIn(profile?.timezone ?? 'America/Sao_Paulo', startedAt);
+    const [approval] = await this.runner.tx
+      .select({ status: timesheetApprovals.status })
+      .from(timesheetApprovals)
+      .where(
+        and(
+          eq(timesheetApprovals.tenantId, user.tenantId),
+          eq(timesheetApprovals.userId, user.userId),
+          eq(timesheetApprovals.periodStart, isoWeekStart(entryDate)),
+        ),
+      );
+    if (approval?.status === 'approved') return;
+    const [row] = await this.runner.tx
+      .insert(timeEntries)
+      .values({
+        tenantId: user.tenantId,
+        userId: user.userId,
+        boardId: item.boardId,
+        itemId: item.id,
+        entryDate,
+        minutes: Math.min(minutes, 1440),
+        source: 'timer',
+        status: 'draft',
+        startedAt,
+        endedAt: new Date(),
+        createdBy: user.userId,
+      })
+      .returning();
+    if (row === undefined) return;
+    this.events.recordChange({
+      action: 'time_entry.create',
+      entityType: 'time_entry',
+      entityId: row.id,
+      boardId: row.boardId,
+      after: { entryDate: row.entryDate, minutes: row.minutes, source: 'timer' },
+    });
+    await this.events.emit({
+      tenantId: user.tenantId,
+      type: 'time_entry.changed',
+      aggregateType: 'time_entry',
+      aggregateId: row.id,
+      boardId: row.boardId,
+      payload: { timeEntryId: row.id, userId: row.userId, boardId: row.boardId, itemId: row.itemId, change: 'created' },
+      actorId: user.userId,
+    });
   }
 
   /**

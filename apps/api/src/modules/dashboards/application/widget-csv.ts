@@ -30,5 +30,19 @@ export function widgetDataToCsvRows(title: string, data: WidgetData): { header: 
         header: ['Data', 'Geral'],
         rows: data.history.map((entry) => [entry.reportedAt, entry.overall]),
       };
+    case 'capacity':
+      return {
+        header: ['Pessoa', 'Período', 'Disponível (h)', 'Alocado (h)', 'Utilização', 'Sobrealocado'],
+        rows: data.rows.flatMap((row) =>
+          row.buckets.map((bucket) => [
+            row.userName,
+            bucket.bucket,
+            bucket.availableHours.toFixed(2),
+            bucket.allocatedHours.toFixed(2),
+            Number.isFinite(bucket.utilization) ? `${(bucket.utilization * 100).toFixed(0)}%` : '∞',
+            bucket.overallocated ? 'Sim' : 'Não',
+          ]),
+        ),
+      };
   }
 }

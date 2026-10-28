@@ -77,6 +77,38 @@ const TEMPLATES: Record<
     ],
     action: { label: 'Ver tudo no CUBE TRACK', url: data.link ?? '' },
   }),
+  absence_requested: (data) => ({
+    subject: `${data.requester ?? 'Alguém'} solicitou ausência`,
+    lines: [
+      `${data.requester ?? 'Alguém'} solicitou ausência (${data.type ?? ''}) de ${data.startDate ?? ''} a ${data.endDate ?? ''}.`,
+    ],
+    action: { label: 'Ver solicitação', url: data.link ?? '' },
+  }),
+  absence_decided: (data) => ({
+    subject: `Sua ausência foi ${data.status ?? ''}`,
+    lines: [`Sua solicitação de ausência de ${data.startDate ?? ''} a ${data.endDate ?? ''} foi ${data.status ?? ''}.`],
+    action: { label: 'Ver ausências', url: data.link ?? '' },
+  }),
+  resource_request_created: (data) => ({
+    subject: `Nova solicitação de recurso: "${data.roleTitle ?? ''}"`,
+    lines: [`${data.requester ?? 'Alguém'} solicitou um recurso: "${data.roleTitle ?? ''}".`],
+    action: { label: 'Ver solicitação', url: data.link ?? '' },
+  }),
+  resource_request_fulfilled: (data) => ({
+    subject: `Solicitação de recurso "${data.roleTitle ?? ''}" foi atendida`,
+    lines: [`Sua solicitação de recurso "${data.roleTitle ?? ''}" foi atendida.`],
+    action: { label: 'Ver solicitação', url: data.link ?? '' },
+  }),
+  timesheet_submitted: (data) => ({
+    subject: `${data.person ?? 'Alguém'} enviou o timesheet da semana`,
+    lines: [`${data.person ?? 'Alguém'} enviou o timesheet da semana de ${data.periodStart ?? ''} para aprovação.`],
+    action: { label: 'Ver timesheet', url: data.link ?? '' },
+  }),
+  timesheet_decided: (data) => ({
+    subject: `Seu timesheet foi ${data.status ?? ''}`,
+    lines: [`Seu timesheet da semana de ${data.periodStart ?? ''} foi ${data.status ?? ''}.`],
+    action: { label: 'Ver timesheet', url: data.link ?? '' },
+  }),
 };
 
 /** Renderiza o e-mail (texto e HTML com escape de todo conteúdo dinâmico). */

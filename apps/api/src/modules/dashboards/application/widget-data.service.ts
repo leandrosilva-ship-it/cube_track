@@ -5,9 +5,12 @@ import {
   Decimal,
   isGroupFilter,
   parseWidgetConfig,
+  shiftDays,
   storedNumber,
   type AggregateSource,
   type BatteryWidgetConfig,
+  type CapacityBucket,
+  type CapacityWidgetConfig,
   type ChartBarWidgetConfig,
   type ChartPieWidgetConfig,
   type FilterGroup,
@@ -20,6 +23,7 @@ import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
 import type { AuthPrincipal } from '../../../core/context/request-context.js';
 import { TransactionRunner } from '../../../core/database/transaction-runner.js';
 import { AccessService } from '../../access/application/access.service.js';
+import { CapacityService } from '../../resources/application/capacity.service.js';
 import type { ColumnDefinition } from '../../work/domain/board-definition.js';
 import { todayIn } from '../../work/domain/board-definition.js';
 import type { ItemDto } from '../../work/domain/item.js';
@@ -34,6 +38,11 @@ export type WidgetData =
   | { kind: 'chart'; categories: { key: string; label: string; value: number; color: string | null }[] }
   | { kind: 'battery'; onTime: number; replanned: number; late: number; noDate: number; total: number }
   | { kind: 'workload'; people: { personId: string; personName: string; value: number }[] }
+  | {
+      kind: 'capacity';
+      granularity: 'day' | 'week' | 'month';
+      rows: { userId: string; userName: string; buckets: CapacityBucket[] }[];
+    }
   | {
       kind: 'project_health';
       latest: {
@@ -135,6 +144,7 @@ export class WidgetDataService {
     private readonly access: AccessService,
     private readonly items: ItemsService,
     private readonly definitions: BoardDefinitionRepository,
+    private readonly capacity: CapacityService,
   ) {}
 
   async compute(user: AuthPrincipal, widget: WidgetDto): Promise<WidgetData> {
@@ -151,6 +161,8 @@ export class WidgetDataService {
         return this.computeWorkload(user, parseWidgetConfig('workload', widget.config));
       case 'project_health':
         return this.computeProjectHealth(user, parseWidgetConfig('project_health', widget.config).boardId);
+      case 'capacity':
+        return this.computeCapacity(user, parseWidgetConfig('capacity', widget.config));
     }
   }
 
@@ -331,6 +343,27 @@ export class WidgetDataService {
       }))
       .sort((a, b) => b.value - a.value);
     return { kind: 'workload', people };
+  }
+
+  /**
+   * Capacidade (ADR 0052): janela fixa de 4 semanas a partir de hoje (dashboards são "visão
+   * atual", diferente da view Workload/Capacity, que deixa a pessoa escolher o período).
+   */
+  private async computeCapacity(user: AuthPrincipal, config: CapacityWidgetConfig): Promise<WidgetData> {
+    const today = todayIn(await this.definitions.tenantTimezone(this.runner.tx, user.tenantId));
+    const result = await this.capacity.heatmap(user, {
+      from: today,
+      to: shiftDays(today, 27),
+      granularity: config.granularity,
+      userIds: config.userIds,
+      teamIds: config.teamIds,
+      skillId: config.skillId,
+    });
+    return {
+      kind: 'capacity',
+      granularity: result.granularity,
+      rows: result.rows.map((row) => ({ userId: row.userId, userName: row.userName, buckets: row.buckets })),
+    };
   }
 
   private async computeProjectHealth(user: AuthPrincipal, boardId: string): Promise<WidgetData> {

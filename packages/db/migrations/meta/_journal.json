@@ -127,6 +127,13 @@
       "when": 1793037999194,
       "tag": "0017_notification_digest_candidates",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1793300000000,
+      "tag": "0018_webhook_manage_permission",
+      "breakpoints": true
     }
   ]
 }

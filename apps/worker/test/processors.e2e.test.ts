@@ -48,6 +48,9 @@ const {
   mentions,
   approvalRequests,
   approvalApprovers,
+  absences,
+  resourceRequests,
+  timesheetApprovals,
 } = schema;
 
 const JWT_SECRET = 'test-jwt-secret-at-least-32-characters-long';
@@ -821,6 +824,244 @@ describe('notificações de aprovação', () => {
     const jobs = await queues[QUEUES.emails].getJobs(['waiting', 'delayed']);
     expect(jobs.map((job) => job.data as unknown)).not.toContainEqual(
       expect.objectContaining({ to: 'fernanda.souza@empresademo.com.br' }),
+    );
+  });
+});
+
+describe('notificações de capacidade e timesheet (ADR 0052)', () => {
+  it('ausência solicitada notifica o gestor direto; decidida notifica quem pediu', async () => {
+    const rafael = demo.users['rafael.mendes'] ?? '';
+    const carlos = demo.users['carlos.lima'] ?? '';
+    const [absence] = await admin.db
+      .insert(absences)
+      .values({
+        tenantId: demo.tenantId,
+        userId: rafael,
+        type: 'vacation',
+        startDate: '2027-11-01',
+        endDate: '2027-11-05',
+        status: 'submitted',
+        createdBy: rafael,
+      })
+      .returning();
+    // O padrão do seed é digest diário por e-mail (`eventType: '*'`); para testar o envio instantâneo é
+    // preciso a preferência específica do tipo, mesma regra das outras notificações (ADR 0048/0051).
+    await admin.db.insert(notificationPreferences).values([
+      { tenantId: demo.tenantId, userId: carlos, channel: 'email', eventType: 'absence', frequency: 'instant', createdBy: carlos },
+      { tenantId: demo.tenantId, userId: rafael, channel: 'email', eventType: 'absence', frequency: 'instant', createdBy: rafael },
+    ]);
+    await queues[QUEUES.emails].obliterate({ force: true });
+    const process = notificationsProcessor({
+      database: app,
+      redis,
+      emails: queues[QUEUES.emails],
+      appUrl: 'http://app.test',
+      jwtSecret: JWT_SECRET,
+      mailReplyDomain: MAIL_REPLY_DOMAIN,
+    });
+    const created = await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'absence.changed',
+          actorId: rafael,
+          payload: { absenceId: absence?.id, userId: rafael, change: 'created' },
+        }),
+      ),
+    );
+    expect(created.notified).toBe(1);
+    const createdRows = await admin.db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.entityId, absence?.id ?? ''));
+    expect(createdRows.map((row) => row.userId)).toEqual([carlos]);
+    const createdJobs = await queues[QUEUES.emails].getJobs(['waiting', 'delayed']);
+    expect(createdJobs.map((job) => job.data as unknown)).toContainEqual(
+      expect.objectContaining({ to: 'carlos.lima@empresademo.com.br', template: 'absence_requested' }),
+    );
+
+    await queues[QUEUES.emails].obliterate({ force: true });
+    const decided = await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'absence.changed',
+          actorId: carlos,
+          payload: { absenceId: absence?.id, userId: rafael, change: 'approved' },
+        }),
+      ),
+    );
+    expect(decided.notified).toBe(1);
+    const decidedRows = await admin.db
+      .select()
+      .from(notifications)
+      .where(and(eq(notifications.entityId, absence?.id ?? ''), eq(notifications.userId, rafael)));
+    expect(decidedRows).toHaveLength(1);
+    const decidedJobs = await queues[QUEUES.emails].getJobs(['waiting', 'delayed']);
+    expect(decidedJobs.map((job) => job.data as unknown)).toContainEqual(
+      expect.objectContaining({ to: 'rafael.mendes@empresademo.com.br', template: 'absence_decided' }),
+    );
+  });
+
+  it('solicitação de recurso criada notifica quem tem `resources.manage`; atendida notifica o dono do board (sem e-mail no cancelamento)', async () => {
+    const ana = demo.users['ana.ribeiro'] ?? '';
+    const carlos = demo.users['carlos.lima'] ?? '';
+    const fernanda = demo.users['fernanda.souza'] ?? '';
+    const [request] = await admin.db
+      .insert(resourceRequests)
+      .values({
+        tenantId: demo.tenantId,
+        boardId: demo.boardId,
+        roleTitle: 'UX Writer (teste)',
+        hours: '40.00',
+        startDate: '2027-11-08',
+        endDate: '2027-11-12',
+        status: 'open',
+        createdBy: ana,
+      })
+      .returning();
+    await admin.db.insert(notificationPreferences).values({
+      tenantId: demo.tenantId,
+      userId: fernanda,
+      channel: 'email',
+      eventType: 'resource_request',
+      frequency: 'instant',
+      createdBy: fernanda,
+    });
+    await queues[QUEUES.emails].obliterate({ force: true });
+    const process = notificationsProcessor({
+      database: app,
+      redis,
+      emails: queues[QUEUES.emails],
+      appUrl: 'http://app.test',
+      jwtSecret: JWT_SECRET,
+      mailReplyDomain: MAIL_REPLY_DOMAIN,
+    });
+    const created = await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'resource_request.changed',
+          boardId: demo.boardId,
+          actorId: ana,
+          payload: { requestId: request?.id, boardId: demo.boardId, change: 'created' },
+        }),
+      ),
+    );
+    expect(created.notified).toBe(3);
+    const createdRows = await admin.db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.entityId, request?.id ?? ''));
+    expect(new Set(createdRows.map((row) => row.userId))).toEqual(new Set([ana, carlos, fernanda]));
+
+    await queues[QUEUES.emails].obliterate({ force: true });
+    const fulfilled = await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'resource_request.changed',
+          boardId: demo.boardId,
+          actorId: ana,
+          payload: { requestId: request?.id, boardId: demo.boardId, change: 'fulfilled' },
+        }),
+      ),
+    );
+    expect(fulfilled.notified).toBe(1);
+    const fulfilledJobs = await queues[QUEUES.emails].getJobs(['waiting', 'delayed']);
+    expect(fulfilledJobs.map((job) => job.data as unknown)).toContainEqual(
+      expect.objectContaining({ to: 'fernanda.souza@empresademo.com.br', template: 'resource_request_fulfilled' }),
+    );
+
+    await queues[QUEUES.emails].obliterate({ force: true });
+    const cancelled = await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'resource_request.changed',
+          boardId: demo.boardId,
+          actorId: ana,
+          payload: { requestId: request?.id, boardId: demo.boardId, change: 'cancelled' },
+        }),
+      ),
+    );
+    expect(cancelled.notified).toBe(1);
+    const cancelledJobs = await queues[QUEUES.emails].getJobs(['waiting', 'delayed']);
+    expect(cancelledJobs).toHaveLength(0);
+  });
+
+  it('timesheet enviado notifica o gestor direto; aprovado/recusado notifica quem enviou', async () => {
+    const rafael = demo.users['rafael.mendes'] ?? '';
+    const carlos = demo.users['carlos.lima'] ?? '';
+    const [approval] = await admin.db
+      .insert(timesheetApprovals)
+      .values({
+        tenantId: demo.tenantId,
+        userId: rafael,
+        periodStart: '2027-11-15',
+        periodEnd: '2027-11-21',
+        status: 'submitted',
+        totalMinutes: 2400,
+        submittedAt: new Date(),
+        createdBy: rafael,
+      })
+      .returning();
+    await admin.db.insert(notificationPreferences).values([
+      { tenantId: demo.tenantId, userId: carlos, channel: 'email', eventType: 'timesheet', frequency: 'instant', createdBy: carlos },
+      { tenantId: demo.tenantId, userId: rafael, channel: 'email', eventType: 'timesheet', frequency: 'instant', createdBy: rafael },
+    ]);
+    await queues[QUEUES.emails].obliterate({ force: true });
+    const process = notificationsProcessor({
+      database: app,
+      redis,
+      emails: queues[QUEUES.emails],
+      appUrl: 'http://app.test',
+      jwtSecret: JWT_SECRET,
+      mailReplyDomain: MAIL_REPLY_DOMAIN,
+    });
+    const submitted = await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'timesheet_approval.changed',
+          actorId: rafael,
+          payload: { approvalId: approval?.id, userId: rafael, periodStart: '2027-11-15', status: 'submitted' },
+        }),
+      ),
+    );
+    expect(submitted.notified).toBe(1);
+    const submittedRows = await admin.db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.entityId, approval?.id ?? ''));
+    expect(submittedRows.map((row) => row.userId)).toEqual([carlos]);
+    const submittedJobs = await queues[QUEUES.emails].getJobs(['waiting', 'delayed']);
+    expect(submittedJobs.map((job) => job.data as unknown)).toContainEqual(
+      expect.objectContaining({ to: 'carlos.lima@empresademo.com.br', template: 'timesheet_submitted' }),
+    );
+
+    await queues[QUEUES.emails].obliterate({ force: true });
+    const decided = await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'timesheet_approval.changed',
+          actorId: carlos,
+          payload: { approvalId: approval?.id, userId: rafael, periodStart: '2027-11-15', status: 'approved' },
+        }),
+      ),
+    );
+    expect(decided.notified).toBe(1);
+    const decidedJobs = await queues[QUEUES.emails].getJobs(['waiting', 'delayed']);
+    expect(decidedJobs.map((job) => job.data as unknown)).toContainEqual(
+      expect.objectContaining({ to: 'rafael.mendes@empresademo.com.br', template: 'timesheet_decided' }),
     );
   });
 });

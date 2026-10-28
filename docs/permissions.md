@@ -204,3 +204,27 @@ Três permissões novas de board, cada uma reaproveitada por workspace inteiro q
 | Ler/gravar as próprias preferências de notificação (`GET/PUT /v1/me/notification-preferences`) | sessão autenticada — sempre as próprias, nunca as de outra pessoa (não há parâmetro de usuário na rota)   |
 
 `clickButton()` tem uma segunda trava além de `item.update`: a coluna precisa apontar (`settings.automationId`) para uma automação cujo gatilho seja `button_clicked` com o mesmo `columnKey` — sem isso, a API recusa com `button_without_automation`/`button_automation_mismatch` mesmo que a pessoa tenha permissão de editar o item.
+
+### Capacity, Recursos e Timesheet (Prompt 11, ADR 0052)
+
+Duas permissões de workspace (já existiam no catálogo desde o Prompt 2, sem consumidor até esta entrega): `resources.manage` (perfis, skills, alocações/ausências/solicitações de qualquer pessoa, heatmap/nivelamento/what-if/previsão) e `timesheet.approve` (fila de aprovação de timesheet; segunda via de decisão de ausência, junto com `resources.manage`). Apontar horas num item usa `item.update` (a mesma permissão de editar o item), não a permissão de board `timesheet.log` do catálogo — que permanece sem uso nesta entrega.
+
+| Operação                                                                                   | Permissão exigida                                                                              |
+| --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Ver/editar o próprio perfil de recurso                                                        | sessão autenticada (sempre o próprio; `resources.manage` para ver/editar o de outra pessoa)     |
+| Listar perfis / CRUD de skills / atribuir skills a alguém                                      | `resources.manage`                                                                              |
+| Listar/criar/editar/excluir alocação de qualquer pessoa                                       | `resources.manage`                                                                              |
+| Ver as próprias alocações, ou as alocações de um board que se pode ler                         | sessão autenticada / `board.read`                                                                |
+| Solicitar/ver as próprias ausências                                                            | sessão autenticada                                                                               |
+| Listar ausências pendentes / decidir (aprovar/rejeitar) uma ausência                           | `resources.manage` **ou** `timesheet.approve`                                                    |
+| Criar/cancelar solicitação de recurso de um board                                              | `board.manage`                                                                                   |
+| Listar solicitações de recurso de um board                                                    | `board.read`                                                                                     |
+| Atender (`assign`) uma solicitação de recurso                                                  | `resources.manage`                                                                               |
+| Ver heatmap/sugestão de nivelamento/simulação what-if                                          | `resources.manage` (qualquer escopo) ou sessão autenticada só para a própria pessoa              |
+| Ver previsão de demanda × capacidade (3/6/12 meses)                                            | `resources.manage`                                                                               |
+| Apontar horas num item (`POST/PATCH/DELETE time-entries`)                                      | `item.update` do item                                                                           |
+| Ver os próprios apontamentos / enviar a própria semana para aprovação                          | sessão autenticada                                                                               |
+| Ver fila de apontamentos pendentes / decidir (aprovar/rejeitar) uma semana                      | `timesheet.approve`                                                                              |
+| Exportar apontamentos em CSV                                                                   | a própria pessoa, ou `timesheet.approve` para exportar os de outra pessoa                        |
+
+O motor de capacidade (`CapacityService`) nunca inclui `resourceProfiles.costRateHour`/`billRateHour` nas respostas de heatmap/nivelamento/what-if/previsão — são dados de compensação, nunca expostos fora da tela de perfil (`resources.manage`).

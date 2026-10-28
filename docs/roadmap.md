@@ -506,3 +506,45 @@ pnpm --filter @cube-track/web test:e2e -- automations.spec.ts processes.spec.ts 
 ```
 
 **Próximos passos:** Prompt 11, com Capacity e Timesheet (alocação, carga por pessoa, apontamento de horas, aprovações).
+
+## Prompt 11 — Resumo
+
+**Feito**
+
+- **Shared** (`packages/shared/src/capacity.ts`): motor de capacidade data-only — `dailyCapacity` (disponível × alocado por dia, flags `overallocated`/`idle`), `aggregateCapacityDays` (por dia/semana/mês), `suggestLeveling` (sugestão gulosa de nivelamento, não um solver ótimo) e `monthlyBuckets` (previsão de 3/6/12 meses). Novos tipos de view (`workload`, com `scope: 'board'|'workspace'`) e de widget de dashboard (`capacity`, distinto do `workload` pré-existente desde o Prompt 9) e 5 eventos realtime novos (`allocation.changed`, `absence.changed`, `time_entry.changed`, `timesheet_approval.changed`, `resource_request.changed`).
+- **DB**: nenhuma tabela nova — `resource_profiles`/`skills`/`user_skills`/`allocations`/`absences`/`timesheet_approvals`/`time_entries`/`resource_requests` já existiam desde o schema antecipado do Prompt 2, já com RLS (aplicada genericamente a toda tabela com `tenant_id`) e já seedadas. Nova função `loadPersonWorkingCalendar` (`packages/db/src/calendar.ts`), espelhando `loadWorkingCalendar` mas ancorada no perfil de recurso em vez do board. Única migração nova: `0018_webhook_manage_permission.sql`, correção de um gap do Prompt 10 (`webhook.manage` faltava no catálogo de referência de permissões, encontrado durante a varredura deste prompt).
+- **API** (`apps/api/src/modules/resources`, `apps/api/src/modules/timesheet`): perfis/skills/alocações/ausências/solicitações de recurso, heatmap/sugestão de nivelamento/simulação what-if/previsão de demanda, apontamento de horas (unitário e em lote por semana), aprovação de timesheet e export CSV. Permissões `resources.manage`/`timesheet.approve` (workspace) e `item.update` (não `timesheet.log`, que permanece sem consumidor) para apontar horas num item.
+- **Worker**: `ItemsService.timer(..., 'stop')` passou a também gravar um `time_entries` (`source: 'timer'`) e emitir `time_entry.changed` — o cronômetro do item já existente (Prompt 5/7) e o apontamento semanal escrevem no mesmo lugar, respeitando o bloqueio de período já aprovado. Três notificações novas (`notifyAbsence`, `notifyResourceRequest`, `notifyTimesheetApproval`) e 6 templates de e-mail (`absence_requested`/`absence_decided`/`resource_request_created`/`resource_request_fulfilled`/`timesheet_submitted`/`timesheet_decided`).
+- **Frontend**: administração de recursos (perfis/skills/ausências/solicitações, `apps/web/src/features/resources`), view `workload` embutida no board e página standalone `/w/:workspaceId/capacity` reaproveitando os mesmos componentes de heatmap/what-if/previsão com `scope: 'board'|'workspace'`, diálogo de nova alocação a partir do heatmap, apontamento semanal + fila de aprovação em `/timesheet`, resumo compacto de horas no painel do item e novo widget `capacity` no motor de dashboards.
+- **Tempo real**: `allocation.changed`/`time_entry.changed`/`resource_request.changed` (room `board`); `absence.changed`/`timesheet_approval.changed` (room `tenant`, sem board — mesmo padrão de recurso de workspace inteiro do Prompt 10, já que ausência/semana de timesheet cruzam vários boards).
+- **Testes**: `packages/shared` — `capacity.test.ts` (15 casos) — 237 testes no total do pacote, todos passando. `apps/web` — `model.test.ts` de `resources`/`timesheet` e os novos casos de `allocation.changed`/`time_entry.changed`/`timesheet_approval.changed` em `apply.test.ts` — 180 testes no total do pacote, todos passando. `apps/api`/`apps/worker`: `resources.e2e.test.ts`, `timesheet.e2e.test.ts` e a extensão de `processors.e2e.test.ts` escritos e revisados — **não executados neste ambiente** (sandbox sem Postgres/Redis/Docker), mesma limitação documentada desde o Prompt 3. E2E Playwright: specs novos de alocação/sobrealocação em tempo real, ausência reduzindo capacidade e apontamento semanal + aprovação em tempo real, escritos neste mesmo ciclo de trabalho — também não executados neste ambiente.
+- **Documentação**: ADR 0052, `docs/capacity.md` (novo), `docs/permissions.md` (seção "Capacity, Recursos e Timesheet"), `docs/realtime-events.md` (5 tipos de evento novos).
+
+**Critérios de aceite**
+
+- ✅ **Sobrealocação aparece em tempo real ao atribuir um item**: `allocation.changed` (room `board`) invalida o heatmap da pessoa/board em qualquer sessão aberta; `dailyCapacity` recalcula `overallocated` a cada alocação.
+- ✅ **Férias e feriados reduzem a capacidade disponível corretamente**: `dailyCapacity` zera `nominalHours` em dia não útil do calendário (`loadPersonWorkingCalendar`) e subtrai horas de ausência (`absenceHoursOn`) de `availableHours`, nunca negativo.
+- ⚠️ **Horas apontadas alimentam o realizado de esforço, mas não o de custo**: `time_entries` é o registro de esforço realizado por item/pessoa/período (consultável, resumido no painel do item, exportável em CSV) — isso funciona de ponta a ponta. **Custo não**: `resourceProfiles.costRateHour`/`billRateHour` existem mas nenhum rollup desta entrega multiplica taxa × horas apontadas em um custo de projeto (decisão deliberada, documentada na ADR 0052 — fica para o módulo de Contratos/OS/UST do Prompt 13 ou para um rollup de custo por board futuro).
+
+**Pendências**
+
+- Horas apontadas não geram custo realizado de projeto (taxa × hora nunca é multiplicada em nenhum rollup) — ver critério de aceite acima e ADR 0052.
+- `timesheet.log` (permissão de board do catálogo desde o Prompt 2) permanece sem nenhum consumidor — apontar horas usa `item.update`.
+- Alocação e a coluna "Responsável" (`people`) não são sincronizadas — um relatório que cruze os dois pode divergir (decisão de escopo, não lacuna).
+- `suggestLeveling` é heurístico (guloso), não um otimizador — pode não achar a melhor redistribuição possível com muitas alocações concorrentes.
+- `apps/api`/`apps/worker`: `resources.e2e.test.ts`, `timesheet.e2e.test.ts` e a extensão de `processors.e2e.test.ts` escritos mas não executados nesta sessão (sandbox sem Postgres/Redis/Docker); os novos specs Playwright de capacidade/timesheet também não executados. Rodar `pnpm db:reset && pnpm db:seed && pnpm test` e `pnpm --filter @cube-track/web test:e2e` num ambiente com a infraestrutura antes de considerar o prompt validado em produção.
+- `docs/openapi.json` não foi regenerado nesta sessão (`pnpm --filter @cube-track/api openapi:export` exige Postgres/Redis vivos) — regenerar num ambiente com a infraestrutura.
+
+**Como rodar e testar**
+
+```bash
+pnpm infra:up && pnpm db:reset && pnpm db:seed
+pnpm build
+pnpm --filter @cube-track/api start      # API :3001
+pnpm --filter @cube-track/worker start   # relay + notificações de ausência/timesheet/solicitação de recurso
+pnpm --filter @cube-track/web start      # web :3000 — ana.ribeiro@empresademo.com.br / CubeTrack@2026
+pnpm lint && pnpm typecheck && pnpm test
+pnpm --filter @cube-track/web test:e2e        # inclui os specs novos de capacidade/timesheet em apps/web/e2e/
+```
+
+**Próximos passos:** Prompt 12, com Portfólio (programas, priorização por score, capacity e rollups de portfólio).

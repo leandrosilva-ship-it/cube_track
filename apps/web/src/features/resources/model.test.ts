@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
-import type { CapacityHeatmapRow } from '@/lib/api/types';
+import type { Allocation, CapacityHeatmapRow } from '@/lib/api/types';
 
 import {
+  allocationOn,
   dateRange,
   daysBetween,
+  decodeCellId,
+  encodeCellId,
   formatHours,
   groupHeatmapRows,
+  planAllocationMove,
   shiftDate,
   utilizationLevel,
 } from './model';
@@ -112,5 +116,70 @@ describe('groupHeatmapRows', () => {
     const groups = groupHeatmapRows(rows, 'skill', new Map(), new Map([['s1', 'TypeScript']]));
     expect(groups.find((g) => g.key === 's1')?.label).toBe('TypeScript');
     expect(groups.find((g) => g.key === '__none__')?.label).toBe('—');
+  });
+});
+
+describe('planAllocationMove', () => {
+  const base = { id: 'a1', hoursPerDay: '8' };
+
+  it('alocação de um dia só: remove a original e cria no destino', () => {
+    const plan = planAllocationMove({ ...base, startDate: '2026-02-10', endDate: '2026-02-10' }, '2026-02-10', '2026-02-12');
+    expect(plan.removeOriginalId).toBe('a1');
+    expect(plan.patchOriginal).toBeUndefined();
+    expect(plan.extraCreates).toEqual([]);
+    expect(plan.targetCreate).toEqual({ startDate: '2026-02-12', endDate: '2026-02-12', hoursPerDay: '8' });
+  });
+
+  it('move o primeiro dia: encolhe o início', () => {
+    const plan = planAllocationMove({ ...base, startDate: '2026-02-10', endDate: '2026-02-14' }, '2026-02-10', '2026-02-20');
+    expect(plan.patchOriginal).toEqual({ id: 'a1', startDate: '2026-02-11', endDate: '2026-02-14' });
+    expect(plan.removeOriginalId).toBeUndefined();
+    expect(plan.extraCreates).toEqual([]);
+  });
+
+  it('move o último dia: encolhe o fim', () => {
+    const plan = planAllocationMove({ ...base, startDate: '2026-02-10', endDate: '2026-02-14' }, '2026-02-14', '2026-02-20');
+    expect(plan.patchOriginal).toEqual({ id: 'a1', startDate: '2026-02-10', endDate: '2026-02-13' });
+  });
+
+  it('move um dia do meio: divide em dois pedaços + o destino', () => {
+    const plan = planAllocationMove({ ...base, startDate: '2026-02-10', endDate: '2026-02-14' }, '2026-02-12', '2026-02-20');
+    expect(plan.patchOriginal).toEqual({ id: 'a1', startDate: '2026-02-10', endDate: '2026-02-11' });
+    expect(plan.extraCreates).toEqual([{ startDate: '2026-02-13', endDate: '2026-02-14', hoursPerDay: '8' }]);
+    expect(plan.targetCreate).toEqual({ startDate: '2026-02-20', endDate: '2026-02-20', hoursPerDay: '8' });
+  });
+});
+
+describe('encodeCellId/decodeCellId', () => {
+  it('é reversível', () => {
+    expect(decodeCellId(encodeCellId('u1', '2026-02-10'))).toEqual({ userId: 'u1', date: '2026-02-10' });
+  });
+
+  it('entrada inválida retorna null', () => {
+    expect(decodeCellId('sem-separador')).toBeNull();
+  });
+});
+
+describe('allocationOn', () => {
+  const allocations: Allocation[] = [
+    {
+      id: 'a1',
+      userId: 'u1',
+      boardId: 'b1',
+      itemId: null,
+      startDate: '2026-02-10',
+      endDate: '2026-02-14',
+      hoursPerDay: '8',
+      status: 'confirmed',
+      notes: null,
+    },
+  ];
+
+  it('encontra a alocação que cobre a data', () => {
+    expect(allocationOn(allocations, 'u1', '2026-02-12')?.id).toBe('a1');
+  });
+
+  it('fora do intervalo não encontra', () => {
+    expect(allocationOn(allocations, 'u1', '2026-02-20')).toBeUndefined();
   });
 });

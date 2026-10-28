@@ -1,4 +1,4 @@
-import type { CapacityBucket, CapacityHeatmapRow, Member, Skill } from '@/lib/api/types';
+import type { Allocation, AllocationStatus, CapacityBucket, CapacityHeatmapRow, Member, Skill } from '@/lib/api/types';
 
 export type UtilizationLevel = 'idle' | 'normal' | 'high' | 'over';
 
@@ -132,3 +132,82 @@ export function daysBetween(a: string, b: string): number {
 }
 
 export const ABSENCE_TYPES = ['vacation', 'sick_leave', 'training', 'day_off', 'other'] as const;
+
+export interface AllocationMovePlan {
+  /** Ajusta o intervalo da alocação de origem para abrir espaço no dia movido (ou undefined se ela inteira muda de dono). */
+  patchOriginal?: { id: string; startDate: string; endDate: string };
+  /** A alocação de origem cobria só aquele dia: remove em vez de patchear. */
+  removeOriginalId?: string;
+  /** Quando o dia movido estava no MEIO do intervalo, o restante depois dele vira uma nova alocação. */
+  extraCreates: { startDate: string; endDate: string; hoursPerDay: string }[];
+  /** Nova alocação de 1 dia no destino, com as mesmas horas/board/item/status da origem. */
+  targetCreate: { startDate: string; endDate: string; hoursPerDay: string };
+}
+
+/**
+ * Plano de operações (PATCH/POST) para mover um dia inteiro de uma alocação para outra data
+ * (ADR 0052): alocações são intervalos [startDate,endDate] com uma única `hoursPerDay`, não dias
+ * avulsos, então mover um dia pode exigir dividir o intervalo em até três pedaços. Usado tanto pelo
+ * drag-and-drop da Carga de trabalho quanto por "aplicar sugestão de nivelamento" — mesmo mecanismo,
+ * para as duas não divergirem.
+ */
+export function planAllocationMove(
+  allocation: Pick<Allocation, 'id' | 'startDate' | 'endDate' | 'hoursPerDay'>,
+  fromDate: string,
+  toDate: string,
+): AllocationMovePlan {
+  const { id, startDate, endDate, hoursPerDay } = allocation;
+  const targetCreate = { startDate: toDate, endDate: toDate, hoursPerDay };
+  if (startDate === endDate) {
+    return { removeOriginalId: id, extraCreates: [], targetCreate };
+  }
+  if (fromDate === startDate) {
+    return {
+      patchOriginal: { id, startDate: shiftDate(fromDate, 1), endDate },
+      extraCreates: [],
+      targetCreate,
+    };
+  }
+  if (fromDate === endDate) {
+    return {
+      patchOriginal: { id, startDate, endDate: shiftDate(fromDate, -1) },
+      extraCreates: [],
+      targetCreate,
+    };
+  }
+  return {
+    patchOriginal: { id, startDate, endDate: shiftDate(fromDate, -1) },
+    extraCreates: [{ startDate: shiftDate(fromDate, 1), endDate, hoursPerDay }],
+    targetCreate,
+  };
+}
+
+export interface HeatmapCellId {
+  userId: string;
+  date: string;
+}
+
+const CELL_SEP = '::';
+
+export function encodeCellId(userId: string, date: string): string {
+  return `${userId}${CELL_SEP}${date}`;
+}
+
+export function decodeCellId(id: string): HeatmapCellId | null {
+  const [userId, date] = id.split(CELL_SEP);
+  if (userId === undefined || date === undefined) return null;
+  return { userId, date };
+}
+
+/** Alocação que cobre `date` para `userId` (a mais recente, se houver mais de uma — raro). */
+export function allocationOn(
+  allocations: readonly Allocation[],
+  userId: string,
+  date: string,
+): Allocation | undefined {
+  return allocations.find(
+    (allocation) => allocation.userId === userId && allocation.startDate <= date && date <= allocation.endDate,
+  );
+}
+
+export const ALLOCATION_STATUSES: readonly AllocationStatus[] = ['tentative', 'confirmed'];

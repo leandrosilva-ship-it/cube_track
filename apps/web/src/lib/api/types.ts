@@ -761,7 +761,8 @@ export type WidgetType =
   | 'chart_pie'
   | 'battery'
   | 'workload'
-  | 'project_health';
+  | 'project_health'
+  | 'capacity';
 
 export interface Dashboard {
   id: string;
@@ -818,6 +819,11 @@ export type WidgetData =
       kind: 'project_health';
       latest: ProjectHealthEntry | null;
       history: { id: string; reportedAt: string; overall: HealthStatus }[];
+    }
+  | {
+      kind: 'capacity';
+      granularity: CapacityGranularity;
+      rows: { userId: string; userName: string; buckets: CapacityBucket[] }[];
     };
 
 export interface DashboardWidgetData {
@@ -1104,4 +1110,54 @@ export interface ForecastBucket {
 export interface WhatIfResponse {
   real: CapacityBucket[];
   simulated: CapacityBucket[];
+}
+
+// ----------------------------------------------------------------------------- timesheet ---
+
+export type TimeEntrySource = 'manual' | 'timer' | 'import' | 'api';
+export type TimeEntryStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
+
+export interface TimeEntry {
+  id: string;
+  userId: string;
+  boardId: string;
+  itemId: string;
+  entryDate: string;
+  minutes: number;
+  description: string | null;
+  isBillable: boolean;
+  source: TimeEntrySource;
+  startedAt: string | null;
+  endedAt: string | null;
+  status: TimeEntryStatus;
+  approvalId: string | null;
+}
+
+export interface CreateTimeEntryInput {
+  boardId: string;
+  itemId: string;
+  entryDate: string;
+  minutes: number;
+  description?: string | null;
+  isBillable?: boolean;
+}
+
+export interface UpdateTimeEntryInput {
+  entryDate?: string;
+  minutes?: number;
+  description?: string | null;
+  isBillable?: boolean;
+}
+
+export interface TimesheetApproval {
+  id: string;
+  userId: string;
+  periodStart: string;
+  periodEnd: string;
+  status: TimeEntryStatus;
+  totalMinutes: number;
+  submittedAt: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  comment: string | null;
 }

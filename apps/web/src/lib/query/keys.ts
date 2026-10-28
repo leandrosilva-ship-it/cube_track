@@ -93,11 +93,17 @@ export const qk = {
   allocationsOfUser: (userId: string, from: string, to: string) =>
     ['users', userId, 'allocations', { from, to }] as const,
   absencesOfUser: (userId: string) => ['users', userId, 'absences'] as const,
+  pendingAbsences: () => ['absences', 'pending'] as const,
   resourceRequestsOfBoard: (boardId: string) => ['boards', boardId, 'resource-requests'] as const,
   openResourceRequests: () => ['resource-requests', 'open'] as const,
   capacityHeatmap: (params: CapacityScopeParams) => ['capacity', 'heatmap', params] as const,
   capacityLeveling: (params: CapacityScopeParams) => ['capacity', 'leveling', params] as const,
   capacityForecast: (months: number) => ['capacity', 'forecast', months] as const,
+  timeEntriesOfUser: (userId: string, from: string, to: string) =>
+    ['users', userId, 'time-entries', { from, to }] as const,
+  timeEntriesOfItem: (itemId: string) => ['items', itemId, 'time-entries'] as const,
+  timesheetApprovalsOfUser: (userId: string) => ['users', userId, 'timesheet-approvals'] as const,
+  timesheetApprovalsPending: () => ['timesheet-approvals', 'pending'] as const,
 };
 
 export interface CapacityScopeParams {

@@ -67,6 +67,16 @@ export class AbsencesService {
     return rows.map(toDto);
   }
 
+  /** Fila de aprovação: todas as ausências `submitted` do tenant — requer `resources.manage`/`timesheet.approve`. */
+  async pending(user: AuthPrincipal): Promise<AbsenceDto[]> {
+    await this.assertManage(user);
+    const rows = await this.runner.tx
+      .select()
+      .from(absences)
+      .where(and(eq(absences.status, 'submitted'), isNull(absences.deletedAt)));
+    return rows.map(toDto);
+  }
+
   /** Alguém solicita a própria ausência; entra como rascunho enviado para aprovação. */
   async request(user: AuthPrincipal, input: RequestAbsenceInput): Promise<AbsenceDto> {
     if (input.endDate < input.startDate)

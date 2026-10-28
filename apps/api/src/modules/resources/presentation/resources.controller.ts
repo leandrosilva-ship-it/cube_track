@@ -244,6 +244,17 @@ export class ResourcesController {
 
   // ------------------------------------------------------------------------------ absences ---
 
+  @Get('absences/pending')
+  @Endpoint({
+    summary: 'Fila de aprovação: ausências enviadas aguardando decisão',
+    description: 'Requer `resources.manage` ou `timesheet.approve` no workspace principal.',
+    tags: ['resources'],
+    response: z.object({ data: z.array(S.AbsenceSchema) }),
+  })
+  async pendingAbsences(@CurrentPrincipal() user: AuthPrincipal) {
+    return { data: await this.absences.pending(user) };
+  }
+
   @Get('users/:userId/absences')
   @Endpoint({
     summary: 'Listar ausências de uma pessoa',

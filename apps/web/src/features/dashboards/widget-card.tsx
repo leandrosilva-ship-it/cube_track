@@ -6,6 +6,7 @@ import {
   ArrowUp,
   BarChart3,
   Battery,
+  CalendarClock,
   Download,
   HeartPulse,
   Hash,
@@ -30,6 +31,7 @@ const WIDGET_ICONS: Record<WidgetType, typeof Hash> = {
   battery: Battery,
   workload: Users,
   project_health: HeartPulse,
+  capacity: CalendarClock,
 };
 
 export interface WidgetCardProps {
@@ -164,6 +166,8 @@ function WidgetBody({
       return <WorkloadBody data={data} />;
     case 'project_health':
       return <ProjectHealthWidgetBody data={data} onReport={onReportHealth} />;
+    case 'capacity':
+      return <CapacityBody data={data} />;
   }
 }
 
@@ -223,6 +227,40 @@ function WorkloadBody({ data }: { data: Extract<WidgetData, { kind: 'workload' }
             />
           </div>
           <span className="w-10 shrink-0 text-right tabular-nums">{entry.value}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function bucketColor(bucket: { utilization: number; overallocated: boolean; nominalHours: number }): string {
+  if (bucket.overallocated) return '#df2f4a';
+  if (bucket.nominalHours === 0) return 'transparent';
+  if (bucket.utilization === 0) return '#c4c4c4';
+  if (bucket.utilization >= 0.85) return '#ffcb00';
+  return '#00c875';
+}
+
+function CapacityBody({ data }: { data: Extract<WidgetData, { kind: 'capacity' }> }) {
+  const t = useTranslations('dashboards');
+  if (data.rows.length === 0) return <EmptyBody message={t('widgetMenu.noData')} />;
+  return (
+    <ul className="flex h-full flex-col justify-center gap-2 overflow-y-auto">
+      {data.rows.map((row) => (
+        <li key={row.userId} className="flex items-center gap-2 text-xs">
+          <span className="w-24 shrink-0 truncate" title={row.userName}>
+            {row.userName}
+          </span>
+          <div className="flex flex-1 gap-0.5">
+            {row.buckets.map((bucket) => (
+              <span
+                key={bucket.bucket}
+                className="h-4 flex-1 rounded-xs"
+                style={{ backgroundColor: bucketColor(bucket) }}
+                title={`${bucket.bucket}: ${Math.round(bucket.utilization * 100)}%`}
+              />
+            ))}
+          </div>
         </li>
       ))}
     </ul>

@@ -22,6 +22,7 @@ export const dashboardsEs: typeof dashboardsPtBR = {
     battery: 'Batería de plazos',
     workload: 'Carga por persona',
     project_health: 'Salud del proyecto',
+    capacity: 'Capacidad',
   },
   widgetMenu: {
     open: 'Acciones del widget',
@@ -55,6 +56,20 @@ export const dashboardsEs: typeof dashboardsPtBR = {
     actualColumn: 'Columna de fecha real',
     peopleColumn: 'Columna de personas',
     healthBoard: 'Tablero',
+    capacityGroupBy: 'Agrupar por',
+    capacityGroupByOptions: {
+      person: 'Persona',
+      team: 'Equipo',
+      skill: 'Habilidad',
+    },
+    capacityGranularity: 'Granularidad',
+    capacityGranularityOptions: {
+      day: 'Día',
+      week: 'Semana',
+      month: 'Mes',
+    },
+    capacityPeople: 'Personas (opcional — todas si no se marca ninguna)',
+    capacitySkill: 'Habilidad',
     aggregate: {
       label: 'Agregación',
       sum: 'Suma',

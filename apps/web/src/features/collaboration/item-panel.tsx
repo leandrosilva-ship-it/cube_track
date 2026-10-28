@@ -37,6 +37,7 @@ import type { BoardDetail } from '@/lib/api/types';
 import { useItemRealtime } from '@/realtime/provider';
 
 import { useMarkSeen } from '../table/hooks';
+import { ItemTimeSummary } from '../timesheet/item-time-summary';
 import { ActivityTab } from './activity-tab';
 import { ApprovalsTab } from './approvals-tab';
 import { ChecklistTab } from './checklist-tab';
@@ -125,6 +126,7 @@ export function ItemPanel({ board }: { board: BoardDetail }) {
           />
           <PresenceRow itemId={itemId} />
           <div className="ms-auto flex items-center gap-2">
+            <ItemTimeSummary itemId={itemId} />
             <FollowControl itemId={itemId} />
           </div>
         </div>

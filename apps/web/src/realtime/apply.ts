@@ -488,6 +488,20 @@ export function applyRealtimeEvent(
       void queryClient.invalidateQueries({ queryKey: qk.dashboardData(dashboardId) });
       return;
     }
+    case 'time_entry.changed': {
+      const { itemId, userId: entryUserId } = event.payload as { itemId: string; userId: string };
+      void queryClient.invalidateQueries({ queryKey: qk.timeEntriesOfItem(itemId) });
+      void queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] === 'users' && query.queryKey[1] === entryUserId && query.queryKey[2] === 'time-entries',
+      });
+      return;
+    }
+    case 'timesheet_approval.changed': {
+      const { userId: approvalUserId } = event.payload as { userId: string };
+      void queryClient.invalidateQueries({ queryKey: qk.timesheetApprovalsOfUser(approvalUserId) });
+      void queryClient.invalidateQueries({ queryKey: qk.timesheetApprovalsPending() });
+      return;
+    }
     case 'project_health.reported': {
       if (boardId === null) return;
       void queryClient.invalidateQueries({ queryKey: qk.projectHealth(boardId) });
@@ -496,6 +510,47 @@ export function applyRealtimeEvent(
       // para a lista de dashboards em `dashboard.changed`).
       void queryClient.invalidateQueries({
         predicate: (query) => query.queryKey.includes('data') && query.queryKey.includes('dashboards'),
+      });
+      return;
+    }
+    case 'allocation.changed': {
+      // Capacidade agrega alocações de vários boards e não traz boardId/userId fixos no payload de
+      // toda consulta (ex.: heatmap de workspace): invalida por prefixo, mesmo padrão de `dashboard.changed`.
+      const { boardId: eventBoardId, userId } = event.payload as {
+        boardId: string;
+        userId: string;
+        itemId: string | null;
+        change: 'created' | 'updated' | 'deleted';
+      };
+      void queryClient.invalidateQueries({
+        predicate: (query) =>
+          (query.queryKey[0] === 'boards' && query.queryKey[1] === eventBoardId && query.queryKey[2] === 'allocations') ||
+          (query.queryKey[0] === 'users' && query.queryKey[1] === userId && query.queryKey[2] === 'allocations') ||
+          query.queryKey[0] === 'capacity',
+      });
+      return;
+    }
+    case 'absence.changed': {
+      // Sem board (evento de workspace/tenant): chega mesmo sem "assinar" nada específico.
+      const { userId } = event.payload as { absenceId: string; userId: string; change: string };
+      void queryClient.invalidateQueries({
+        predicate: (query) =>
+          (query.queryKey[0] === 'users' && query.queryKey[1] === userId && query.queryKey[2] === 'absences') ||
+          (query.queryKey[0] === 'absences' && query.queryKey[1] === 'pending') ||
+          query.queryKey[0] === 'capacity',
+      });
+      return;
+    }
+    case 'resource_request.changed': {
+      const { boardId: eventBoardId } = event.payload as {
+        requestId: string;
+        boardId: string;
+        change: 'created' | 'updated' | 'fulfilled' | 'cancelled';
+      };
+      void queryClient.invalidateQueries({
+        predicate: (query) =>
+          (query.queryKey[0] === 'boards' && query.queryKey[1] === eventBoardId && query.queryKey[2] === 'resource-requests') ||
+          (query.queryKey[0] === 'resource-requests' && query.queryKey[1] === 'open'),
       });
       return;
     }

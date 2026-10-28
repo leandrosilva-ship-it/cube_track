@@ -1,13 +1,17 @@
 'use client';
 
-import { Button, Field, Input, Modal, Select, toast } from '@cube-track/ui';
+import { Button, Checkbox, Field, Input, Modal, Select, toast } from '@cube-track/ui';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
-import type { Widget, WidgetType } from '@/lib/api/types';
+import { api } from '@/lib/api/client';
+import type { Skill, Widget, WidgetType } from '@/lib/api/types';
 import { useErrorMessage } from '@/lib/errors/use-error-message';
+import { qk } from '@/lib/query/keys';
 
 import { useBoard } from '../board/hooks';
+import { useMembers } from '../shell/hooks';
 import { useWorkspaceBoards } from '../table/hooks';
 import { useCreateWidget, useUpdateWidget } from './hooks';
 import {
@@ -70,6 +74,20 @@ export function WidgetDialog({
   const [batteryActual, setBatteryActual] = useState((config.actualColumnKey as string | undefined) ?? '');
   const [workloadPeople, setWorkloadPeople] = useState((config.peopleColumnKey as string | undefined) ?? '');
   const [healthBoardId, setHealthBoardId] = useState((config.boardId as string | undefined) ?? boardId ?? '');
+  const [capacityGroupBy, setCapacityGroupBy] = useState<'person' | 'team' | 'skill'>(
+    (config.groupBy as 'person' | 'team' | 'skill' | undefined) ?? 'person',
+  );
+  const [capacityGranularity, setCapacityGranularity] = useState<'day' | 'week' | 'month'>(
+    (config.granularity as 'day' | 'week' | 'month' | undefined) ?? 'week',
+  );
+  const [capacityUserIds, setCapacityUserIds] = useState<string[]>((config.userIds as string[] | undefined) ?? []);
+  const [capacitySkillId, setCapacitySkillId] = useState((config.skillId as string | undefined) ?? '');
+  const members = useMembers();
+  const skillsQuery = useQuery({
+    queryKey: qk.skills(),
+    queryFn: () => api<{ data: Skill[] }>('/v1/skills').then((response) => response.data),
+    enabled: capacityGroupBy === 'skill',
+  });
 
   const buildConfig = (): Record<string, unknown> | null => {
     switch (type) {
@@ -99,6 +117,13 @@ export function WidgetDialog({
         return workloadPeople === '' ? null : { boardIds, peopleColumnKey: workloadPeople };
       case 'project_health':
         return healthBoardId === '' ? null : { boardId: healthBoardId };
+      case 'capacity':
+        return {
+          groupBy: capacityGroupBy,
+          granularity: capacityGranularity,
+          ...(capacityGroupBy === 'person' && capacityUserIds.length > 0 ? { userIds: capacityUserIds } : {}),
+          ...(capacityGroupBy === 'skill' && capacitySkillId !== '' ? { skillId: capacitySkillId } : {}),
+        };
     }
   };
 
@@ -260,6 +285,74 @@ export function WidgetDialog({
               onValueChange={setHealthBoardId}
             />
           </Field>
+        ) : null}
+
+        {type === 'capacity' ? (
+          <>
+            <Field label={t('widgetDialog.capacityGroupBy')}>
+              <Select
+                value={capacityGroupBy}
+                options={(['person', 'team', 'skill'] as const).map((value) => ({
+                  value,
+                  label: t(`widgetDialog.capacityGroupByOptions.${value}`),
+                }))}
+                onValueChange={(value) => {
+                  setCapacityGroupBy(value as 'person' | 'team' | 'skill');
+                }}
+              />
+            </Field>
+            <Field label={t('widgetDialog.capacityGranularity')}>
+              <Select
+                value={capacityGranularity}
+                options={(['day', 'week', 'month'] as const).map((value) => ({
+                  value,
+                  label: t(`widgetDialog.capacityGranularityOptions.${value}`),
+                }))}
+                onValueChange={(value) => {
+                  setCapacityGranularity(value as 'day' | 'week' | 'month');
+                }}
+              />
+            </Field>
+            {capacityGroupBy === 'person' ? (
+              <Field label={t('widgetDialog.capacityPeople')}>
+                <ul className="flex max-h-40 flex-col gap-1 overflow-y-auto rounded-md border border-border p-2">
+                  {(members.data ?? []).map((member) => {
+                    const checked = capacityUserIds.includes(member.userId);
+                    return (
+                      <li key={member.userId} className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          id={`capacity-user-${member.userId}`}
+                          checked={checked}
+                          onCheckedChange={(value) => {
+                            setCapacityUserIds((current) =>
+                              value === true
+                                ? [...current, member.userId]
+                                : current.filter((id) => id !== member.userId),
+                            );
+                          }}
+                        />
+                        <label htmlFor={`capacity-user-${member.userId}`} className="truncate">
+                          {member.name}
+                        </label>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Field>
+            ) : null}
+            {capacityGroupBy === 'skill' ? (
+              <Field label={t('widgetDialog.capacitySkill')}>
+                <Select
+                  value={capacitySkillId}
+                  options={[
+                    { value: '', label: t('widgetDialog.none') },
+                    ...(skillsQuery.data ?? []).map((skill) => ({ value: skill.id, label: skill.name })),
+                  ]}
+                  onValueChange={setCapacitySkillId}
+                />
+              </Field>
+            ) : null}
+          </>
         ) : null}
       </div>
     </Modal>

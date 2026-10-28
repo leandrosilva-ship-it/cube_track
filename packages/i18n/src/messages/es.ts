@@ -1,6 +1,7 @@
 import type { Messages } from './pt-BR.js';
 import { automationsEs } from './automations.es.js';
 import { calendarEs } from './calendar.es.js';
+import { capacityEs } from './capacity.es.js';
 import { itemPanelEs } from './collaboration.es.js';
 import { dashboardsEs } from './dashboards.es.js';
 import { formsEs } from './forms.es.js';
@@ -10,6 +11,7 @@ import { planningEs } from './planning.es.js';
 import { processesEs } from './processes.es.js';
 import { tableEs } from './table.es.js';
 import { timelineEs } from './timeline.es.js';
+import { timesheetEs } from './timesheet.es.js';
 import { webhooksEs } from './webhooks.es.js';
 
 export const es: Messages = {
@@ -156,6 +158,7 @@ export const es: Messages = {
       inbox: 'Bandeja',
       favorites: 'Favoritos',
       search: 'Búsqueda',
+      timesheet: 'Timesheet',
       ai: 'IA',
       more: 'Más',
       settings: 'Configuración',
@@ -397,6 +400,8 @@ export const es: Messages = {
   automations: automationsEs,
   processes: processesEs,
   webhooks: webhooksEs,
+  timesheet: timesheetEs,
+  capacity: capacityEs,
   palette: {
     title: 'Paleta de comandos',
     placeholder: 'Buscar tableros, páginas y acciones…',
@@ -489,6 +494,7 @@ export const es: Messages = {
     rootBoards: 'Sin carpeta',
     empty: 'Este espacio de trabajo aún no tiene tableros.',
     dashboards: 'Paneles',
+    capacity: 'Capacidad',
   },
   settings: {
     title: 'Configuración',

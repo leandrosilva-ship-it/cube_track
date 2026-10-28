@@ -21,6 +21,7 @@ export const dashboardsPtBR = {
     battery: 'Bateria de prazos',
     workload: 'Carga por pessoa',
     project_health: 'Saúde do projeto',
+    capacity: 'Capacidade',
   },
   widgetMenu: {
     open: 'Mais ações do widget',
@@ -54,6 +55,20 @@ export const dashboardsPtBR = {
     actualColumn: 'Coluna de data realizada',
     peopleColumn: 'Coluna de pessoas',
     healthBoard: 'Board',
+    capacityGroupBy: 'Agrupar por',
+    capacityGroupByOptions: {
+      person: 'Pessoa',
+      team: 'Time',
+      skill: 'Skill',
+    },
+    capacityGranularity: 'Granularidade',
+    capacityGranularityOptions: {
+      day: 'Dia',
+      week: 'Semana',
+      month: 'Mês',
+    },
+    capacityPeople: 'Pessoas (opcional — todas se nenhuma marcada)',
+    capacitySkill: 'Skill',
     aggregate: {
       label: 'Agregação',
       sum: 'Soma',

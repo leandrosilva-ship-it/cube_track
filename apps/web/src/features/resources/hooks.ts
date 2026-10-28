@@ -192,7 +192,7 @@ export function useCreateAllocation() {
   const errorMessage = useErrorMessage();
   return useMutation({
     mutationFn: (input: AllocationInput) => api<Allocation>('/v1/allocations', { method: 'POST', body: input }),
-    onSuccess: (allocation) => invalidateCapacity(queryClient, allocation.boardId),
+    onSuccess: (allocation) => { invalidateCapacity(queryClient, allocation.boardId); },
     onError: (error) => toast.error(errorMessage(error)),
   });
 }
@@ -211,7 +211,7 @@ export function useUpdateAllocation() {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: UpdateAllocationInput }) =>
       api<Allocation>(`/v1/allocations/${id}`, { method: 'PATCH', body: input }),
-    onSuccess: (allocation) => invalidateCapacity(queryClient, allocation.boardId),
+    onSuccess: (allocation) => { invalidateCapacity(queryClient, allocation.boardId); },
     onError: (error) => toast.error(errorMessage(error)),
   });
 }
@@ -222,7 +222,7 @@ export function useDeleteAllocation() {
   return useMutation({
     mutationFn: ({ id }: { id: string; boardId: string }) =>
       api<undefined>(`/v1/allocations/${id}`, { method: 'DELETE' }),
-    onSuccess: (_result, { boardId }) => invalidateCapacity(queryClient, boardId),
+    onSuccess: (_result, { boardId }) => { invalidateCapacity(queryClient, boardId); },
     onError: (error) => toast.error(errorMessage(error)),
   });
 }
@@ -337,7 +337,7 @@ export function useCreateResourceRequest(boardId: string) {
   return useMutation({
     mutationFn: (input: ResourceRequestInput) =>
       api<ResourceRequest>(`/v1/boards/${boardId}/resource-requests`, { method: 'POST', body: input }),
-    onSuccess: () => invalidateResourceRequests(queryClient, boardId),
+    onSuccess: () => { invalidateResourceRequests(queryClient, boardId); },
     onError: (error) => toast.error(errorMessage(error)),
   });
 }
@@ -361,7 +361,36 @@ export function useCancelResourceRequest(boardId: string) {
   const errorMessage = useErrorMessage();
   return useMutation({
     mutationFn: (id: string) => api<ResourceRequest>(`/v1/resource-requests/${id}/cancel`, { method: 'POST' }),
-    onSuccess: () => invalidateResourceRequests(queryClient, boardId),
+    onSuccess: () => { invalidateResourceRequests(queryClient, boardId); },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+}
+
+function invalidateAllResourceRequests(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.invalidateQueries({ predicate: (query) => query.queryKey.includes('resource-requests') });
+}
+
+/** Mesma operação, sem um board conhecido de antemão (ex.: a fila "Solicitações" da página standalone). */
+export function useAssignOpenResourceRequest() {
+  const queryClient = useQueryClient();
+  const errorMessage = useErrorMessage();
+  return useMutation({
+    mutationFn: ({ id, assignedUserId }: { id: string; assignedUserId: string }) =>
+      api<ResourceRequest>(`/v1/resource-requests/${id}/assign`, { method: 'POST', body: { assignedUserId } }),
+    onSuccess: () => {
+      invalidateAllResourceRequests(queryClient);
+      invalidateCapacity(queryClient);
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+}
+
+export function useCancelOpenResourceRequest() {
+  const queryClient = useQueryClient();
+  const errorMessage = useErrorMessage();
+  return useMutation({
+    mutationFn: (id: string) => api<ResourceRequest>(`/v1/resource-requests/${id}/cancel`, { method: 'POST' }),
+    onSuccess: () => { invalidateAllResourceRequests(queryClient); },
     onError: (error) => toast.error(errorMessage(error)),
   });
 }

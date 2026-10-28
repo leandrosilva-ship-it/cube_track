@@ -1,6 +1,7 @@
 import type { Messages } from './pt-BR.js';
 import { automationsEn } from './automations.en.js';
 import { calendarEn } from './calendar.en.js';
+import { capacityEn } from './capacity.en.js';
 import { itemPanelEn } from './collaboration.en.js';
 import { dashboardsEn } from './dashboards.en.js';
 import { formsEn } from './forms.en.js';
@@ -10,6 +11,7 @@ import { planningEn } from './planning.en.js';
 import { processesEn } from './processes.en.js';
 import { tableEn } from './table.en.js';
 import { timelineEn } from './timeline.en.js';
+import { timesheetEn } from './timesheet.en.js';
 import { webhooksEn } from './webhooks.en.js';
 
 export const en: Messages = {
@@ -156,6 +158,7 @@ export const en: Messages = {
       inbox: 'Inbox',
       favorites: 'Favorites',
       search: 'Search',
+      timesheet: 'Timesheet',
       ai: 'AI',
       more: 'More',
       settings: 'Settings',
@@ -396,6 +399,8 @@ export const en: Messages = {
   automations: automationsEn,
   processes: processesEn,
   webhooks: webhooksEn,
+  timesheet: timesheetEn,
+  capacity: capacityEn,
   palette: {
     title: 'Command palette',
     placeholder: 'Search boards, pages and actions…',
@@ -488,6 +493,7 @@ export const en: Messages = {
     rootBoards: 'No folder',
     empty: 'This workspace has no boards yet.',
     dashboards: 'Dashboards',
+    capacity: 'Capacity',
   },
   settings: {
     title: 'Settings',

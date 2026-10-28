@@ -16,7 +16,7 @@ const FALLBACK_PALETTE = [
 
 export interface WidgetTypeMeta {
   type: WidgetType;
-  icon: 'hash' | 'bar-chart' | 'pie-chart' | 'battery' | 'users' | 'heart-pulse';
+  icon: 'hash' | 'bar-chart' | 'pie-chart' | 'battery' | 'users' | 'heart-pulse' | 'calendar-clock';
 }
 
 export const WIDGET_TYPE_META: WidgetTypeMeta[] = [
@@ -26,6 +26,7 @@ export const WIDGET_TYPE_META: WidgetTypeMeta[] = [
   { type: 'battery', icon: 'battery' },
   { type: 'workload', icon: 'users' },
   { type: 'project_health', icon: 'heart-pulse' },
+  { type: 'capacity', icon: 'calendar-clock' },
 ];
 
 const DEFAULT_SIZE: Record<WidgetType, { w: number; h: number }> = {
@@ -35,6 +36,7 @@ const DEFAULT_SIZE: Record<WidgetType, { w: number; h: number }> = {
   battery: { w: 6, h: 2 },
   workload: { w: 12, h: 4 },
   project_health: { w: 12, h: 3 },
+  capacity: { w: 12, h: 4 },
 };
 
 /** Posição ao final da grade (empilha abaixo do último widget — sem redimensionar/arrastar). */

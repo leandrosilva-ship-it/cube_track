@@ -439,4 +439,41 @@ describe('Prompt 7: painel do item (atualizações, arquivos, checklists, aprova
     );
     expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.webhooksOfBoard(BOARD_ID) });
   });
+
+  it('time_entry.changed invalida os apontamentos do item e, por predicado, os da pessoa', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('time_entry.changed', {
+        timeEntryId: 'te1',
+        userId: 'user-1',
+        boardId: BOARD_ID,
+        itemId: 'item-1',
+        change: 'created',
+      }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.timeEntriesOfItem('item-1') });
+    expect(invalidatedByPredicate(invalidate, qk.timeEntriesOfUser('user-1', '2024-01-01', '2024-01-07'))).toBe(
+      true,
+    );
+  });
+
+  it('timesheet_approval.changed invalida as aprovações da pessoa e a fila de pendentes', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('timesheet_approval.changed', {
+        approvalId: 'ap1',
+        userId: 'user-1',
+        periodStart: '2024-01-01',
+        status: 'submitted',
+      }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.timesheetApprovalsOfUser('user-1') });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.timesheetApprovalsPending() });
+  });
 });

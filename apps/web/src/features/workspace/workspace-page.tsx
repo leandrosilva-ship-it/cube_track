@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, EmptyState, Skeleton } from '@cube-track/ui';
-import { Folder, LayoutDashboard, LayoutGrid } from 'lucide-react';
+import { Folder, Gauge, LayoutDashboard, LayoutGrid } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { PageHeader } from '@/components/common/page-header';
@@ -49,12 +49,20 @@ export function WorkspacePage({ workspaceId }: { workspaceId: string }) {
           ? {}
           : { subtitle: workspace.description })}
         actions={
-          <Button asChild variant="secondary" size="sm">
-            <Link href={`/w/${workspaceId}/dashboards`}>
-              <LayoutDashboard className="size-4" aria-hidden="true" />
-              {t('dashboards')}
-            </Link>
-          </Button>
+          <>
+            <Button asChild variant="secondary" size="sm">
+              <Link href={`/w/${workspaceId}/capacity`}>
+                <Gauge className="size-4" aria-hidden="true" />
+                {t('capacity')}
+              </Link>
+            </Button>
+            <Button asChild variant="secondary" size="sm">
+              <Link href={`/w/${workspaceId}/dashboards`}>
+                <LayoutDashboard className="size-4" aria-hidden="true" />
+                {t('dashboards')}
+              </Link>
+            </Button>
+          </>
         }
       />
       <div className="flex flex-col gap-8 px-4 sm:px-8">

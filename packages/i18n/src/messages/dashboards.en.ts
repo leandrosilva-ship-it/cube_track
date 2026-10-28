@@ -22,6 +22,7 @@ export const dashboardsEn: typeof dashboardsPtBR = {
     battery: 'Deadline battery',
     workload: 'Workload per person',
     project_health: 'Project health',
+    capacity: 'Capacity',
   },
   widgetMenu: {
     open: 'Widget actions',
@@ -55,6 +56,20 @@ export const dashboardsEn: typeof dashboardsPtBR = {
     actualColumn: 'Actual date column',
     peopleColumn: 'People column',
     healthBoard: 'Board',
+    capacityGroupBy: 'Group by',
+    capacityGroupByOptions: {
+      person: 'Person',
+      team: 'Team',
+      skill: 'Skill',
+    },
+    capacityGranularity: 'Granularity',
+    capacityGranularityOptions: {
+      day: 'Day',
+      week: 'Week',
+      month: 'Month',
+    },
+    capacityPeople: 'People (optional — all if none checked)',
+    capacitySkill: 'Skill',
     aggregate: {
       label: 'Aggregate',
       sum: 'Sum',

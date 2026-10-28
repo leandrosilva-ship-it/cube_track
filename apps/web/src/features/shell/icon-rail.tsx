@@ -12,6 +12,7 @@ import {
 import {
   Bell,
   CalendarDays,
+  Clock,
   Command,
   Home,
   Keyboard,
@@ -34,7 +35,7 @@ import { UserMenu } from './user-menu';
 
 interface NavEntry {
   href: string;
-  key: 'home' | 'myWeek' | 'inbox' | 'favorites' | 'search' | 'ai';
+  key: 'home' | 'myWeek' | 'inbox' | 'favorites' | 'search' | 'ai' | 'timesheet';
   icon: LucideIcon;
 }
 
@@ -44,6 +45,7 @@ export const NAV_ENTRIES: readonly NavEntry[] = [
   { href: '/inbox', key: 'inbox', icon: Bell },
   { href: '/favorites', key: 'favorites', icon: Star },
   { href: '/search', key: 'search', icon: Search },
+  { href: '/timesheet', key: 'timesheet', icon: Clock },
   { href: '/ai', key: 'ai', icon: Sparkles },
 ];
 

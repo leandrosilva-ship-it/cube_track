@@ -4,6 +4,7 @@
  */
 import { automationsPtBR } from './automations.pt-BR.js';
 import { calendarPtBR } from './calendar.pt-BR.js';
+import { capacityPtBR } from './capacity.pt-BR.js';
 import { itemPanelPtBR } from './collaboration.pt-BR.js';
 import { dashboardsPtBR } from './dashboards.pt-BR.js';
 import { formsPtBR } from './forms.pt-BR.js';
@@ -13,6 +14,7 @@ import { planningPtBR } from './planning.pt-BR.js';
 import { processesPtBR } from './processes.pt-BR.js';
 import { tablePtBR } from './table.pt-BR.js';
 import { timelinePtBR } from './timeline.pt-BR.js';
+import { timesheetPtBR } from './timesheet.pt-BR.js';
 import { webhooksPtBR } from './webhooks.pt-BR.js';
 
 export const ptBR = {
@@ -159,6 +161,7 @@ export const ptBR = {
       inbox: 'Inbox',
       favorites: 'Favoritos',
       search: 'Busca',
+      timesheet: 'Timesheet',
       ai: 'IA',
       more: 'Mais',
       settings: 'Configurações',
@@ -398,6 +401,8 @@ export const ptBR = {
   automations: automationsPtBR,
   processes: processesPtBR,
   webhooks: webhooksPtBR,
+  timesheet: timesheetPtBR,
+  capacity: capacityPtBR,
   palette: {
     title: 'Paleta de comandos',
     placeholder: 'Buscar boards, páginas e ações…',
@@ -490,6 +495,7 @@ export const ptBR = {
     rootBoards: 'Sem pasta',
     empty: 'Este workspace ainda não tem boards.',
     dashboards: 'Dashboards',
+    capacity: 'Capacidade',
   },
   settings: {
     title: 'Configurações',

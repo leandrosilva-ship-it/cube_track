@@ -1,6 +1,7 @@
 export * from './automations.js';
 export * from './board-templates.js';
 export * from './business-days.js';
+export * from './capacity.js';
 export * from './business-time.js';
 export * from './columns/index.js';
 export * from './crypto.js';

@@ -193,6 +193,41 @@ export const EVENT_PAYLOADS = {
     boardId: z.uuid().nullable(),
     change: z.enum(['created', 'updated', 'deleted', 'enabled', 'disabled']),
   }),
+  /** CRUD de alocação (ADR 0052): o cliente recalcula o heatmap de capacidade da pessoa/board. */
+  'allocation.changed': z.object({
+    allocationId: z.uuid(),
+    userId: z.uuid(),
+    boardId: z.uuid(),
+    itemId: z.uuid().nullable(),
+    change: z.enum(['created', 'updated', 'deleted']),
+  }),
+  /** CRUD/decisão de ausência (ADR 0052) — sem board (pessoa pode ter alocações em vários boards). */
+  'absence.changed': z.object({
+    absenceId: z.uuid(),
+    userId: z.uuid(),
+    change: z.enum(['created', 'updated', 'approved', 'rejected', 'deleted']),
+  }),
+  /** Apontamento de horas criado/editado/excluído (ADR 0052), manual ou por cronômetro. */
+  'time_entry.changed': z.object({
+    timeEntryId: z.uuid(),
+    userId: z.uuid(),
+    boardId: z.uuid(),
+    itemId: z.uuid(),
+    change: z.enum(['created', 'updated', 'deleted']),
+  }),
+  /** Semana de timesheet enviada/aprovada/recusada (ADR 0052) — sem board (semana cruza boards). */
+  'timesheet_approval.changed': z.object({
+    approvalId: z.uuid(),
+    userId: z.uuid(),
+    periodStart: z.string(),
+    status: z.enum(['draft', 'submitted', 'approved', 'rejected']),
+  }),
+  /** Solicitação de recurso criada/atendida/cancelada (ADR 0052). */
+  'resource_request.changed': z.object({
+    requestId: z.uuid(),
+    boardId: z.uuid(),
+    change: z.enum(['created', 'updated', 'fulfilled', 'cancelled']),
+  }),
   'notification.created': z.object({
     notificationId: z.uuid(),
     type: z.string(),

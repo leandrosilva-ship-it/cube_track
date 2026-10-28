@@ -30,6 +30,7 @@ export const IMPLEMENTED_VIEW_TYPES = new Set<ViewType>([
   'gantt',
   'form',
   'dashboard',
+  'workload',
 ]);
 
 export function isViewType(value: string): value is ViewType {
@@ -155,6 +156,20 @@ export type FormViewConfig = z.infer<typeof FormViewConfigSchema>;
 export const DashboardConfigSchema = z.object({ dashboardId: z.uuid().optional() }).strict();
 export type DashboardViewConfig = z.infer<typeof DashboardConfigSchema>;
 
+/**
+ * Configuração da view Workload/Capacity (ADR 0052): `scope: 'board'` restringe o heatmap às
+ * alocações deste board; `'workspace'` mostra a mesma pessoa em todos os boards do workspace (a
+ * mesma relação que a página standalone de capacidade usa, só que embutida nas abas do board).
+ */
+export const WorkloadViewConfigSchema = z
+  .object({
+    groupBy: z.enum(['person', 'team', 'skill']).default('person'),
+    granularity: z.enum(['day', 'week', 'month']).default('week'),
+    scope: z.enum(['board', 'workspace']).default('board'),
+  })
+  .strict();
+export type WorkloadViewConfig = z.infer<typeof WorkloadViewConfigSchema>;
+
 /** Configurações de outros tipos de view (ainda sem tela própria): forma livre, limitada em tamanho. */
 export const GenericViewConfigSchema = z.record(z.string(), z.unknown());
 
@@ -167,5 +182,6 @@ export function parseViewConfig(type: ViewType, raw: unknown): Record<string, un
   if (type === 'gantt') return GanttConfigSchema.parse(raw ?? {});
   if (type === 'form') return FormViewConfigSchema.parse(raw ?? {});
   if (type === 'dashboard') return DashboardConfigSchema.parse(raw ?? {});
+  if (type === 'workload') return WorkloadViewConfigSchema.parse(raw ?? {});
   return GenericViewConfigSchema.parse(raw ?? {});
 }

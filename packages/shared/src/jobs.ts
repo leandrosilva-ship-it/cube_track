@@ -148,4 +148,7 @@ export const EVENT_CONSUMERS: Record<string, readonly QueueName[]> = {
   'update.created': [QUEUES.searchIndex, QUEUES.notifications],
   'reply.created': [QUEUES.notifications],
   'approval.changed': [QUEUES.notifications],
+  'absence.changed': [QUEUES.notifications],
+  'timesheet_approval.changed': [QUEUES.notifications],
+  'resource_request.changed': [QUEUES.notifications],
 };

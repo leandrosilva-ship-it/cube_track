@@ -17,6 +17,7 @@ export const WIDGET_TYPES = [
   'battery',
   'workload',
   'project_health',
+  'capacity',
 ] as const;
 export type WidgetType = (typeof WIDGET_TYPES)[number];
 
@@ -104,6 +105,22 @@ export type WorkloadWidgetConfig = z.infer<typeof WorkloadWidgetConfigSchema>;
 export const ProjectHealthWidgetConfigSchema = z.object({ boardId: z.uuid() }).strict();
 export type ProjectHealthWidgetConfig = z.infer<typeof ProjectHealthWidgetConfigSchema>;
 
+/**
+ * Capacidade (ADR 0052): disponível × alocado por pessoa, time ou skill — diferente do widget
+ * `workload` (que conta itens por valor de uma coluna `people`), este lê `resource_profiles`/
+ * `allocations`/`absences` diretamente, sem depender de nenhum board específico.
+ */
+export const CapacityWidgetConfigSchema = z
+  .object({
+    groupBy: z.enum(['person', 'team', 'skill']).default('person'),
+    userIds: z.array(z.uuid()).max(100).optional(),
+    teamIds: z.array(z.uuid()).max(50).optional(),
+    skillId: z.uuid().optional(),
+    granularity: z.enum(['day', 'week', 'month']).default('week'),
+  })
+  .strict();
+export type CapacityWidgetConfig = z.infer<typeof CapacityWidgetConfigSchema>;
+
 export const WIDGET_CONFIG_SCHEMAS = {
   number: NumberWidgetConfigSchema,
   chart_bar: ChartBarWidgetConfigSchema,
@@ -111,6 +128,7 @@ export const WIDGET_CONFIG_SCHEMAS = {
   battery: BatteryWidgetConfigSchema,
   workload: WorkloadWidgetConfigSchema,
   project_health: ProjectHealthWidgetConfigSchema,
+  capacity: CapacityWidgetConfigSchema,
 } as const satisfies Record<WidgetType, z.ZodType>;
 
 export type WidgetConfig = {

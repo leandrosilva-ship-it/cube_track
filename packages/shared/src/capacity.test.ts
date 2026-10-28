@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_CALENDAR } from './business-days.js';
-import { dailyCapacity, dateRange, isoWeekStart, monthlyBuckets, suggestLeveling } from './capacity.js';
+import {
+  aggregateCapacityDays,
+  dailyCapacity,
+  dateRange,
+  isoWeekStart,
+  monthlyBuckets,
+  suggestLeveling,
+} from './capacity.js';
 
 describe('isoWeekStart', () => {
   it('segunda-feira retorna ela mesma', () => {
@@ -131,6 +138,49 @@ describe('suggestLeveling', () => {
         allocations: [{ id: 'a1', userId: 'u1', startDate: '2026-03-02', endDate: '2026-03-02', hoursPerDay: 4 }],
       }),
     ).toEqual([]);
+  });
+});
+
+describe('aggregateCapacityDays', () => {
+  it('granularidade dia retorna os próprios dias', () => {
+    const days = dailyCapacity({
+      from: '2026-03-02',
+      to: '2026-03-02',
+      calendar: DEFAULT_CALENDAR,
+      hoursPerDay: 8,
+      absences: [],
+      allocations: [],
+    });
+    expect(aggregateCapacityDays(days, 'day')).toEqual([
+      { bucket: '2026-03-02', nominalHours: 8, availableHours: 8, allocatedHours: 0, utilization: 0, overallocated: false },
+    ]);
+  });
+
+  it('granularidade semana soma a semana inteira (segunda a domingo)', () => {
+    const days = dailyCapacity({
+      from: '2026-03-02',
+      to: '2026-03-08',
+      calendar: DEFAULT_CALENDAR,
+      hoursPerDay: 8,
+      absences: [],
+      allocations: [{ startDate: '2026-03-02', endDate: '2026-03-02', hoursPerDay: 8 }],
+    });
+    const buckets = aggregateCapacityDays(days, 'week');
+    expect(buckets).toHaveLength(1);
+    expect(buckets[0]).toMatchObject({ bucket: '2026-03-02', nominalHours: 40, availableHours: 40, allocatedHours: 8 });
+  });
+
+  it('granularidade mês agrupa pelo primeiro dia do mês', () => {
+    const days = dailyCapacity({
+      from: '2026-02-27',
+      to: '2026-03-02',
+      calendar: DEFAULT_CALENDAR,
+      hoursPerDay: 8,
+      absences: [],
+      allocations: [],
+    });
+    const buckets = aggregateCapacityDays(days, 'month');
+    expect(buckets.map((bucket) => bucket.bucket)).toEqual(['2026-02-01', '2026-03-01']);
   });
 });
 

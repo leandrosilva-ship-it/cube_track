@@ -32,6 +32,12 @@ export const EMAIL_TEMPLATES = [
   'mention',
   'approval_requested',
   'notification_digest',
+  'absence_requested',
+  'absence_decided',
+  'resource_request_created',
+  'resource_request_fulfilled',
+  'timesheet_submitted',
+  'timesheet_decided',
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 

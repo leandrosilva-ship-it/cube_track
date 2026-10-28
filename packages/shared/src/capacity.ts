@@ -149,6 +149,52 @@ export function suggestLeveling(options: {
   return suggestions.filter((suggestion) => dayByDate.has(suggestion.fromDate));
 }
 
+export interface CapacityBucket {
+  /** Dia (`YYYY-MM-DD`), segunda-feira ISO da semana, ou primeiro dia do mês, conforme `granularity`. */
+  bucket: string;
+  nominalHours: number;
+  availableHours: number;
+  allocatedHours: number;
+  utilization: number;
+  overallocated: boolean;
+}
+
+/** Agrega `CapacityDay[]` por dia, semana (segunda a segunda) ou mês — para o heatmap e o widget. */
+export function aggregateCapacityDays(
+  days: readonly CapacityDay[],
+  granularity: 'day' | 'week' | 'month',
+): CapacityBucket[] {
+  if (granularity === 'day')
+    return days.map((day) => ({
+      bucket: day.date,
+      nominalHours: day.nominalHours,
+      availableHours: day.availableHours,
+      allocatedHours: day.allocatedHours,
+      utilization: day.utilization,
+      overallocated: day.overallocated,
+    }));
+  const keyOf = (date: string): string => (granularity === 'week' ? isoWeekStart(date) : `${date.slice(0, 7)}-01`);
+  const totals = new Map<string, { nominal: number; available: number; allocated: number }>();
+  for (const day of days) {
+    const key = keyOf(day.date);
+    const acc = totals.get(key) ?? { nominal: 0, available: 0, allocated: 0 };
+    acc.nominal += day.nominalHours;
+    acc.available += day.availableHours;
+    acc.allocated += day.allocatedHours;
+    totals.set(key, acc);
+  }
+  return [...totals.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([bucket, acc]) => ({
+      bucket,
+      nominalHours: acc.nominal,
+      availableHours: acc.available,
+      allocatedHours: acc.allocated,
+      utilization: acc.available > 0 ? acc.allocated / acc.available : acc.allocated > 0 ? Infinity : 0,
+      overallocated: acc.allocated > acc.available + 1e-9,
+    }));
+}
+
 export interface ForecastBucket {
   /** Início do mês (`YYYY-MM-01`). */
   month: string;

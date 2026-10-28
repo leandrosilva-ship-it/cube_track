@@ -117,6 +117,15 @@ export const capacityEs = {
     approve: 'Aprobar',
     reject: 'Rechazar',
   },
+  allocations: {
+    new: 'Nueva asignación',
+    newTitle: 'Asignar una persona a un ítem',
+    person: 'Persona',
+    item: 'Ítem',
+    noItem: 'Sin ítem específico',
+    hoursPerDay: 'Horas/día',
+    created: 'Asignación creada.',
+  },
   requests: {
     empty: 'No hay solicitudes de recurso abiertas.',
     assignTo: 'Asignar a',

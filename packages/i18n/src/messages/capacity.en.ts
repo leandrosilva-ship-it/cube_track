@@ -117,6 +117,15 @@ export const capacityEn = {
     approve: 'Approve',
     reject: 'Reject',
   },
+  allocations: {
+    new: 'New allocation',
+    newTitle: 'Allocate a person to an item',
+    person: 'Person',
+    item: 'Item',
+    noItem: 'No specific item',
+    hoursPerDay: 'Hours/day',
+    created: 'Allocation created.',
+  },
   requests: {
     empty: 'No open resource requests.',
     assignTo: 'Assign to',

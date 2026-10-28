@@ -1,12 +1,12 @@
 'use client';
 
 import { shiftDays } from '@cube-track/shared';
-import { Button, IconButton, Select, toast } from '@cube-track/ui';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button, Dialog, IconButton, Select, toast } from '@cube-track/ui';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
 
-import { useMembers } from '../shell/hooks';
+import { useMe, useMembers } from '../shell/hooks';
 import type { Allocation, BoardDetail, BoardView } from '@/lib/api/types';
 import { useErrorMessage } from '@/lib/errors/use-error-message';
 
@@ -21,6 +21,7 @@ import {
   useUpdateAllocation,
 } from './hooks';
 import { planAllocationMove } from './model';
+import { NewAllocationDialog } from './new-allocation-dialog';
 import { useWorkloadConfig } from './use-workload-config';
 
 export interface WorkloadViewProps {
@@ -47,8 +48,11 @@ export function WorkloadView({ board, view }: WorkloadViewProps) {
   const errorMessage = useErrorMessage();
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const [cursor, setCursor] = useState(today);
+  const [newAllocationOpen, setNewAllocationOpen] = useState(false);
   const { from, to } = rangeOf(cursor, config.granularity);
 
+  const me = useMe();
+  const canManage = (me.data?.tenant.permissions ?? []).includes('resources.manage');
   const members = useMembers();
   const teams = useTeams();
   const heatmap = useCapacityHeatmap({ from, to, granularity: config.granularity, boardId: board.id });
@@ -136,6 +140,17 @@ export function WorkloadView({ board, view }: WorkloadViewProps) {
         <span className="text-sm font-semibold">
           {from} – {to}
         </span>
+        {canManage ? (
+          <Button
+            size="sm"
+            onClick={() => {
+              setNewAllocationOpen(true);
+            }}
+          >
+            <Plus aria-hidden="true" />
+            {t('allocations.new')}
+          </Button>
+        ) : null}
         <div className="ms-auto flex gap-2">
           <Select
             aria-label={t('groupByLabel')}
@@ -211,6 +226,21 @@ export function WorkloadView({ board, view }: WorkloadViewProps) {
           </ul>
         </section>
       ) : null}
+      <Dialog
+        open={newAllocationOpen}
+        onOpenChange={(open) => {
+          setNewAllocationOpen(open);
+        }}
+      >
+        {newAllocationOpen ? (
+          <NewAllocationDialog
+            board={board}
+            onClose={() => {
+              setNewAllocationOpen(false);
+            }}
+          />
+        ) : null}
+      </Dialog>
     </div>
   );
 }

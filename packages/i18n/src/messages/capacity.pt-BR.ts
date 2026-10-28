@@ -117,6 +117,15 @@ export const capacityPtBR = {
     approve: 'Aprovar',
     reject: 'Rejeitar',
   },
+  allocations: {
+    new: 'Nova alocação',
+    newTitle: 'Alocar pessoa a um item',
+    person: 'Pessoa',
+    item: 'Item',
+    noItem: 'Sem item específico',
+    hoursPerDay: 'Horas/dia',
+    created: 'Alocação criada.',
+  },
   requests: {
     empty: 'Nenhuma solicitação de recurso em aberto.',
     assignTo: 'Alocar para',

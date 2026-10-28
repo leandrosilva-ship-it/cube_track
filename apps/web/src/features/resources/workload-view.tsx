@@ -6,7 +6,8 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useMemo, useState } from 'react';
 
-import { useMe, useMembers } from '../shell/hooks';
+import { useMembers } from '../shell/hooks';
+import { useTree } from '../workspace/hooks';
 import type { Allocation, BoardDetail, BoardView } from '@/lib/api/types';
 import { useErrorMessage } from '@/lib/errors/use-error-message';
 
@@ -51,8 +52,8 @@ export function WorkloadView({ board, view }: WorkloadViewProps) {
   const [newAllocationOpen, setNewAllocationOpen] = useState(false);
   const { from, to } = rangeOf(cursor, config.granularity);
 
-  const me = useMe();
-  const canManage = (me.data?.tenant.permissions ?? []).includes('resources.manage');
+  const tree = useTree(board.workspaceId);
+  const canManage = tree.data?.canManageResources ?? false;
   const members = useMembers();
   const teams = useTeams();
   const heatmap = useCapacityHeatmap({ from, to, granularity: config.granularity, boardId: board.id });

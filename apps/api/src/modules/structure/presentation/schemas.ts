@@ -51,6 +51,8 @@ export const TreeSchema = z.object({
   workspaceId: z.uuid(),
   canManageFolders: z.boolean(),
   canCreateBoards: z.boolean(),
+  canManageResources: z.boolean(),
+  canApproveTimesheet: z.boolean(),
   folders: z.array(FolderSchema),
   boards: z.array(TreeBoardSchema),
 });

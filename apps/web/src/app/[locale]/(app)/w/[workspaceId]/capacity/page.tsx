@@ -8,6 +8,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t('pageTitle') };
 }
 
-export default function Page() {
-  return <CapacityPage />;
+export default async function Page({ params }: { params: Promise<{ workspaceId: string }> }) {
+  const { workspaceId } = await params;
+  return <CapacityPage key={workspaceId} workspaceId={workspaceId} />;
 }

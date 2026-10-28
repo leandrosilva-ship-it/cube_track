@@ -347,6 +347,8 @@ export class StructureService {
       workspaceId,
       canManageFolders: permissions.includes('folder.manage'),
       canCreateBoards: permissions.includes('board.create'),
+      canManageResources: permissions.includes('resources.manage'),
+      canApproveTimesheet: permissions.includes('timesheet.approve'),
       folders: folderRows,
       boards: readable.map((board) => ({
         ...board,

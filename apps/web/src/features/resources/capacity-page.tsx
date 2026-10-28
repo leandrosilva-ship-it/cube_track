@@ -4,7 +4,7 @@ import { PageHeader } from '@/components/common/page-header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@cube-track/ui';
 import { useTranslations } from 'next-intl';
 
-import { useMe } from '../shell/hooks';
+import { useTree } from '../workspace/hooks';
 
 import { AbsencesPanel } from './absences-panel';
 import { ForecastPanel } from './forecast-panel';
@@ -19,11 +19,14 @@ import { WorkloadTab } from './workload-tab';
  * Solicitações) só aparece para quem tem `resources.manage`/`timesheet.approve` — o backend decide
  * de qualquer forma, isto é só para não mostrar uma tela que vai dar 403.
  */
-export function CapacityPage() {
+export interface CapacityPageProps {
+  workspaceId: string;
+}
+
+export function CapacityPage({ workspaceId }: CapacityPageProps) {
   const t = useTranslations('capacity');
-  const me = useMe();
-  const permissions = me.data?.tenant.permissions ?? [];
-  const canManage = permissions.includes('resources.manage') || permissions.includes('timesheet.approve');
+  const tree = useTree(workspaceId);
+  const canManage = (tree.data?.canManageResources ?? false) || (tree.data?.canApproveTimesheet ?? false);
 
   return (
     <div className="flex h-full flex-col pb-10">

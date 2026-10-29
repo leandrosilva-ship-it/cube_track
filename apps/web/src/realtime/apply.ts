@@ -554,6 +554,94 @@ export function applyRealtimeEvent(
       });
       return;
     }
+    case 'portfolio.changed': {
+      const { portfolioId, workspaceId } = event.payload as {
+        portfolioId: string;
+        workspaceId: string;
+        change: 'created' | 'updated' | 'deleted';
+      };
+      void queryClient.invalidateQueries({ queryKey: qk.portfoliosOf(workspaceId) });
+      void queryClient.invalidateQueries({ queryKey: qk.portfolio(portfolioId) });
+      void queryClient.invalidateQueries({ queryKey: qk.portfolioRollup(portfolioId) });
+      return;
+    }
+    case 'program.changed': {
+      const { programId, workspaceId } = event.payload as {
+        programId: string;
+        workspaceId: string;
+        portfolioId: string | null;
+        change: 'created' | 'updated' | 'deleted';
+      };
+      void queryClient.invalidateQueries({ queryKey: qk.programsOf(workspaceId) });
+      void queryClient.invalidateQueries({ queryKey: qk.program(programId) });
+      void queryClient.invalidateQueries({ queryKey: qk.programRollup(programId) });
+      return;
+    }
+    case 'score.changed': {
+      const { scoringModelId } = event.payload as {
+        scoreId: string;
+        scoringModelId: string;
+        boardId: string;
+      };
+      void queryClient.invalidateQueries({ queryKey: qk.scoringRanking(scoringModelId) });
+      void queryClient.invalidateQueries({ queryKey: qk.scoringValueEffort(scoringModelId) });
+      return;
+    }
+    case 'stage_gate.changed': {
+      if (boardId === null) return;
+      void queryClient.invalidateQueries({ queryKey: qk.stageGatesOfBoard(boardId) });
+      return;
+    }
+    case 'risk.changed': {
+      if (boardId === null) return;
+      void queryClient.invalidateQueries({ queryKey: qk.risksOfBoard(boardId) });
+      return;
+    }
+    case 'issue.changed': {
+      if (boardId === null) return;
+      void queryClient.invalidateQueries({ queryKey: qk.issuesOfBoard(boardId) });
+      return;
+    }
+    case 'budget.changed': {
+      const { boardId: eventBoardId } = event.payload as {
+        budgetId: string;
+        boardId: string | null;
+        programId: string | null;
+        portfolioId: string | null;
+        change: 'created' | 'updated' | 'deleted';
+      };
+      if (eventBoardId !== null) void queryClient.invalidateQueries({ queryKey: qk.budgetsOfBoard(eventBoardId) });
+      return;
+    }
+    case 'cost_entry.changed': {
+      const { budgetId } = event.payload as { costEntryId: string; budgetId: string; boardId: string | null };
+      void queryClient.invalidateQueries({ queryKey: qk.costEntriesOfBudget(budgetId) });
+      return;
+    }
+    case 'project_health.changed': {
+      if (boardId === null) return;
+      void queryClient.invalidateQueries({ queryKey: qk.projectHealth(boardId) });
+      void queryClient.invalidateQueries({ queryKey: qk.boardStatusReport(boardId) });
+      // RAG/EVM automático (ADR 0053): o evento não traz portfolioId/programId (o board recalculado
+      // pode pertencer a qualquer um) — invalida rollups/relatórios de portfólio e programa por
+      // substring, mesmo padrão de `dashboard.changed`/`allocation.changed` acima.
+      void queryClient.invalidateQueries({
+        predicate: (query) =>
+          query.queryKey.includes('rollup') ||
+          query.queryKey.includes('status-report') ||
+          (query.queryKey.includes('data') && query.queryKey.includes('dashboards')),
+      });
+      return;
+    }
+    case 'health_rule_set.changed': {
+      const { boardId: eventBoardId } = event.payload as { ruleSetId: string; boardId: string | null };
+      if (eventBoardId === null) {
+        void queryClient.invalidateQueries({ queryKey: qk.healthRulesDefault() });
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: qk.healthRulesOfBoard(eventBoardId) });
+      return;
+    }
     case 'notification.created':
       void queryClient.invalidateQueries({ queryKey: qk.notifications() });
       context.onNotification((event.payload as { title: string }).title);

@@ -548,3 +548,44 @@ pnpm --filter @cube-track/web test:e2e        # inclui os specs novos de capacid
 ```
 
 **Próximos passos:** Prompt 12, com Portfólio (programas, priorização por score, capacity e rollups de portfólio).
+
+## Prompt 12 — Resumo
+
+**Feito**
+
+- **Shared** (`packages/shared/src/portfolio.ts`): motor de RAG automático (`evaluateHealthRules`, `worstHealth`, `defaultHealthRules`), EVM (`plannedValueLinear`, `computeEvm` — PV/EV/AC/SPI/CPI/EAC/VAC), rollup Projeto→Programa→Portfólio (`aggregateRollup`, pior-caso de RAG, UST sempre `0` — Prompt 13), pontuação ponderada/WSJF (`computeWeightedScore`, `computeWsjf`, `wsjfInputFromScores`, `WSJF_KEYS`) e matriz valor×esforço por mediana (`classifyEffortValue`, `median`), e simulação what-if (`applyWhatIfChanges`, `summarizeWhatIf`). 10 eventos realtime novos (`portfolio.changed`, `program.changed`, `score.changed`, `stage_gate.changed`, `risk.changed`, `issue.changed`, `budget.changed`, `cost_entry.changed`, `project_health.changed`, `health_rule_set.changed`) e 3 tipos de widget de dashboard (`portfolio_rollup`, `risk_heatmap`, `budget_variance`).
+- **DB**: uma tabela nova (`health_rule_sets`, RAG configurável por board ou padrão do tenant) — `portfolios`/`programs`/`scoring_models`/`project_health`/`scores`/`stage_gates`/`risks`/`issues`/`budgets`/`cost_entries` já existiam desde o schema antecipado do Prompt 2, já seedados (portfólio "Contratos Públicos", programa "PMSP – Transformação Digital"). Colunas novas em `project_health` (`isAutomatic`, `overrideReason`, EVM bruto) e `scoring_models` (`method`). Nova função `app.portfolio_health_candidates()` (mesmo padrão `SECURITY DEFINER` de `app.sla_tracker_alerts()`) para o cron diário de recálculo.
+- **API** (`apps/api/src/modules/portfolio`, 4 controllers): portfólios/programas (CRUD+rollup), pontuação (ponderada/WSJF, ranking, matriz valor×esforço), what-if, stage-gates (CRUD+decidir+reordenar), riscos, problemas, orçamento+lançamentos de custo (de board, programa ou portfólio), regras de saúde (padrão do tenant + por board) e relatório de status (board/programa/portfólio, para export em PDF no frontend). Nenhuma permissão nova: `portfolio.manage`/`portfolio.read` (workspace) e `board.manage`/`board.read` (board), confirmado que `decide()` não precisa de um caso próprio para portfólio/programa.
+- **Worker**: `apps/worker/src/processors/portfolio.ts` recalcula saúde/RAG + EVM de um board a cada mudança de item/risco/orçamento/lançamento de custo (fila `QUEUES.portfolio`) e diariamente (cron `portfolio-health-daily`, já que o PV deriva do tempo decorrido). Projeto Health (Prompt 9) ganha `isAutomatic`/`overrideReason`/EVM bruto; sobrepor manualmente um relato automático agora exige `overrideReason`. Notificações novas: risco/problema atribuído (só na criação) e alerta de saúde quando o RAG automático piora para amarelo/vermelho.
+- **Frontend**: página standalone `/w/:workspaceId/portfolio` (hierarquia com rollup, priorização, what-if, relatório de status) em `apps/web/src/features/portfolio`; diálogo "Governança" no cabeçalho de boards `kind: 'project'` (stage-gates, riscos, problemas, orçamento/EVM, regras de saúde, relatório de status com export em PDF) em `apps/web/src/features/governance`; Project Health (Prompt 9) ganha selo Automático/Manual, números de EVM e o campo de justificativa condicionalmente obrigatório; 3 novos widgets de dashboard.
+- **Tempo real**: a maioria dos 10 eventos novos é room `board`; `portfolio.changed`/`program.changed` são sempre tenant (recurso de workspace inteiro); `budget.changed`/`health_rule_set.changed` variam conforme o dono (board vs. programa/portfólio/padrão do tenant). `apps/web/src/realtime/apply.ts` ganhou um `case` para cada um dos 10 (invalidação das listas/rollups/relatórios correspondentes; `project_health.changed` também invalida rollups/relatórios de portfólio/programa por predicado, já que o evento não carrega essas IDs).
+- **Testes**: `packages/shared` — `portfolio.test.ts` (23 casos) — 260 testes no total do pacote, todos passando. `apps/web` — 186 testes no total do pacote (inclui os 6 novos casos de `apply.test.ts` para os eventos deste prompt), todos passando. `packages/i18n` — 10 testes, todos passando. `apps/api`/`apps/worker`: `portfolio.e2e.test.ts` e a extensão de `processors.e2e.test.ts` escritos e revisados — **não executados neste ambiente** (sandbox sem Postgres/Redis/Docker), mesma limitação documentada desde o Prompt 3. E2E Playwright: specs novos de portfólio/governança escritos neste mesmo ciclo de trabalho (incluindo um cenário de dois navegadores para `risk.changed`) — também não executados neste ambiente.
+- **Documentação**: ADR 0053, `docs/portfolio.md` (novo), `docs/permissions.md` (seção "Gestão de Portfólio"), `docs/realtime-events.md` (10 tipos de evento novos).
+
+**Critérios de aceite**
+
+- ✅ **Alterar um item de projeto atualiza o rollup do programa e do portfólio em tempo real**: `item.updated` → fila `QUEUES.portfolio` → recálculo do worker → `project_health.changed` → `apps/web/src/realtime/apply.ts` invalida o cache de rollup/relatório de status de portfólio e programa (por predicado, já que o evento carrega só o `boardId`) — qualquer sessão com a tela de hierarquia aberta busca o rollup atualizado sem recarregar. Achado e corrigido durante a escrita dos testes E2E/documentação deste prompt: a wiring em `apply.ts` para os 10 eventos novos simplesmente não existia até este ponto da entrega.
+- ✅ **O RAG muda automaticamente quando a regra é violada (ex.: SPI < 0,9 → amarelo)**: `evaluateHealthRules` é real e testado (23 casos em `portfolio.test.ts`), chamado pelo worker a cada recálculo orientado a evento ou pelo cron diário — `defaultHealthRules()` já inclui exatamente o exemplo do critério de aceite (SPI < 0,9 → amarelo, < 0,8 → vermelho). Ressalva de latência prática: o recálculo é orientado a evento (item/risco/orçamento/custo) mais o cron diário — não é instantâneo para toda deriva possível de métrica (ex.: uma data-limite de período que só muda a PV por si só, sem nenhuma escrita de negócio, espera o cron do dia seguinte).
+
+**Pendências**
+
+- UST não entra no rollup (sempre `0`) — fica para o módulo de Contratos/OS/UST (Prompt 13).
+- `risk_assigned`/`issue_assigned` notificam só na criação — reatribuir o responsável de um risco/problema já existente via edição não notifica o novo responsável.
+- `plannedValueLinear` distribui o BAC linearmente pelo período do board — não há baseline time-phased (orçamento fatiado por fase/marco).
+- `classifyEffortValue` (matriz valor×esforço) usa a mediana da amostra corrente, não um corte absoluto de "alto"/"baixo" — os quadrantes mudam conforme os projetos pontuados no momento.
+- `apps/api`/`apps/worker`: `portfolio.e2e.test.ts` e a extensão de `processors.e2e.test.ts` escritos mas não executados nesta sessão (sandbox sem Postgres/Redis/Docker); os novos specs Playwright de portfólio/governança também não executados. Rodar `pnpm db:reset && pnpm db:seed && pnpm test` e `pnpm --filter @cube-track/web test:e2e` num ambiente com a infraestrutura antes de considerar o prompt validado em produção.
+- `docs/openapi.json` não foi regenerado nesta sessão (`pnpm --filter @cube-track/api openapi:export` exige Postgres/Redis vivos) — regenerar num ambiente com a infraestrutura.
+
+**Como rodar e testar**
+
+```bash
+pnpm infra:up && pnpm db:reset && pnpm db:seed
+pnpm build
+pnpm --filter @cube-track/api start      # API :3001
+pnpm --filter @cube-track/worker start   # relay + recálculo de saúde/RAG + notificações
+pnpm --filter @cube-track/web start      # web :3000 — ana.ribeiro@empresademo.com.br / CubeTrack@2026
+pnpm lint && pnpm typecheck && pnpm test
+pnpm --filter @cube-track/web test:e2e        # inclui os specs novos de portfólio/governança em apps/web/e2e/
+```
+
+**Próximos passos:** Prompt 13, com Contratos/OS/UST.

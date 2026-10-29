@@ -477,3 +477,110 @@ describe('Prompt 7: painel do item (atualizações, arquivos, checklists, aprova
     expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.timesheetApprovalsPending() });
   });
 });
+
+describe('Prompt 12: portfólio, governança e RAG automático', () => {
+  it('portfolio.changed e program.changed invalidam a lista do workspace e o próprio rollup', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('portfolio.changed', { portfolioId: 'pf1', workspaceId: 'ws1', change: 'updated' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.portfoliosOf('ws1') });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.portfolio('pf1') });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.portfolioRollup('pf1') });
+
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('program.changed', { programId: 'pg1', workspaceId: 'ws1', portfolioId: 'pf1', change: 'created' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.programsOf('ws1') });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.program('pg1') });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.programRollup('pg1') });
+  });
+
+  it('score.changed invalida o ranking e a matriz valor×esforço do modelo', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('score.changed', { scoreId: 's1', scoringModelId: 'sm1', boardId: BOARD_ID }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.scoringRanking('sm1') });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.scoringValueEffort('sm1') });
+  });
+
+  it('stage_gate/risk/issue.changed invalidam a lista do board correspondente', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('stage_gate.changed', { gateId: 'g1', boardId: BOARD_ID, change: 'decided' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.stageGatesOfBoard(BOARD_ID) });
+
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('risk.changed', { riskId: 'r1', boardId: BOARD_ID, change: 'created' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.risksOfBoard(BOARD_ID) });
+
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('issue.changed', { issueId: 'i1', boardId: BOARD_ID, change: 'resolved' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.issuesOfBoard(BOARD_ID) });
+  });
+
+  it('budget.changed invalida os orçamentos do board; cost_entry.changed invalida os lançamentos do orçamento', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('budget.changed', { budgetId: 'b1', boardId: BOARD_ID, programId: null, portfolioId: null, change: 'created' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.budgetsOfBoard(BOARD_ID) });
+
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('cost_entry.changed', { costEntryId: 'c1', budgetId: 'b1', boardId: BOARD_ID, change: 'created' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.costEntriesOfBudget('b1') });
+  });
+
+  it('project_health.changed (RAG/EVM automático) invalida a saúde, o status report e, por predicado, rollups/relatórios/dashboards', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('project_health.changed', { healthId: 'ph1', boardId: BOARD_ID, overall: 'yellow', isAutomatic: true }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.projectHealth(BOARD_ID) });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.boardStatusReport(BOARD_ID) });
+    expect(invalidatedByPredicate(invalidate, qk.portfolioRollup('qualquer-pf'))).toBe(true);
+    expect(invalidatedByPredicate(invalidate, qk.programRollup('qualquer-pg'))).toBe(true);
+  });
+
+  it('health_rule_set.changed invalida o padrão do tenant (boardId nulo) ou as regras do board', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(queryClient, makeEvent('health_rule_set.changed', { ruleSetId: 'hr1', boardId: null }), context());
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.healthRulesDefault() });
+
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('health_rule_set.changed', { ruleSetId: 'hr2', boardId: BOARD_ID }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.healthRulesOfBoard(BOARD_ID) });
+  });
+});

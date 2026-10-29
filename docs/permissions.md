@@ -228,3 +228,27 @@ Duas permissões de workspace (já existiam no catálogo desde o Prompt 2, sem c
 | Exportar apontamentos em CSV                                                                   | a própria pessoa, ou `timesheet.approve` para exportar os de outra pessoa                        |
 
 O motor de capacidade (`CapacityService`) nunca inclui `resourceProfiles.costRateHour`/`billRateHour` nas respostas de heatmap/nivelamento/what-if/previsão — são dados de compensação, nunca expostos fora da tela de perfil (`resources.manage`).
+
+### Gestão de Portfólio (Prompt 12, ADR 0053)
+
+Nenhuma permissão nova: `portfolio.manage`/`portfolio.read` (workspace, já existiam desde o Prompt 2) governam portfólios, programas, pontuação e what-if; `board.manage`/`board.read` (já existiam) governam riscos, problemas, stage-gates e o orçamento/relatório/regras de saúde de um board específico. `decide()`/`ResourceRef` não tem um caso próprio para `type: 'portfolio'`/`type: 'program'` — mesmo modelo achatado de `dashboard.create`.
+
+| Operação                                                                                   | Permissão exigida                                                                              |
+| --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Listar portfólios/programas de um workspace                                                   | `workspace.read`                                                                                 |
+| Criar/editar/excluir portfólio ou programa, ver rollup                                         | `portfolio.read` (ver rollup) / `portfolio.manage` (escrever)                                   |
+| Listar/criar/editar modelo de pontuação (weighted/WSJF)                                        | `portfolio.read` (ver) / `portfolio.manage` (escrever)                                          |
+| Pontuar um board específico (`POST boards/:boardId/score`)                                     | `board.manage` do board pontuado                                                                 |
+| Ver ranking / matriz valor × esforço de um modelo de pontuação                                 | `portfolio.read`                                                                                 |
+| Simular cenário what-if de portfólio                                                            | `portfolio.manage`                                                                               |
+| Listar/criar/editar/excluir/decidir/reordenar stage gates de um board                           | `board.read` (listar) / `board.manage` (demais)                                                 |
+| Listar/criar/editar/excluir riscos ou problemas de um board                                     | `board.read` (listar) / `board.manage` (demais)                                                 |
+| Listar/criar orçamento de um board                                                               | `board.read` (listar) / `board.manage` (criar)                                                   |
+| Criar orçamento de um programa ou portfólio inteiro                                             | `portfolio.manage`                                                                                |
+| Editar/excluir um orçamento, ou seus lançamentos de custo                                       | permissão do dono do orçamento (`board.manage` se for de um board; `portfolio.manage` se for de programa/portfólio) |
+| Ver/editar o conjunto de regras de saúde (RAG automático) padrão do tenant                      | `workspace.read` (ver) / `portfolio.manage` (editar)                                            |
+| Ver/editar o conjunto de regras de saúde de um board específico                                 | `board.read` (ver) / `board.manage` (editar)                                                    |
+| Ver relatório de status de um board                                                             | `board.read`                                                                                      |
+| Ver relatório de status de um portfólio ou programa                                             | `portfolio.read`                                                                                  |
+
+Sobrepor manualmente (`POST .../project-health`, Prompt 9) o relato automático mais recente de um board exige `overrideReason` não vazio no corpo — a API recusa com 400 (`path: 'body.overrideReason'`) sem ele; a permissão continua a mesma (`board.manage`), só a validação de corpo muda conforme o estado do servidor.

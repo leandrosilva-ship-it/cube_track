@@ -23,6 +23,9 @@ export const dashboardsEs: typeof dashboardsPtBR = {
     workload: 'Carga por persona',
     project_health: 'Salud del proyecto',
     capacity: 'Capacidad',
+    portfolio_rollup: 'Resumen de portafolio/programa',
+    risk_heatmap: 'Matriz de riesgos',
+    budget_variance: 'Planificado vs. real',
   },
   widgetMenu: {
     open: 'Acciones del widget',
@@ -70,6 +73,12 @@ export const dashboardsEs: typeof dashboardsPtBR = {
     },
     capacityPeople: 'Personas (opcional — todas si no se marca ninguna)',
     capacitySkill: 'Habilidad',
+    rollupScope: 'Alcance',
+    rollupScopeOptions: {
+      portfolio: 'Portafolio',
+      program: 'Programa',
+    },
+    rollupTarget: 'Portafolio/programa',
     aggregate: {
       label: 'Agregación',
       sum: 'Suma',
@@ -84,11 +93,18 @@ export const dashboardsEs: typeof dashboardsPtBR = {
     report: 'Informar salud',
     reported: 'Salud del proyecto informada.',
     dialogTitle: 'Informar salud del proyecto',
-    dialogDescription: 'Un nuevo registro histórico, siempre manual — nada se recalcula automáticamente.',
+    dialogDescription:
+      'Un nuevo registro histórico manual. Además de este informe, la salud se recalcula automáticamente mediante reglas (ADR 0053) cada vez que cambian el cronograma, el presupuesto o los riesgos.',
     submit: 'Informar',
     summary: 'Resumen',
     percentComplete: '% completado',
     reportedAt: 'Informado el {date}',
+    automatic: 'Automático',
+    manual: 'Manual',
+    overrideReason: 'Justificación de la sobreposición',
+    overrideReasonHint:
+      'El último informe fue calculado automáticamente por las reglas de salud. Explique por qué este informe manual lo sobrepone.',
+    overrideReasonRequired: 'Se requiere una justificación para sobreponer un informe automático.',
     dimension: {
       overall: 'General',
       schedule: 'Plazo',

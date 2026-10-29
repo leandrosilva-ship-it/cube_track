@@ -6,8 +6,10 @@ import { itemPanelEn } from './collaboration.en.js';
 import { dashboardsEn } from './dashboards.en.js';
 import { formsEn } from './forms.en.js';
 import { ganttEn } from './gantt.en.js';
+import { governanceEn } from './governance.en.js';
 import { kanbanEn } from './kanban.en.js';
 import { planningEn } from './planning.en.js';
+import { portfolioEn } from './portfolio.en.js';
 import { processesEn } from './processes.en.js';
 import { tableEn } from './table.en.js';
 import { timelineEn } from './timeline.en.js';
@@ -261,6 +263,7 @@ export const en: Messages = {
     integrate: 'Integrate',
     automate: 'Automate',
     process: 'Process',
+    governance: 'Governance',
     agents: 'Agents',
     featureLater: 'Available when the module is enabled for this organization.',
     inviteDialog: {
@@ -401,6 +404,8 @@ export const en: Messages = {
   webhooks: webhooksEn,
   timesheet: timesheetEn,
   capacity: capacityEn,
+  portfolio: portfolioEn,
+  governance: governanceEn,
   palette: {
     title: 'Command palette',
     placeholder: 'Search boards, pages and actions…',
@@ -494,6 +499,7 @@ export const en: Messages = {
     empty: 'This workspace has no boards yet.',
     dashboards: 'Dashboards',
     capacity: 'Capacity',
+    portfolio: 'Portfolio',
   },
   settings: {
     title: 'Settings',

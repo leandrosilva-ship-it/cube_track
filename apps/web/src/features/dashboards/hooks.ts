@@ -178,6 +178,7 @@ export interface ReportProjectHealthInput {
   spi?: number;
   cpi?: number;
   summary?: string;
+  overrideReason?: string;
 }
 
 export function useReportProjectHealth(boardId: string) {

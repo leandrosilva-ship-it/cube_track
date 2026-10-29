@@ -21,6 +21,7 @@ import {
   Pencil,
   Plug,
   Share2,
+  ShieldCheck,
   Star,
   UserPlus,
   Workflow,
@@ -35,6 +36,7 @@ import { openDialog } from '@/stores/shell';
 import { useSession } from '@/stores/session';
 
 import { AutomationsDialog } from '../automations/automations-dialog';
+import { GovernanceDialog } from '../governance/governance-dialog';
 import { ProcessSettingsDialog } from '../processes/process-settings-dialog';
 import { useFavorites, useToggleFavorite } from '../workspace/hooks';
 import { WebhooksDialog } from '../webhooks/webhooks-dialog';
@@ -82,12 +84,13 @@ export function BoardHeader({ board }: { board: BoardDetail }) {
   const canAutomate = board.permissions.includes('automation.manage');
   const canManageProcess = board.kind === 'process' && board.permissions.includes('process.manage');
   const canManageWebhooks = board.permissions.includes('webhook.manage');
+  const canGovernance = board.kind === 'project';
   const canInvite = useSession((state) => state.tenant !== null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(board.description ?? '');
-  const [dialog, setDialog] = useState<'invite' | 'share' | 'automate' | 'process' | 'webhooks' | null>(
-    null,
-  );
+  const [dialog, setDialog] = useState<
+    'invite' | 'share' | 'automate' | 'process' | 'webhooks' | 'governance' | null
+  >(null);
   const isFavorite = (favorites.data ?? []).some((entry) => entry.entityId === board.id);
 
   const saveDescription = () => {
@@ -302,6 +305,22 @@ export function BoardHeader({ board }: { board: BoardDetail }) {
             ) : (
               <ModuleButton icon={<Plug aria-hidden="true" />} label={t('integrate')} hint={t('featureLater')} />
             )}
+            {dialog === 'governance' && canGovernance ? <GovernanceDialog board={board} /> : null}
+            {canGovernance ? (
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDialog('governance');
+                  }}
+                >
+                  <ShieldCheck aria-hidden="true" />
+                  <span className="hidden xl:inline">{t('governance')}</span>
+                  <span className="sr-only xl:hidden">{t('governance')}</span>
+                </Button>
+              </DialogTrigger>
+            ) : null}
           </Dialog>
           <ModuleButton
             icon={<Bot aria-hidden="true" />}

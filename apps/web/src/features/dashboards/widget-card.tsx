@@ -8,17 +8,22 @@ import {
   Battery,
   CalendarClock,
   Download,
+  Flame,
   HeartPulse,
   Hash,
+  Layers,
   MoreVertical,
   PieChart,
   Pencil,
   Trash2,
   Users,
+  Wallet,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import type { Widget, WidgetData, WidgetType } from '@/lib/api/types';
+
+import { RollupCard } from '../portfolio/rollup-card';
 
 import { widgetExportUrl } from './hooks';
 import { chartBarOption, chartPieOption } from './model';
@@ -32,6 +37,9 @@ const WIDGET_ICONS: Record<WidgetType, typeof Hash> = {
   workload: Users,
   project_health: HeartPulse,
   capacity: CalendarClock,
+  portfolio_rollup: Layers,
+  risk_heatmap: Flame,
+  budget_variance: Wallet,
 };
 
 export interface WidgetCardProps {
@@ -168,7 +176,79 @@ function WidgetBody({
       return <ProjectHealthWidgetBody data={data} onReport={onReportHealth} />;
     case 'capacity':
       return <CapacityBody data={data} />;
+    case 'portfolio_rollup':
+      return <PortfolioRollupBody data={data} />;
+    case 'risk_heatmap':
+      return <RiskHeatmapBody data={data} />;
+    case 'budget_variance':
+      return <BudgetVarianceBody data={data} />;
   }
+}
+
+function PortfolioRollupBody({ data }: { data: Extract<WidgetData, { kind: 'portfolio_rollup' }> }) {
+  const t = useTranslations('dashboards');
+  if (data.name === null) return <EmptyBody message={t('widgetMenu.noData')} />;
+  return (
+    <div className="flex h-full flex-col gap-2 overflow-y-auto">
+      <p className="text-sm font-medium">{data.name}</p>
+      <RollupCard rollup={data.rollup} compact />
+    </div>
+  );
+}
+
+const RISK_SCORE_COLOR = (score: number): string => {
+  if (score >= 15) return '#df2f4a';
+  if (score >= 8) return '#ffcb00';
+  return '#00c875';
+};
+
+function RiskHeatmapBody({ data }: { data: Extract<WidgetData, { kind: 'risk_heatmap' }> }) {
+  const t = useTranslations('dashboards');
+  if (data.risks.length === 0) return <EmptyBody message={t('widgetMenu.noData')} />;
+  const cells = new Map<string, number>();
+  for (const risk of data.risks) {
+    const key = `${risk.probability}-${risk.impact}`;
+    cells.set(key, (cells.get(key) ?? 0) + 1);
+  }
+  return (
+    <div className="flex h-full flex-col justify-center gap-1 overflow-y-auto">
+      <div className="grid grid-cols-5 gap-1" role="img" aria-label={t('widgetType.risk_heatmap')}>
+        {Array.from({ length: 5 }, (_, impactIndex) => 5 - impactIndex).map((impact) =>
+          Array.from({ length: 5 }, (_, index) => index + 1).map((probability) => {
+            const count = cells.get(`${probability}-${impact}`) ?? 0;
+            return (
+              <div
+                key={`${probability}-${impact}`}
+                className="flex aspect-square items-center justify-center rounded text-xs font-medium text-white"
+                style={{ backgroundColor: count === 0 ? '#e5e5e5' : RISK_SCORE_COLOR(probability * impact) }}
+              >
+                {count === 0 ? '' : count}
+              </div>
+            );
+          }),
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BudgetVarianceBody({ data }: { data: Extract<WidgetData, { kind: 'budget_variance' }> }) {
+  const t = useTranslations('dashboards');
+  if (data.budgets.length === 0) return <EmptyBody message={t('widgetMenu.noData')} />;
+  return (
+    <ul className="flex h-full flex-col justify-center gap-2 overflow-y-auto text-xs">
+      {data.budgets.map((budget) => (
+        <li key={budget.budgetId} className="flex items-center justify-between gap-2">
+          <span className="truncate" title={budget.boardName ?? budget.name}>
+            {budget.boardName ?? budget.name}
+          </span>
+          <span className="tabular-nums text-fg-muted">
+            {Number(budget.plannedAmount).toLocaleString('pt-BR')} / {Number(budget.actualAmount).toLocaleString('pt-BR')}
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function BatteryBody({ data }: { data: Extract<WidgetData, { kind: 'battery' }> }) {

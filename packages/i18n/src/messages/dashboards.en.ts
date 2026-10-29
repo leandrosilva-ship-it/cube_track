@@ -23,6 +23,9 @@ export const dashboardsEn: typeof dashboardsPtBR = {
     workload: 'Workload per person',
     project_health: 'Project health',
     capacity: 'Capacity',
+    portfolio_rollup: 'Portfolio/program rollup',
+    risk_heatmap: 'Risk matrix',
+    budget_variance: 'Planned vs. actual',
   },
   widgetMenu: {
     open: 'Widget actions',
@@ -70,6 +73,12 @@ export const dashboardsEn: typeof dashboardsPtBR = {
     },
     capacityPeople: 'People (optional — all if none checked)',
     capacitySkill: 'Skill',
+    rollupScope: 'Scope',
+    rollupScopeOptions: {
+      portfolio: 'Portfolio',
+      program: 'Program',
+    },
+    rollupTarget: 'Portfolio/program',
     aggregate: {
       label: 'Aggregate',
       sum: 'Sum',
@@ -84,11 +93,18 @@ export const dashboardsEn: typeof dashboardsPtBR = {
     report: 'Report health',
     reported: 'Project health reported.',
     dialogTitle: 'Report project health',
-    dialogDescription: 'A new history entry, always manual — nothing is recalculated automatically.',
+    dialogDescription:
+      'A new manual history entry. Besides this report, health is automatically recomputed by rules (ADR 0053) whenever schedule, budget or risks change.',
     submit: 'Report',
     summary: 'Summary',
     percentComplete: '% complete',
     reportedAt: 'Reported on {date}',
+    automatic: 'Automatic',
+    manual: 'Manual',
+    overrideReason: 'Override justification',
+    overrideReasonHint:
+      'The latest report was computed automatically by the health rules. Explain why this manual report overrides it.',
+    overrideReasonRequired: 'A justification is required to override an automatic report.',
     dimension: {
       overall: 'Overall',
       schedule: 'Schedule',

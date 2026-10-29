@@ -9,8 +9,10 @@ import { itemPanelPtBR } from './collaboration.pt-BR.js';
 import { dashboardsPtBR } from './dashboards.pt-BR.js';
 import { formsPtBR } from './forms.pt-BR.js';
 import { ganttPtBR } from './gantt.pt-BR.js';
+import { governancePtBR } from './governance.pt-BR.js';
 import { kanbanPtBR } from './kanban.pt-BR.js';
 import { planningPtBR } from './planning.pt-BR.js';
+import { portfolioPtBR } from './portfolio.pt-BR.js';
 import { processesPtBR } from './processes.pt-BR.js';
 import { tablePtBR } from './table.pt-BR.js';
 import { timelinePtBR } from './timeline.pt-BR.js';
@@ -264,6 +266,7 @@ export const ptBR = {
     integrate: 'Integrar',
     automate: 'Automatizar',
     process: 'Processo',
+    governance: 'Governança',
     agents: 'Agentes',
     featureLater: 'Disponível quando o módulo for habilitado para esta organização.',
     inviteDialog: {
@@ -403,6 +406,8 @@ export const ptBR = {
   webhooks: webhooksPtBR,
   timesheet: timesheetPtBR,
   capacity: capacityPtBR,
+  portfolio: portfolioPtBR,
+  governance: governancePtBR,
   palette: {
     title: 'Paleta de comandos',
     placeholder: 'Buscar boards, páginas e ações…',
@@ -496,6 +501,7 @@ export const ptBR = {
     empty: 'Este workspace ainda não tem boards.',
     dashboards: 'Dashboards',
     capacity: 'Capacidade',
+    portfolio: 'Portfólio',
   },
   settings: {
     title: 'Configurações',

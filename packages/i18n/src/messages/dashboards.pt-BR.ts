@@ -22,6 +22,9 @@ export const dashboardsPtBR = {
     workload: 'Carga por pessoa',
     project_health: 'Saúde do projeto',
     capacity: 'Capacidade',
+    portfolio_rollup: 'Rollup de portfólio/programa',
+    risk_heatmap: 'Matriz de riscos',
+    budget_variance: 'Planejado x realizado',
   },
   widgetMenu: {
     open: 'Mais ações do widget',
@@ -69,6 +72,12 @@ export const dashboardsPtBR = {
     },
     capacityPeople: 'Pessoas (opcional — todas se nenhuma marcada)',
     capacitySkill: 'Skill',
+    rollupScope: 'Escopo',
+    rollupScopeOptions: {
+      portfolio: 'Portfólio',
+      program: 'Programa',
+    },
+    rollupTarget: 'Portfólio/programa',
     aggregate: {
       label: 'Agregação',
       sum: 'Soma',
@@ -83,11 +92,18 @@ export const dashboardsPtBR = {
     report: 'Relatar saúde',
     reported: 'Saúde do projeto relatada.',
     dialogTitle: 'Relatar saúde do projeto',
-    dialogDescription: 'Um novo registro histórico, sempre manual — não recalcula automaticamente.',
+    dialogDescription:
+      'Um novo registro histórico manual. Além deste relato, a saúde é recalculada automaticamente por regras (ADR 0053) sempre que o cronograma, o orçamento ou os riscos mudam.',
     submit: 'Relatar',
     summary: 'Resumo',
     percentComplete: '% concluído',
     reportedAt: 'Relatado em {date}',
+    automatic: 'Automático',
+    manual: 'Manual',
+    overrideReason: 'Justificativa da sobreposição',
+    overrideReasonHint:
+      'O último relato foi calculado automaticamente pelas regras de saúde. Explique por que este relato manual o sobrepõe.',
+    overrideReasonRequired: 'Justificativa obrigatória para sobrepor um relato automático.',
     dimension: {
       overall: 'Geral',
       schedule: 'Prazo',

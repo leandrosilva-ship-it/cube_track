@@ -7,7 +7,7 @@ import { useState } from 'react';
 import type { HealthStatus } from '@/lib/api/types';
 import { useErrorMessage } from '@/lib/errors/use-error-message';
 
-import { useReportProjectHealth } from './hooks';
+import { useProjectHealthHistory, useReportProjectHealth } from './hooks';
 
 const DIMENSIONS = ['schedule', 'cost', 'scope', 'quality', 'risk'] as const;
 const STATUSES: HealthStatus[] = ['green', 'yellow', 'red', 'grey'];
@@ -22,7 +22,9 @@ export function ProjectHealthDialog({ boardId, onClose }: ProjectHealthDialogPro
   const t = useTranslations('dashboards.projectHealth');
   const tc = useTranslations('common');
   const errorMessage = useErrorMessage();
+  const history = useProjectHealthHistory(boardId);
   const report = useReportProjectHealth(boardId);
+  const latestIsAutomatic = history.data?.[0]?.isAutomatic === true;
   const [overall, setOverall] = useState<HealthStatus>('green');
   const [dimensions, setDimensions] = useState<Record<(typeof DIMENSIONS)[number], HealthStatus>>({
     schedule: 'grey',
@@ -35,10 +37,16 @@ export function ProjectHealthDialog({ boardId, onClose }: ProjectHealthDialogPro
   const [spi, setSpi] = useState('');
   const [cpi, setCpi] = useState('');
   const [summary, setSummary] = useState('');
+  const [overrideReason, setOverrideReason] = useState('');
+  const overrideReasonMissing = latestIsAutomatic && overrideReason.trim() === '';
 
   const statusOptions = STATUSES.map((status) => ({ value: status, label: t(`status.${status}`) }));
 
   const submit = async () => {
+    if (overrideReasonMissing) {
+      toast.error(t('overrideReasonRequired'));
+      return;
+    }
     try {
       await report.mutateAsync({
         overall,
@@ -47,6 +55,7 @@ export function ProjectHealthDialog({ boardId, onClose }: ProjectHealthDialogPro
         ...(spi === '' ? {} : { spi: Number(spi) }),
         ...(cpi === '' ? {} : { cpi: Number(cpi) }),
         ...(summary.trim() === '' ? {} : { summary: summary.trim() }),
+        ...(overrideReason.trim() === '' ? {} : { overrideReason: overrideReason.trim() }),
       });
       toast.success(t('reported'));
       onClose();
@@ -136,6 +145,21 @@ export function ProjectHealthDialog({ boardId, onClose }: ProjectHealthDialogPro
             rows={3}
           />
         </Field>
+        {latestIsAutomatic ? (
+          <Field
+            label={t('overrideReason')}
+            hint={t('overrideReasonHint')}
+            error={overrideReasonMissing ? t('overrideReasonRequired') : undefined}
+          >
+            <Textarea
+              value={overrideReason}
+              onChange={(event) => {
+                setOverrideReason(event.target.value);
+              }}
+              rows={2}
+            />
+          </Field>
+        ) : null}
       </div>
     </Modal>
   );

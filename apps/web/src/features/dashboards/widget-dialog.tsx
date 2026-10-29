@@ -11,6 +11,7 @@ import { useErrorMessage } from '@/lib/errors/use-error-message';
 import { qk } from '@/lib/query/keys';
 
 import { useBoard } from '../board/hooks';
+import { usePortfolios, usePrograms } from '../portfolio/model';
 import { useMembers } from '../shell/hooks';
 import { useWorkspaceBoards } from '../table/hooks';
 import { useCreateWidget, useUpdateWidget } from './hooks';
@@ -82,6 +83,12 @@ export function WidgetDialog({
   );
   const [capacityUserIds, setCapacityUserIds] = useState<string[]>((config.userIds as string[] | undefined) ?? []);
   const [capacitySkillId, setCapacitySkillId] = useState((config.skillId as string | undefined) ?? '');
+  const [rollupScope, setRollupScope] = useState<'portfolio' | 'program'>(
+    (config.scope as 'portfolio' | 'program' | undefined) ?? 'portfolio',
+  );
+  const [rollupId, setRollupId] = useState((config.id as string | undefined) ?? '');
+  const portfoliosQuery = usePortfolios(workspaceId);
+  const programsQuery = usePrograms(workspaceId);
   const members = useMembers();
   const skillsQuery = useQuery({
     queryKey: qk.skills(),
@@ -124,6 +131,12 @@ export function WidgetDialog({
           ...(capacityGroupBy === 'person' && capacityUserIds.length > 0 ? { userIds: capacityUserIds } : {}),
           ...(capacityGroupBy === 'skill' && capacitySkillId !== '' ? { skillId: capacitySkillId } : {}),
         };
+      case 'portfolio_rollup':
+        return rollupId === '' ? null : { scope: rollupScope, id: rollupId };
+      case 'risk_heatmap':
+        return { boardIds };
+      case 'budget_variance':
+        return { boardIds };
     }
   };
 
@@ -352,6 +365,33 @@ export function WidgetDialog({
                 />
               </Field>
             ) : null}
+          </>
+        ) : null}
+
+        {type === 'portfolio_rollup' ? (
+          <>
+            <Field label={t('widgetDialog.rollupScope')}>
+              <Select
+                value={rollupScope}
+                options={(['portfolio', 'program'] as const).map((value) => ({
+                  value,
+                  label: t(`widgetDialog.rollupScopeOptions.${value}`),
+                }))}
+                onValueChange={(value) => {
+                  setRollupScope(value as 'portfolio' | 'program');
+                  setRollupId('');
+                }}
+              />
+            </Field>
+            <Field label={t('widgetDialog.rollupTarget')}>
+              <Select
+                value={rollupId}
+                options={(rollupScope === 'portfolio' ? (portfoliosQuery.data ?? []) : (programsQuery.data ?? [])).map(
+                  (entry) => ({ value: entry.id, label: entry.name }),
+                )}
+                onValueChange={setRollupId}
+              />
+            </Field>
           </>
         ) : null}
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { Button } from '@cube-track/ui';
+import { Badge, Button } from '@cube-track/ui';
 import { useTranslations } from 'next-intl';
 
 import type { HealthStatus, WidgetData } from '@/lib/api/types';
@@ -37,6 +37,11 @@ export function ProjectHealthWidgetBody({ data, onReport }: ProjectHealthWidgetB
   const latest = data.latest;
   return (
     <div className="flex h-full flex-col justify-center gap-3 overflow-y-auto">
+      <div className="flex justify-center">
+        <Badge tone={latest.isAutomatic ? 'primary' : 'neutral'}>
+          {latest.isAutomatic ? t('projectHealth.automatic') : t('projectHealth.manual')}
+        </Badge>
+      </div>
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
         {DIMENSIONS.map((dimension) => (
           <div key={dimension} className="flex flex-col items-center gap-1">
@@ -67,6 +72,22 @@ export function ProjectHealthWidgetBody({ data, onReport }: ProjectHealthWidgetB
             <div className="flex gap-1">
               <dt className="text-fg-muted">CPI</dt>
               <dd className="font-medium tabular-nums">{latest.cpi}</dd>
+            </div>
+          ) : null}
+        </dl>
+      ) : null}
+      {latest.eac !== null || latest.vac !== null ? (
+        <dl className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs">
+          {latest.eac !== null ? (
+            <div className="flex gap-1">
+              <dt className="text-fg-muted">EAC</dt>
+              <dd className="font-medium tabular-nums">{latest.eac}</dd>
+            </div>
+          ) : null}
+          {latest.vac !== null ? (
+            <div className="flex gap-1">
+              <dt className="text-fg-muted">VAC</dt>
+              <dd className="font-medium tabular-nums">{latest.vac}</dd>
             </div>
           ) : null}
         </dl>

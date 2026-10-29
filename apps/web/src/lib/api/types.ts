@@ -766,7 +766,10 @@ export type WidgetType =
   | 'battery'
   | 'workload'
   | 'project_health'
-  | 'capacity';
+  | 'capacity'
+  | 'portfolio_rollup'
+  | 'risk_heatmap'
+  | 'budget_variance';
 
 export interface Dashboard {
   id: string;
@@ -822,12 +825,30 @@ export type WidgetData =
   | {
       kind: 'project_health';
       latest: ProjectHealthEntry | null;
-      history: { id: string; reportedAt: string; overall: HealthStatus }[];
+      history: { id: string; reportedAt: string; overall: HealthStatus; isAutomatic: boolean }[];
     }
   | {
       kind: 'capacity';
       granularity: CapacityGranularity;
       rows: { userId: string; userName: string; buckets: CapacityBucket[] }[];
+    }
+  | { kind: 'portfolio_rollup'; scope: 'portfolio' | 'program'; name: string | null; rollup: RollupResult }
+  | {
+      kind: 'risk_heatmap';
+      risks: { id: string; title: string; boardId: string; probability: number; impact: number; status: string }[];
+    }
+  | {
+      kind: 'budget_variance';
+      budgets: {
+        budgetId: string;
+        boardId: string | null;
+        boardName: string | null;
+        name: string;
+        category: 'capex' | 'opex';
+        plannedAmount: string;
+        actualAmount: string;
+        forecastAmount: string;
+      }[];
     };
 
 export interface DashboardWidgetData {
@@ -851,6 +872,13 @@ export interface ProjectHealthEntry {
   spi: string | null;
   cpi: string | null;
   summary: string | null;
+  isAutomatic: boolean;
+  overrideReason: string | null;
+  plannedValue: string | null;
+  earnedValue: string | null;
+  actualCost: string | null;
+  eac: string | null;
+  vac: string | null;
 }
 
 // --------------------------------------------------------------------------- automações ---
@@ -1164,4 +1192,277 @@ export interface TimesheetApproval {
   reviewedBy: string | null;
   reviewedAt: string | null;
   comment: string | null;
+}
+
+// ----------------------------------------------------------------------------- portfólio ---
+
+export type LifecycleStatus = 'proposed' | 'planning' | 'active' | 'on_hold' | 'completed' | 'cancelled';
+
+export interface Portfolio {
+  id: string;
+  workspaceId: string;
+  folderId: string | null;
+  name: string;
+  description: string | null;
+  ownerId: string | null;
+  scoringModelId: string | null;
+  status: LifecycleStatus;
+}
+
+export interface CreatePortfolioInput {
+  name: string;
+  description?: string | null;
+  folderId?: string | null;
+  ownerId?: string | null;
+  scoringModelId?: string | null;
+  status?: LifecycleStatus;
+}
+export type UpdatePortfolioInput = Partial<CreatePortfolioInput>;
+
+export interface Program {
+  id: string;
+  workspaceId: string;
+  portfolioId: string | null;
+  name: string;
+  description: string | null;
+  ownerId: string | null;
+  status: LifecycleStatus;
+  startDate: string | null;
+  endDate: string | null;
+}
+
+export interface CreateProgramInput {
+  name: string;
+  description?: string | null;
+  portfolioId?: string | null;
+  ownerId?: string | null;
+  status?: LifecycleStatus;
+  startDate?: string | null;
+  endDate?: string | null;
+}
+export type UpdateProgramInput = Partial<CreateProgramInput>;
+
+export interface ScoringCriterion {
+  key: string;
+  label: string;
+  weight: number;
+  scaleMin: number;
+  scaleMax: number;
+  higherIsBetter: boolean;
+}
+
+export type ScoringMethod = 'weighted' | 'wsjf';
+
+export interface ScoringModel {
+  id: string;
+  name: string;
+  description: string | null;
+  method: ScoringMethod;
+  criteria: ScoringCriterion[];
+  isDefault: boolean;
+}
+
+export interface CreateScoringModelInput {
+  name: string;
+  description?: string | null;
+  method?: ScoringMethod;
+  criteria: ScoringCriterion[];
+  isDefault?: boolean;
+}
+export type UpdateScoringModelInput = Partial<CreateScoringModelInput>;
+
+export interface Score {
+  id: string;
+  scoringModelId: string;
+  boardId: string;
+  criteriaScores: Record<string, number>;
+  totalScore: string;
+  scoredBy: string | null;
+  scoredAt: string;
+  rationale: string | null;
+}
+
+export interface SetScoreInput {
+  scoringModelId: string;
+  criteriaScores: Record<string, number>;
+  rationale?: string | null;
+}
+
+export type EffortValueQuadrant = 'quick_win' | 'major_project' | 'fill_in' | 'thankless_task';
+
+export interface ValueEffortPoint {
+  boardId: string;
+  boardName: string;
+  value: number;
+  effort: number;
+  quadrant: EffortValueQuadrant;
+}
+
+export interface RankingEntry {
+  boardId: string;
+  boardName: string;
+  score: number;
+}
+
+export interface RollupResult {
+  boardCount: number;
+  startDate: string | null;
+  endDate: string | null;
+  percentComplete: number;
+  plannedCost: number;
+  actualCost: number;
+  forecastCost: number;
+  ustTotal: number;
+  openRisks: number;
+  criticalRisks: number;
+  overall: HealthStatus;
+}
+
+export type PortfolioWhatIfAction = 'include' | 'exclude' | 'delay';
+
+export interface PortfolioWhatIfChange {
+  boardId: string;
+  action: PortfolioWhatIfAction;
+  delayDays?: number;
+}
+
+export interface PortfolioWhatIfSummary {
+  activeProjects: number;
+  totalPlannedCost: number;
+  latestEndDate: string | null;
+}
+
+export interface PortfolioWhatIfResponse {
+  baseline: PortfolioWhatIfSummary;
+  simulated: PortfolioWhatIfSummary;
+}
+
+// ------------------------------------------------------------------------------ governança ---
+
+export type GateStatus = 'pending' | 'approved' | 'rejected' | 'skipped';
+
+export interface StageGateCriterion {
+  label: string;
+  met: boolean;
+}
+
+export interface StageGate {
+  id: string;
+  boardId: string;
+  name: string;
+  position: string;
+  status: GateStatus;
+  dueDate: string | null;
+  criteria: StageGateCriterion[];
+  decidedBy: string | null;
+  decidedAt: string | null;
+  notes: string | null;
+}
+
+export type RiskStatus = 'open' | 'mitigating' | 'occurred' | 'closed';
+export type RiskStrategy = 'avoid' | 'mitigate' | 'transfer' | 'accept';
+
+export interface Risk {
+  id: string;
+  boardId: string;
+  itemId: string | null;
+  title: string;
+  description: string | null;
+  category: string | null;
+  probability: number;
+  impact: number;
+  status: RiskStatus;
+  strategy: RiskStrategy | null;
+  mitigationPlan: string | null;
+  contingencyPlan: string | null;
+  ownerId: string | null;
+  dueDate: string | null;
+  closedAt: string | null;
+}
+
+export type IssueSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type IssueStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
+
+export interface GovernanceIssue {
+  id: string;
+  boardId: string;
+  itemId: string | null;
+  riskId: string | null;
+  title: string;
+  description: string | null;
+  severity: IssueSeverity;
+  status: IssueStatus;
+  ownerId: string | null;
+  dueDate: string | null;
+  resolvedAt: string | null;
+  resolution: string | null;
+}
+
+export type BudgetCategory = 'capex' | 'opex';
+
+export interface PortfolioBudget {
+  id: string;
+  boardId: string | null;
+  programId: string | null;
+  portfolioId: string | null;
+  name: string;
+  category: BudgetCategory;
+  currency: string;
+  plannedAmount: string;
+  fiscalYear: number | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+}
+
+export type CostEntryKind = 'planned' | 'actual' | 'forecast';
+export type CostEntrySource = 'manual' | 'timesheet' | 'invoice' | 'import';
+
+export interface CostEntry {
+  id: string;
+  budgetId: string;
+  boardId: string | null;
+  itemId: string | null;
+  entryDate: string;
+  amount: string;
+  currency: string;
+  kind: CostEntryKind;
+  source: CostEntrySource;
+  category: string | null;
+  description: string | null;
+  reference: string | null;
+}
+
+export type HealthRuleDimension = 'overall' | 'schedule' | 'cost' | 'scope' | 'quality' | 'risk';
+export type HealthRuleMetric =
+  | 'spi'
+  | 'cpi'
+  | 'overdue_items_pct'
+  | 'open_critical_risks'
+  | 'budget_variance_pct';
+export type HealthRuleOperator = 'lt' | 'lte' | 'gt' | 'gte' | 'eq';
+
+export interface HealthRule {
+  dimension: HealthRuleDimension;
+  metric: HealthRuleMetric;
+  operator: HealthRuleOperator;
+  threshold: number;
+  result: HealthStatus;
+}
+
+export interface HealthRuleSet {
+  id: string;
+  boardId: string | null;
+  rules: HealthRule[];
+}
+
+export interface BoardStatusReport {
+  boardId: string;
+  boardName: string;
+  health: { latest: ProjectHealthEntry | null; history: ProjectHealthEntry[] };
+  percentComplete: number;
+  evm: { pv: number; ev: number; ac: number; spi: number | null; cpi: number | null; eac: number; vac: number };
+  budget: { plannedAmount: number; actualAmount: number; forecastAmount: number };
+  openRisks: Risk[];
+  openIssues: GovernanceIssue[];
+  stageGates: StageGate[];
 }

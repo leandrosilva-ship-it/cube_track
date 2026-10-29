@@ -6,8 +6,10 @@ import { itemPanelEs } from './collaboration.es.js';
 import { dashboardsEs } from './dashboards.es.js';
 import { formsEs } from './forms.es.js';
 import { ganttEs } from './gantt.es.js';
+import { governanceEs } from './governance.es.js';
 import { kanbanEs } from './kanban.es.js';
 import { planningEs } from './planning.es.js';
+import { portfolioEs } from './portfolio.es.js';
 import { processesEs } from './processes.es.js';
 import { tableEs } from './table.es.js';
 import { timelineEs } from './timeline.es.js';
@@ -261,6 +263,7 @@ export const es: Messages = {
     integrate: 'Integrar',
     automate: 'Automatizar',
     process: 'Proceso',
+    governance: 'Gobernanza',
     agents: 'Agentes',
     featureLater: 'Disponible cuando el módulo se habilite para esta organización.',
     inviteDialog: {
@@ -402,6 +405,8 @@ export const es: Messages = {
   webhooks: webhooksEs,
   timesheet: timesheetEs,
   capacity: capacityEs,
+  portfolio: portfolioEs,
+  governance: governanceEs,
   palette: {
     title: 'Paleta de comandos',
     placeholder: 'Buscar tableros, páginas y acciones…',
@@ -495,6 +500,7 @@ export const es: Messages = {
     empty: 'Este espacio de trabajo aún no tiene tableros.',
     dashboards: 'Paneles',
     capacity: 'Capacidad',
+    portfolio: 'Portafolio',
   },
   settings: {
     title: 'Configuración',

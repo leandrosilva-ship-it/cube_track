@@ -5,6 +5,7 @@ import { desc, eq } from 'drizzle-orm';
 
 import type { AuthPrincipal } from '../../../core/context/request-context.js';
 import { TransactionRunner } from '../../../core/database/transaction-runner.js';
+import { ValidationError } from '../../../core/errors/problems.js';
 import { DomainEvents } from '../../../core/events/domain-events.js';
 import { AccessService } from '../../access/application/access.service.js';
 
@@ -25,6 +26,13 @@ export interface ProjectHealthDto {
   spi: string | null;
   cpi: string | null;
   summary: string | null;
+  isAutomatic: boolean;
+  overrideReason: string | null;
+  plannedValue: string | null;
+  earnedValue: string | null;
+  actualCost: string | null;
+  eac: string | null;
+  vac: string | null;
 }
 
 export interface ReportProjectHealthInput {
@@ -38,6 +46,7 @@ export interface ReportProjectHealthInput {
   spi?: number | undefined;
   cpi?: number | undefined;
   summary?: string | undefined;
+  overrideReason?: string | undefined;
 }
 
 function toDto(row: typeof projectHealth.$inferSelect): ProjectHealthDto {
@@ -56,6 +65,13 @@ function toDto(row: typeof projectHealth.$inferSelect): ProjectHealthDto {
     spi: row.spi,
     cpi: row.cpi,
     summary: row.summary,
+    isAutomatic: row.isAutomatic,
+    overrideReason: row.overrideReason,
+    plannedValue: row.plannedValue,
+    earnedValue: row.earnedValue,
+    actualCost: row.actualCost,
+    eac: row.eac,
+    vac: row.vac,
   };
 }
 
@@ -82,12 +98,32 @@ export class ProjectHealthService {
     return rows.map(toDto);
   }
 
+  /**
+   * Relato manual: sobrepor um relato automático (RAG por regras, ADR 0053) exige `overrideReason`
+   * — mesmo padrão de campo condicionalmente obrigatório de `column.requiredWhen`
+   * (`packages/shared/src/columns/registry.ts`), aqui decidido pelo estado do servidor (o último
+   * relato do board) em vez de por outro campo do próprio corpo da requisição.
+   */
   async report(
     user: AuthPrincipal,
     boardId: string,
     input: ReportProjectHealthInput,
   ): Promise<ProjectHealthDto> {
     await this.access.assert(user, 'board.manage', { type: 'board', id: boardId }, 'Board');
+    const [latest] = await this.runner.tx
+      .select({ isAutomatic: projectHealth.isAutomatic })
+      .from(projectHealth)
+      .where(eq(projectHealth.boardId, boardId))
+      .orderBy(desc(projectHealth.reportedAt))
+      .limit(1);
+    if (latest?.isAutomatic === true && (input.overrideReason ?? '') === '') {
+      throw new ValidationError([
+        {
+          path: 'body.overrideReason',
+          message: 'Justificativa obrigatória para sobrepor um relato automático.',
+        },
+      ]);
+    }
     const [row] = await this.runner.tx
       .insert(projectHealth)
       .values({
@@ -104,6 +140,8 @@ export class ProjectHealthService {
         spi: input.spi === undefined ? null : String(input.spi),
         cpi: input.cpi === undefined ? null : String(input.cpi),
         summary: input.summary ?? null,
+        isAutomatic: false,
+        overrideReason: input.overrideReason ?? null,
         createdBy: user.userId,
       })
       .returning();
@@ -113,7 +151,7 @@ export class ProjectHealthService {
       entityType: 'project_health',
       entityId: row.id,
       boardId,
-      after: { overall: row.overall },
+      after: { overall: row.overall, isAutomatic: false },
     });
     await this.events.emit({
       tenantId: user.tenantId,
@@ -122,6 +160,15 @@ export class ProjectHealthService {
       aggregateId: row.id,
       boardId,
       payload: { healthId: row.id, boardId },
+      actorId: user.userId,
+    });
+    await this.events.emit({
+      tenantId: user.tenantId,
+      type: 'project_health.changed',
+      aggregateType: 'project_health',
+      aggregateId: row.id,
+      boardId,
+      payload: { healthId: row.id, boardId, overall: row.overall, isAutomatic: false },
       actorId: user.userId,
     });
     return toDto(row);

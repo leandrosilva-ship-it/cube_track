@@ -18,6 +18,7 @@ import { fileScanProcessor } from './processors/file-scan.js';
 import { maintenanceProcessor, scheduleMaintenance } from './processors/maintenance.js';
 import { createNotificationDigest } from './processors/notification-digest.js';
 import { notificationsProcessor } from './processors/notifications.js';
+import { createPortfolioHealthDaily, portfolioProcessor } from './processors/portfolio.js';
 import { scheduleProcessor } from './processors/schedule.js';
 import { createSlaCheck } from './processors/sla.js';
 import { ensureSearchIndexes, searchIndexProcessor } from './processors/search-index.js';
@@ -70,6 +71,7 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
     appUrl: config.APP_URL,
     logger,
   });
+  const recomputePortfolioHealth = createPortfolioHealthDaily({ database: appDb, redis, logger });
 
   const workers: Worker[] = [
     createWorker(
@@ -110,9 +112,11 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
         checkDateArrives: automations.checkDateArrives,
         checkSla,
         checkNotificationDigest,
+        recomputePortfolioHealth,
       }),
       { ...common, concurrency: 1 },
     ),
+    createWorker(QUEUES.portfolio, portfolioProcessor({ database: appDb, redis, logger }), common),
     createWorker(
       QUEUES.fileScan,
       fileScanProcessor({ database: appDb, s3, bucket: config.S3_BUCKET, scanner }),

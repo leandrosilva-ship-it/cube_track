@@ -109,6 +109,7 @@ export const MAINTENANCE_JOBS = [
   'sla-check',
   'notification-digest-hourly',
   'notification-digest-daily',
+  'portfolio-health-daily',
 ] as const;
 export type MaintenanceJob = (typeof MAINTENANCE_JOBS)[number];
 

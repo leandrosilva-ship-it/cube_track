@@ -160,6 +160,13 @@ export const ProjectHealthEntrySchema = z.object({
   spi: z.string().nullable(),
   cpi: z.string().nullable(),
   summary: z.string().nullable(),
+  isAutomatic: z.boolean(),
+  overrideReason: z.string().nullable(),
+  plannedValue: z.string().nullable(),
+  earnedValue: z.string().nullable(),
+  actualCost: z.string().nullable(),
+  eac: z.string().nullable(),
+  vac: z.string().nullable(),
 });
 
 export const ReportProjectHealthBody = z
@@ -174,5 +181,7 @@ export const ReportProjectHealthBody = z
     spi: z.number().min(0).max(99).optional(),
     cpi: z.number().min(0).max(99).optional(),
     summary: z.string().trim().min(1).max(4_000).optional(),
+    /** Obrigatória (checado no serviço) quando o último relato do board é automático (ADR 0053). */
+    overrideReason: z.string().trim().min(1).max(2_000).optional(),
   })
   .strict();

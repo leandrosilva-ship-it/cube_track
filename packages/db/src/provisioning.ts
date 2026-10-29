@@ -1,8 +1,9 @@
-import { newId, positionBetween } from '@cube-track/shared';
+import { defaultHealthRules, newId, positionBetween } from '@cube-track/shared';
 
 import type { Transaction } from './client.js';
 import {
   dataRetentionPolicies,
+  healthRuleSets,
   rolePermissions,
   roles,
   tenants,
@@ -281,6 +282,14 @@ export async function provisionTenant(
       createdBy,
     },
   ]);
+
+  /** Regras de RAG automático padrão do tenant (ADR 0053) — todo tenant precisa de um conjunto. */
+  await tx.insert(healthRuleSets).values({
+    tenantId,
+    boardId: null,
+    rules: defaultHealthRules(),
+    createdBy,
+  });
 
   return { tenantId, roleIds, calendarId };
 }

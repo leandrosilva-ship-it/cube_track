@@ -1,7 +1,7 @@
 import { schema, type DatabaseHandle, type Transaction } from '@cube-track/db';
 import { DomainEventJobSchema, type EmailJob } from '@cube-track/shared';
 import type { Job, Queue } from 'bullmq';
-import { and, asc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
 
 import { buildReplyAddress } from '../reply-address.js';
@@ -24,6 +24,9 @@ const {
   accessGrants,
   rolePermissions,
   workspaces,
+  risks,
+  issues,
+  projectHealth,
 } = schema;
 
 export interface NotificationsDeps {
@@ -63,6 +66,15 @@ export function notificationsProcessor(deps: NotificationsDeps) {
     }
     if (event.type === 'timesheet_approval.changed') {
       return notifyTimesheetApproval(deps, event);
+    }
+    if (event.type === 'risk.changed') {
+      return notifyRisk(deps, event);
+    }
+    if (event.type === 'issue.changed') {
+      return notifyIssue(deps, event);
+    }
+    if (event.type === 'project_health.changed') {
+      return notifyProjectHealthAlert(deps, event);
     }
     return { notified: 0 };
   };
@@ -688,5 +700,172 @@ async function notifyTimesheetApproval(
     await deps.emails.add(email.template, email, {
       jobId: `timesheet_approval.${approvalId}.${status}.${email.to}`,
     });
+  return { notified };
+}
+
+/** Notifica o responsável só na criação (ADR 0053) — detectar reatribuição em `updated` exigiria
+ * before/after, que este evento não carrega; escopo documentado como limitação conhecida. */
+async function notifyRisk(deps: NotificationsDeps, event: ReturnType<typeof DomainEventJobSchema.parse>) {
+  const riskId = typeof event.payload.riskId === 'string' ? event.payload.riskId : '';
+  const change = typeof event.payload.change === 'string' ? event.payload.change : '';
+  const boardId = typeof event.payload.boardId === 'string' ? event.payload.boardId : '';
+  if (riskId === '' || boardId === '' || change !== 'created') return { notified: 0 };
+  const emailJobs: EmailJob[] = [];
+
+  const notified = await runAsSystem(
+    deps.database,
+    deps.redis,
+    event.tenantId,
+    { kind: 'system', causationId: event.eventId, depth: event.depth, correlationId: event.eventId },
+    async (unit) => {
+      const [risk] = await unit.tx.select().from(risks).where(eq(risks.id, riskId));
+      if (risk === undefined || risk.ownerId === null) return 0;
+      const [board] = await unit.tx.select({ name: boards.name }).from(boards).where(eq(boards.id, boardId));
+      const title = `Risco atribuído a você: "${risk.title}"`;
+      const email = await notifyUser(unit.tx, event.tenantId, event.actorId, {
+        userId: risk.ownerId,
+        type: 'risk',
+        title,
+        boardId,
+        entityType: 'risk',
+        entityId: riskId,
+      });
+      await unit.emit({
+        type: 'notification.created',
+        aggregateType: 'notification',
+        aggregateId: riskId,
+        userId: risk.ownerId,
+        payload: { notificationId: riskId, type: 'risk', title, itemId: null, boardId },
+      });
+      if (email !== null) {
+        emailJobs.push({
+          to: email,
+          template: 'risk_assigned',
+          locale: 'pt-BR',
+          data: { title: risk.title, boardName: board?.name ?? '', link: `${deps.appUrl}/boards/${boardId}` },
+        });
+      }
+      return 1;
+    },
+  );
+  for (const email of emailJobs)
+    await deps.emails.add(email.template, email, { jobId: `risk.${riskId}.assigned.${email.to}` });
+  return { notified };
+}
+
+/** Mesmo escopo de `notifyRisk`: só notifica na criação do problema (ADR 0053). */
+async function notifyIssue(deps: NotificationsDeps, event: ReturnType<typeof DomainEventJobSchema.parse>) {
+  const issueId = typeof event.payload.issueId === 'string' ? event.payload.issueId : '';
+  const change = typeof event.payload.change === 'string' ? event.payload.change : '';
+  const boardId = typeof event.payload.boardId === 'string' ? event.payload.boardId : '';
+  if (issueId === '' || boardId === '' || change !== 'created') return { notified: 0 };
+  const emailJobs: EmailJob[] = [];
+
+  const notified = await runAsSystem(
+    deps.database,
+    deps.redis,
+    event.tenantId,
+    { kind: 'system', causationId: event.eventId, depth: event.depth, correlationId: event.eventId },
+    async (unit) => {
+      const [issue] = await unit.tx.select().from(issues).where(eq(issues.id, issueId));
+      if (issue === undefined || issue.ownerId === null) return 0;
+      const [board] = await unit.tx.select({ name: boards.name }).from(boards).where(eq(boards.id, boardId));
+      const title = `Problema atribuído a você: "${issue.title}"`;
+      const email = await notifyUser(unit.tx, event.tenantId, event.actorId, {
+        userId: issue.ownerId,
+        type: 'issue',
+        title,
+        boardId,
+        entityType: 'issue',
+        entityId: issueId,
+      });
+      await unit.emit({
+        type: 'notification.created',
+        aggregateType: 'notification',
+        aggregateId: issueId,
+        userId: issue.ownerId,
+        payload: { notificationId: issueId, type: 'issue', title, itemId: null, boardId },
+      });
+      if (email !== null) {
+        emailJobs.push({
+          to: email,
+          template: 'issue_assigned',
+          locale: 'pt-BR',
+          data: { title: issue.title, boardName: board?.name ?? '', link: `${deps.appUrl}/boards/${boardId}` },
+        });
+      }
+      return 1;
+    },
+  );
+  for (const email of emailJobs)
+    await deps.emails.add(email.template, email, { jobId: `issue.${issueId}.assigned.${email.to}` });
+  return { notified };
+}
+
+const HEALTH_RANK: Record<string, number> = { grey: 0, green: 1, yellow: 2, red: 3 };
+
+/**
+ * Alerta o dono do board (ADR 0053) quando o RAG automático piora (vira `yellow`/`red` e é pior que
+ * o relato anterior) — overrides manuais (`isAutomatic: false`) não geram alerta: quem sobrepôs já
+ * decidiu a cor conscientemente.
+ */
+async function notifyProjectHealthAlert(
+  deps: NotificationsDeps,
+  event: ReturnType<typeof DomainEventJobSchema.parse>,
+) {
+  const healthId = typeof event.payload.healthId === 'string' ? event.payload.healthId : '';
+  const boardId = typeof event.payload.boardId === 'string' ? event.payload.boardId : '';
+  const overall = typeof event.payload.overall === 'string' ? event.payload.overall : '';
+  const isAutomatic = event.payload.isAutomatic === true;
+  if (healthId === '' || boardId === '' || !isAutomatic) return { notified: 0 };
+  if (overall !== 'yellow' && overall !== 'red') return { notified: 0 };
+  const emailJobs: EmailJob[] = [];
+
+  const notified = await runAsSystem(
+    deps.database,
+    deps.redis,
+    event.tenantId,
+    { kind: 'system', causationId: event.eventId, depth: event.depth, correlationId: event.eventId },
+    async (unit) => {
+      const history = await unit.tx
+        .select({ id: projectHealth.id, overall: projectHealth.overall })
+        .from(projectHealth)
+        .where(eq(projectHealth.boardId, boardId))
+        .orderBy(desc(projectHealth.reportedAt))
+        .limit(2);
+      const previous = history.find((row) => row.id !== healthId);
+      if (previous !== undefined && (HEALTH_RANK[previous.overall] ?? 0) >= (HEALTH_RANK[overall] ?? 0)) return 0;
+
+      const [board] = await unit.tx.select({ name: boards.name, ownerId: boards.ownerId }).from(boards).where(eq(boards.id, boardId));
+      if (board?.ownerId === undefined || board.ownerId === null) return 0;
+      const title = `Saúde do projeto ${board.name} mudou para ${overall}`;
+      const email = await notifyUser(unit.tx, event.tenantId, event.actorId, {
+        userId: board.ownerId,
+        type: 'project_health',
+        title,
+        boardId,
+        entityType: 'project_health',
+        entityId: healthId,
+      });
+      await unit.emit({
+        type: 'notification.created',
+        aggregateType: 'notification',
+        aggregateId: healthId,
+        userId: board.ownerId,
+        payload: { notificationId: healthId, type: 'project_health', title, itemId: null, boardId },
+      });
+      if (email !== null) {
+        emailJobs.push({
+          to: email,
+          template: 'project_health_alert',
+          locale: 'pt-BR',
+          data: { boardName: board.name, status: overall, link: `${deps.appUrl}/boards/${boardId}` },
+        });
+      }
+      return 1;
+    },
+  );
+  for (const email of emailJobs)
+    await deps.emails.add(email.template, email, { jobId: `project_health.${healthId}.alert.${email.to}` });
   return { notified };
 }

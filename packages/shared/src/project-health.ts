@@ -31,6 +31,13 @@ export const CreateProjectHealthSchema = z
     spi: z.number().min(0).max(99).optional(),
     cpi: z.number().min(0).max(99).optional(),
     summary: z.string().trim().min(1).max(4_000).optional(),
+    /**
+     * Obrigatória (checada pelo serviço, não aqui) quando o último relato do board é automático
+     * (RAG por regras, ADR 0053) — mesmo padrão de campo condicionalmente obrigatório de
+     * `column.requiredWhen` (`packages/shared/src/columns/registry.ts`), só que decidido por um
+     * estado do servidor (último relato), não por outro campo do próprio formulário.
+     */
+    overrideReason: z.string().trim().min(1).max(2_000).optional(),
   })
   .strict();
 export type CreateProjectHealthInput = z.infer<typeof CreateProjectHealthSchema>;

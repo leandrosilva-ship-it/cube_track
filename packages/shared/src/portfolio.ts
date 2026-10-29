@@ -406,7 +406,7 @@ export interface WhatIfChange {
   boardId: string;
   action: WhatIfAction;
   /** Só para `action: 'delay'` — dias a somar em `startDate`/`endDate`. */
-  delayDays?: number;
+  delayDays?: number | undefined;
 }
 
 export interface WhatIfSummary {

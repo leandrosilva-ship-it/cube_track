@@ -18,6 +18,7 @@ import { inject } from 'vitest';
 import { automationsProcessor } from '../src/processors/automations.js';
 import { fileScanProcessor } from '../src/processors/file-scan.js';
 import { notificationsProcessor } from '../src/processors/notifications.js';
+import { portfolioProcessor } from '../src/processors/portfolio.js';
 import { scheduleProcessor, toScheduleJob } from '../src/processors/schedule.js';
 import { ensureSearchIndexes, searchIndexProcessor } from '../src/processors/search-index.js';
 import { createQueues, type QueueRegistry } from '../src/queues.js';
@@ -51,6 +52,12 @@ const {
   absences,
   resourceRequests,
   timesheetApprovals,
+  risks,
+  issues,
+  budgets,
+  costEntries,
+  projectHealth,
+  healthRuleSets,
 } = schema;
 
 const JWT_SECRET = 'test-jwt-secret-at-least-32-characters-long';
@@ -1063,6 +1070,292 @@ describe('notificações de capacidade e timesheet (ADR 0052)', () => {
     expect(decidedJobs.map((job) => job.data as unknown)).toContainEqual(
       expect.objectContaining({ to: 'rafael.mendes@empresademo.com.br', template: 'timesheet_decided' }),
     );
+  });
+});
+
+describe('portfólio: RAG automático, EVM e notificações (ADR 0053)', () => {
+  it('recalcula a saúde do board ao consumir um evento de risco e grava uma linha automática', async () => {
+    const ana = demo.users['ana.ribeiro'] ?? '';
+    await admin.db
+      .delete(healthRuleSets)
+      .where(and(eq(healthRuleSets.tenantId, demo.tenantId), eq(healthRuleSets.boardId, demo.boardId)));
+    await admin.db.insert(healthRuleSets).values({
+      tenantId: demo.tenantId,
+      boardId: demo.boardId,
+      rules: [{ dimension: 'risk', metric: 'open_critical_risks', operator: 'gte', threshold: 1, result: 'red' }],
+      createdBy: ana,
+    });
+    const [risk] = await admin.db
+      .insert(risks)
+      .values({
+        tenantId: demo.tenantId,
+        boardId: demo.boardId,
+        title: 'Risco crítico de teste (worker)',
+        probability: 5,
+        impact: 5,
+        status: 'open',
+        createdBy: ana,
+      })
+      .returning();
+
+    const process = portfolioProcessor({ database: app, redis, logger: silentLogger });
+    const result = await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'risk.changed',
+          boardId: demo.boardId,
+          actorId: ana,
+          payload: { riskId: risk?.id, boardId: demo.boardId, change: 'created' },
+        }),
+      ),
+    );
+    expect(result.status).toBe('applied');
+
+    const [latest] = await admin.db
+      .select()
+      .from(projectHealth)
+      .where(eq(projectHealth.boardId, demo.boardId))
+      .orderBy(desc(projectHealth.reportedAt))
+      .limit(1);
+    expect(latest?.isAutomatic).toBe(true);
+    expect(latest?.risk).toBe('red');
+    expect(latest?.overall).toBe('red');
+
+    await admin.db.delete(risks).where(eq(risks.id, risk?.id ?? ''));
+  });
+
+  it('EVM: BAC=1000, 50% concluído e AC=400 produz EV=500, CPI=1.25', async () => {
+    const ana = demo.users['ana.ribeiro'] ?? '';
+    const [budget] = await admin.db
+      .insert(budgets)
+      .values({
+        tenantId: demo.tenantId,
+        boardId: demo.boardId,
+        name: 'Orçamento de teste (worker)',
+        plannedAmount: '1000.00',
+        createdBy: ana,
+      })
+      .returning();
+    await admin.db.insert(costEntries).values({
+      tenantId: demo.tenantId,
+      budgetId: budget?.id ?? '',
+      boardId: demo.boardId,
+      entryDate: '2026-01-15',
+      amount: '400.00',
+      kind: 'actual',
+      source: 'manual',
+      createdBy: ana,
+    });
+    // Zera o progresso dos itens de nível superior do board e marca metade com 100% — média = 50%.
+    const topLevel = await admin.db
+      .select({ id: items.id })
+      .from(items)
+      .where(and(eq(items.boardId, demo.boardId), eq(items.tenantId, demo.tenantId)));
+    const toMark = topLevel.slice(0, Math.ceil(topLevel.length / 2)).map((row) => row.id);
+    const toZero = topLevel.slice(Math.ceil(topLevel.length / 2)).map((row) => row.id);
+    if (toMark.length > 0) await admin.db.update(items).set({ progress: '100.00' }).where(inArray(items.id, toMark));
+    if (toZero.length > 0) await admin.db.update(items).set({ progress: '0.00' }).where(inArray(items.id, toZero));
+
+    const process = portfolioProcessor({ database: app, redis, logger: silentLogger });
+    await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'cost_entry.changed',
+          boardId: demo.boardId,
+          actorId: ana,
+          payload: { costEntryId: newId(), budgetId: budget?.id, boardId: demo.boardId, change: 'created' },
+        }),
+      ),
+    );
+
+    const [latest] = await admin.db
+      .select()
+      .from(projectHealth)
+      .where(eq(projectHealth.boardId, demo.boardId))
+      .orderBy(desc(projectHealth.reportedAt))
+      .limit(1);
+    expect(latest?.earnedValue).toBe('500.00');
+    expect(latest?.actualCost).toBe('400.00');
+    expect(Number(latest?.cpi)).toBeCloseTo(1.25, 2);
+
+    await admin.db.delete(costEntries).where(eq(costEntries.budgetId, budget?.id ?? ''));
+    await admin.db.delete(budgets).where(eq(budgets.id, budget?.id ?? ''));
+  });
+
+  it('risco criado com responsável notifica o responsável (risk_assigned)', async () => {
+    const ana = demo.users['ana.ribeiro'] ?? '';
+    const rafael = demo.users['rafael.mendes'] ?? '';
+    const [risk] = await admin.db
+      .insert(risks)
+      .values({
+        tenantId: demo.tenantId,
+        boardId: demo.boardId,
+        title: 'Risco atribuído (teste)',
+        probability: 3,
+        impact: 3,
+        status: 'open',
+        ownerId: rafael,
+        createdBy: ana,
+      })
+      .returning();
+    await admin.db.insert(notificationPreferences).values({
+      tenantId: demo.tenantId,
+      userId: rafael,
+      channel: 'email',
+      eventType: 'risk',
+      frequency: 'instant',
+      createdBy: rafael,
+    });
+    await queues[QUEUES.emails].obliterate({ force: true });
+    const process = notificationsProcessor({
+      database: app,
+      redis,
+      emails: queues[QUEUES.emails],
+      appUrl: 'http://app.test',
+      jwtSecret: JWT_SECRET,
+      mailReplyDomain: MAIL_REPLY_DOMAIN,
+    });
+    const result = await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'risk.changed',
+          boardId: demo.boardId,
+          actorId: ana,
+          payload: { riskId: risk?.id, boardId: demo.boardId, change: 'created' },
+        }),
+      ),
+    );
+    expect(result.notified).toBe(1);
+    const emailJobs = await queues[QUEUES.emails].getJobs(['waiting', 'delayed']);
+    expect(emailJobs.map((job) => job.data as unknown)).toContainEqual(
+      expect.objectContaining({ to: 'rafael.mendes@empresademo.com.br', template: 'risk_assigned' }),
+    );
+
+    await admin.db.delete(risks).where(eq(risks.id, risk?.id ?? ''));
+  });
+
+  it('problema criado com responsável notifica o responsável (issue_assigned)', async () => {
+    const ana = demo.users['ana.ribeiro'] ?? '';
+    const juliana = demo.users['juliana.castro'] ?? '';
+    const [issue] = await admin.db
+      .insert(issues)
+      .values({
+        tenantId: demo.tenantId,
+        boardId: demo.boardId,
+        title: 'Problema atribuído (teste)',
+        severity: 'high',
+        status: 'open',
+        ownerId: juliana,
+        createdBy: ana,
+      })
+      .returning();
+    await admin.db.insert(notificationPreferences).values({
+      tenantId: demo.tenantId,
+      userId: juliana,
+      channel: 'email',
+      eventType: 'issue',
+      frequency: 'instant',
+      createdBy: juliana,
+    });
+    await queues[QUEUES.emails].obliterate({ force: true });
+    const process = notificationsProcessor({
+      database: app,
+      redis,
+      emails: queues[QUEUES.emails],
+      appUrl: 'http://app.test',
+      jwtSecret: JWT_SECRET,
+      mailReplyDomain: MAIL_REPLY_DOMAIN,
+    });
+    const result = await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'issue.changed',
+          boardId: demo.boardId,
+          actorId: ana,
+          payload: { issueId: issue?.id, boardId: demo.boardId, change: 'created' },
+        }),
+      ),
+    );
+    expect(result.notified).toBe(1);
+    const emailJobs = await queues[QUEUES.emails].getJobs(['waiting', 'delayed']);
+    expect(emailJobs.map((job) => job.data as unknown)).toContainEqual(
+      expect.objectContaining({ to: 'juliana.castro@empresademo.com.br', template: 'issue_assigned' }),
+    );
+
+    await admin.db.delete(issues).where(eq(issues.id, issue?.id ?? ''));
+  });
+
+  it('RAG automático que piora para vermelho alerta o dono do board (project_health_alert); override manual não alerta', async () => {
+    const ana = demo.users['ana.ribeiro'] ?? '';
+    const [board] = await admin.db.select({ ownerId: schema.boards.ownerId }).from(schema.boards).where(eq(schema.boards.id, demo.boardId));
+    const ownerId = board?.ownerId;
+    expect(ownerId).toBeDefined();
+    if (ownerId === null || ownerId === undefined) return;
+    await admin.db.insert(notificationPreferences).values({
+      tenantId: demo.tenantId,
+      userId: ownerId,
+      channel: 'email',
+      eventType: 'project_health',
+      frequency: 'instant',
+      createdBy: ownerId,
+    });
+
+    const [previous] = await admin.db
+      .insert(projectHealth)
+      .values({ tenantId: demo.tenantId, boardId: demo.boardId, overall: 'green', isAutomatic: true, createdBy: ana })
+      .returning();
+    const [worsened] = await admin.db
+      .insert(projectHealth)
+      .values({ tenantId: demo.tenantId, boardId: demo.boardId, overall: 'red', isAutomatic: true, createdBy: ana })
+      .returning();
+
+    await queues[QUEUES.emails].obliterate({ force: true });
+    const process = notificationsProcessor({
+      database: app,
+      redis,
+      emails: queues[QUEUES.emails],
+      appUrl: 'http://app.test',
+      jwtSecret: JWT_SECRET,
+      mailReplyDomain: MAIL_REPLY_DOMAIN,
+    });
+    const alerted = await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'project_health.changed',
+          boardId: demo.boardId,
+          payload: { healthId: worsened?.id, boardId: demo.boardId, overall: 'red', isAutomatic: true },
+        }),
+      ),
+    );
+    expect(alerted.notified).toBe(1);
+    const emailJobs = await queues[QUEUES.emails].getJobs(['waiting', 'delayed']);
+    expect(emailJobs.length).toBeGreaterThan(0);
+
+    await queues[QUEUES.emails].obliterate({ force: true });
+    const manualOverride = await process(
+      fakeJob(
+        domainEvent({
+          eventId: newId(),
+          tenantId: demo.tenantId,
+          type: 'project_health.changed',
+          boardId: demo.boardId,
+          payload: { healthId: worsened?.id, boardId: demo.boardId, overall: 'red', isAutomatic: false },
+        }),
+      ),
+    );
+    expect(manualOverride.notified).toBe(0);
+
+    await admin.db.delete(projectHealth).where(inArray(projectHealth.id, [previous?.id ?? '', worsened?.id ?? '']));
   });
 });
 

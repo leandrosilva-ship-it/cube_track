@@ -14,6 +14,7 @@ export const MAINTENANCE_SCHEDULE: Record<MaintenanceJob, string> = {
   'sla-check': '*/10 * * * *',
   'notification-digest-hourly': '0 * * * *',
   'notification-digest-daily': '0 8 * * *',
+  'portfolio-health-daily': '30 4 * * *',
 };
 const TIMEZONE = 'America/Sao_Paulo';
 
@@ -33,6 +34,7 @@ interface MaintenanceDeps {
   checkNotificationDigest: (
     cadence: 'hourly' | 'daily',
   ) => Promise<{ outcomes: { tenantId: string; userId: string; count: number }[] }>;
+  recomputePortfolioHealth: () => Promise<{ outcomes: { boardId: string; status: string }[] }>;
 }
 
 /** Expurgo da lixeira (30 dias) com auditoria por tenant. */
@@ -112,6 +114,11 @@ export function maintenanceProcessor(deps: MaintenanceDeps) {
       case 'notification-digest-daily': {
         const { outcomes } = await deps.checkNotificationDigest('daily');
         deps.logger.info({ sent: outcomes.length }, 'Digest diário de notificações concluído');
+        return;
+      }
+      case 'portfolio-health-daily': {
+        const { outcomes } = await deps.recomputePortfolioHealth();
+        deps.logger.info({ boards: outcomes.length }, 'Recálculo diário de saúde/RAG concluído');
         return;
       }
       default:

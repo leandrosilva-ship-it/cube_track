@@ -67,8 +67,20 @@ export type WidgetData =
         spi: string | null;
         cpi: string | null;
         summary: string | null;
+        isAutomatic: boolean;
+        overrideReason: string | null;
+        plannedValue: string | null;
+        earnedValue: string | null;
+        actualCost: string | null;
+        eac: string | null;
+        vac: string | null;
       } | null;
-      history: { id: string; reportedAt: string; overall: 'green' | 'yellow' | 'red' | 'grey' }[];
+      history: {
+        id: string;
+        reportedAt: string;
+        overall: 'green' | 'yellow' | 'red' | 'grey';
+        isAutomatic: boolean;
+      }[];
     }
   | { kind: 'portfolio_rollup'; scope: 'portfolio' | 'program'; name: string | null; rollup: RollupResult }
   | {
@@ -427,11 +439,19 @@ export class WidgetDataService {
               spi: latest.spi,
               cpi: latest.cpi,
               summary: latest.summary,
+              isAutomatic: latest.isAutomatic,
+              overrideReason: latest.overrideReason,
+              plannedValue: latest.plannedValue,
+              earnedValue: latest.earnedValue,
+              actualCost: latest.actualCost,
+              eac: latest.eac,
+              vac: latest.vac,
             },
       history: rows.map((row) => ({
         id: row.id,
         reportedAt: row.reportedAt.toISOString(),
         overall: row.overall,
+        isAutomatic: row.isAutomatic,
       })),
     };
   }

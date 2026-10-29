@@ -9,6 +9,7 @@ export const QUEUES = {
   searchIndex: 'search-index',
   fileScan: 'file-scan',
   computed: 'computed',
+  portfolio: 'portfolio',
   maintenance: 'maintenance',
   webhooks: 'webhooks',
   webhookDeliveries: 'webhook-deliveries',
@@ -147,9 +148,15 @@ export type DeadLetterJob = z.infer<typeof DeadLetterJobSchema>;
 
 /** Tipos de evento que cada consumidor recebe do relay. */
 export const EVENT_CONSUMERS: Record<string, readonly QueueName[]> = {
-  'item.created': [QUEUES.searchIndex, QUEUES.automations, QUEUES.computed],
-  'item.updated': [QUEUES.searchIndex, QUEUES.automations, QUEUES.schedule, QUEUES.computed],
-  'item.deleted': [QUEUES.searchIndex, QUEUES.computed],
+  'item.created': [QUEUES.searchIndex, QUEUES.automations, QUEUES.computed, QUEUES.portfolio],
+  'item.updated': [
+    QUEUES.searchIndex,
+    QUEUES.automations,
+    QUEUES.schedule,
+    QUEUES.computed,
+    QUEUES.portfolio,
+  ],
+  'item.deleted': [QUEUES.searchIndex, QUEUES.computed, QUEUES.portfolio],
   'item.button_clicked': [QUEUES.automations],
   'column.created': [QUEUES.computed],
   'column.updated': [QUEUES.computed],
@@ -160,7 +167,9 @@ export const EVENT_CONSUMERS: Record<string, readonly QueueName[]> = {
   'absence.changed': [QUEUES.notifications],
   'timesheet_approval.changed': [QUEUES.notifications],
   'resource_request.changed': [QUEUES.notifications],
-  'risk.changed': [QUEUES.notifications],
+  'risk.changed': [QUEUES.notifications, QUEUES.portfolio],
   'issue.changed': [QUEUES.notifications],
   'project_health.changed': [QUEUES.notifications],
+  'budget.changed': [QUEUES.portfolio],
+  'cost_entry.changed': [QUEUES.portfolio],
 };

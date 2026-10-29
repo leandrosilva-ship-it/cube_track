@@ -21,6 +21,8 @@ const tree: WorkspaceTree = {
   canCreateBoards: true,
   canManageResources: false,
   canApproveTimesheet: false,
+  canManagePortfolio: false,
+  canReadPortfolio: false,
   folders: [
     { id: 'f1', parentId: null, name: 'Clientes', color: null, position: 'a1' },
     { id: 'f2', parentId: 'f1', name: 'Prefeitura', color: null, position: 'a0' },

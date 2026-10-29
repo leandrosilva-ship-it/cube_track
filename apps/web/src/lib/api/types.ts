@@ -117,6 +117,8 @@ export interface WorkspaceTree {
   canCreateBoards: boolean;
   canManageResources: boolean;
   canApproveTimesheet: boolean;
+  canManagePortfolio: boolean;
+  canReadPortfolio: boolean;
   folders: TreeFolder[];
   boards: TreeBoard[];
 }

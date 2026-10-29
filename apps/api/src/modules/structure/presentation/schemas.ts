@@ -53,6 +53,8 @@ export const TreeSchema = z.object({
   canCreateBoards: z.boolean(),
   canManageResources: z.boolean(),
   canApproveTimesheet: z.boolean(),
+  canManagePortfolio: z.boolean(),
+  canReadPortfolio: z.boolean(),
   folders: z.array(FolderSchema),
   boards: z.array(TreeBoardSchema),
 });

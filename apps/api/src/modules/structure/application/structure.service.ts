@@ -349,6 +349,8 @@ export class StructureService {
       canCreateBoards: permissions.includes('board.create'),
       canManageResources: permissions.includes('resources.manage'),
       canApproveTimesheet: permissions.includes('timesheet.approve'),
+      canManagePortfolio: permissions.includes('portfolio.manage'),
+      canReadPortfolio: permissions.includes('portfolio.read'),
       folders: folderRows,
       boards: readable.map((board) => ({
         ...board,

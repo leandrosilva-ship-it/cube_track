@@ -38,6 +38,9 @@ export const EMAIL_TEMPLATES = [
   'resource_request_fulfilled',
   'timesheet_submitted',
   'timesheet_decided',
+  'risk_assigned',
+  'issue_assigned',
+  'project_health_alert',
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
@@ -157,4 +160,7 @@ export const EVENT_CONSUMERS: Record<string, readonly QueueName[]> = {
   'absence.changed': [QUEUES.notifications],
   'timesheet_approval.changed': [QUEUES.notifications],
   'resource_request.changed': [QUEUES.notifications],
+  'risk.changed': [QUEUES.notifications],
+  'issue.changed': [QUEUES.notifications],
+  'project_health.changed': [QUEUES.notifications],
 };

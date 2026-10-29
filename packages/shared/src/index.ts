@@ -17,6 +17,7 @@ export * from './jobs.js';
 export * from './mail-reply.js';
 export * from './pagination.js';
 export * from './permissions.js';
+export * from './portfolio.js';
 export * from './project-health.js';
 export * from './query.js';
 export * from './richtext.js';

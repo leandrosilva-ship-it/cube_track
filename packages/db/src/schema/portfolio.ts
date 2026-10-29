@@ -25,6 +25,7 @@ import {
   lifecycleStatus,
   riskStatus,
   riskStrategy,
+  scoringMethod,
 } from './_enums.js';
 import { deletedAt, MONEY, position, tenantFk, tenantTable } from './_helpers.js';
 import { users } from './identity.js';
@@ -39,12 +40,17 @@ export interface ScoringCriterion {
   higherIsBetter: boolean;
 }
 
-/** Modelo de pontuação (priorização) com critérios ponderados. */
+/**
+ * Modelo de pontuação (priorização) com critérios ponderados. `method: 'wsjf'` reaproveita a mesma
+ * `criteria`/`criteriaScores` genérica com 4 chaves fixas por convenção (`business_value`,
+ * `time_criticality`, `risk_reduction`, `job_size`) em vez de um esquema próprio — ver ADR 0053.
+ */
 export const scoringModels = tenantTable(
   'scoring_models',
   {
     name: text('name').notNull(),
     description: text('description'),
+    method: scoringMethod('method').notNull().default('weighted'),
     criteria: jsonb('criteria').$type<ScoringCriterion[]>().notNull(),
     isDefault: boolean('is_default').notNull().default(false),
     deletedAt: deletedAt(),
@@ -126,6 +132,15 @@ export const projectHealth = tenantTable(
     spi: numeric('spi', { precision: 6, scale: 3 }),
     cpi: numeric('cpi', { precision: 6, scale: 3 }),
     summary: text('summary'),
+    /** `true` = calculado pelas regras de saúde (ADR 0053); `false` = override manual/relato legado. */
+    isAutomatic: boolean('is_automatic').notNull().default(false),
+    /** Obrigatória (na borda, Zod) sempre que um humano sobrepõe um resultado calculado. */
+    overrideReason: text('override_reason'),
+    plannedValue: numeric('planned_value', MONEY),
+    earnedValue: numeric('earned_value', MONEY),
+    actualCost: numeric('actual_cost', MONEY),
+    eac: numeric('eac', MONEY),
+    vac: numeric('vac', MONEY),
   },
   (t) => [
     tenantFk('project_health', t.tenantId, t.boardId, boards),
@@ -134,6 +149,38 @@ export const projectHealth = tenantTable(
       'project_health_percent',
       sql`${t.percentComplete} is null or ${t.percentComplete} between 0 and 100`,
     ),
+  ],
+);
+
+export interface HealthRule {
+  dimension: 'overall' | 'schedule' | 'cost' | 'scope' | 'quality' | 'risk';
+  metric: 'spi' | 'cpi' | 'overdue_items_pct' | 'open_critical_risks' | 'budget_variance_pct';
+  operator: 'lt' | 'lte' | 'gt' | 'gte' | 'eq';
+  threshold: number;
+  result: 'green' | 'yellow' | 'red' | 'grey';
+}
+
+/**
+ * Conjunto de regras de saúde (RAG automático, ADR 0053): primeira regra que casar, na ordem do
+ * array, decide a cor da dimensão. `boardId` nulo = padrão do tenant (fallback quando o board não
+ * tem o seu próprio conjunto) — mesma ideia de `scoringModels.isDefault`.
+ */
+export const healthRuleSets = tenantTable(
+  'health_rule_sets',
+  {
+    boardId: uuid('board_id'),
+    rules: jsonb('rules').$type<HealthRule[]>().notNull(),
+    deletedAt: deletedAt(),
+  },
+  (t) => [
+    tenantFk('health_rule_sets', t.tenantId, t.boardId, boards),
+    check('health_rule_sets_rules_array', sql`jsonb_typeof(${t.rules}) = 'array'`),
+    uniqueIndex('health_rule_sets_tenant_default_key')
+      .on(t.tenantId)
+      .where(sql`${t.boardId} is null and ${t.deletedAt} is null`),
+    uniqueIndex('health_rule_sets_board_key')
+      .on(t.boardId)
+      .where(sql`${t.boardId} is not null and ${t.deletedAt} is null`),
   ],
 );
 

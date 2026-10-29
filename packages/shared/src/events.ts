@@ -228,6 +228,70 @@ export const EVENT_PAYLOADS = {
     boardId: z.uuid(),
     change: z.enum(['created', 'updated', 'fulfilled', 'cancelled']),
   }),
+  /** CRUD de portfólio (ADR 0053) — sem board, entrega por tenant (recurso de workspace inteiro). */
+  'portfolio.changed': z.object({
+    portfolioId: z.uuid(),
+    workspaceId: z.uuid(),
+    change: z.enum(['created', 'updated', 'deleted']),
+  }),
+  /** CRUD de programa (ADR 0053) — sem board, entrega por tenant. */
+  'program.changed': z.object({
+    programId: z.uuid(),
+    workspaceId: z.uuid(),
+    portfolioId: z.uuid().nullable(),
+    change: z.enum(['created', 'updated', 'deleted']),
+  }),
+  /** Pontuação (scoring/WSJF) de um projeto criada/recalculada (ADR 0053): recarrega a priorização. */
+  'score.changed': z.object({
+    scoreId: z.uuid(),
+    scoringModelId: z.uuid(),
+    boardId: z.uuid(),
+  }),
+  /** CRUD/decisão de stage gate (ADR 0053): o cliente recarrega os portões do board. */
+  'stage_gate.changed': z.object({
+    gateId: z.uuid(),
+    boardId: z.uuid(),
+    change: z.enum(['created', 'updated', 'decided', 'deleted']),
+  }),
+  /** CRUD de risco (ADR 0053): recarrega a matriz de riscos e os indicadores de saúde do board. */
+  'risk.changed': z.object({
+    riskId: z.uuid(),
+    boardId: z.uuid(),
+    change: z.enum(['created', 'updated', 'closed', 'deleted']),
+  }),
+  /** CRUD de problema (issue, ADR 0053). */
+  'issue.changed': z.object({
+    issueId: z.uuid(),
+    boardId: z.uuid(),
+    change: z.enum(['created', 'updated', 'resolved', 'deleted']),
+  }),
+  /** CRUD de orçamento (ADR 0053) — de projeto, programa ou portfólio (só um dos três não é nulo). */
+  'budget.changed': z.object({
+    budgetId: z.uuid(),
+    boardId: z.uuid().nullable(),
+    programId: z.uuid().nullable(),
+    portfolioId: z.uuid().nullable(),
+    change: z.enum(['created', 'updated', 'deleted']),
+  }),
+  /** Lançamento de custo criado/editado/excluído (ADR 0053): recalcula o EVM do orçamento. */
+  'cost_entry.changed': z.object({
+    costEntryId: z.uuid(),
+    budgetId: z.uuid(),
+    boardId: z.uuid().nullable(),
+    change: z.enum(['created', 'updated', 'deleted']),
+  }),
+  /** RAG automático recalculado ou sobreposto manualmente (ADR 0053) — reaproveita `project_health`. */
+  'project_health.changed': z.object({
+    healthId: z.uuid(),
+    boardId: z.uuid(),
+    overall: z.enum(['green', 'yellow', 'red', 'grey']),
+    isAutomatic: z.boolean(),
+  }),
+  /** Conjunto de regras de saúde salvo (ADR 0053) — `boardId` nulo = padrão do tenant. */
+  'health_rule_set.changed': z.object({
+    ruleSetId: z.uuid(),
+    boardId: z.uuid().nullable(),
+  }),
   'notification.created': z.object({
     notificationId: z.uuid(),
     type: z.string(),

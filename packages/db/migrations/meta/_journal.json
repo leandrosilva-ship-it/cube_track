@@ -134,6 +134,20 @@
       "when": 1793300000000,
       "tag": "0018_webhook_manage_permission",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1793270135767,
+      "tag": "0019_portfolio_health_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1793270142486,
+      "tag": "0020_health_rule_sets_rls",
+      "breakpoints": true
     }
   ]
 }

@@ -177,6 +177,7 @@ export const issueStatus = pgEnum('issue_status', ['open', 'in_progress', 'resol
 export const budgetCategory = pgEnum('budget_category', ['capex', 'opex']);
 export const costKind = pgEnum('cost_kind', ['planned', 'actual', 'forecast']);
 export const costSource = pgEnum('cost_source', ['manual', 'timesheet', 'invoice', 'import']);
+export const scoringMethod = pgEnum('scoring_method', ['weighted', 'wsjf']);
 
 // Contratos
 export const contractStatus = pgEnum('contract_status', ['draft', 'active', 'suspended', 'closed']);

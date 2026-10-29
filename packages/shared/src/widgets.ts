@@ -18,6 +18,9 @@ export const WIDGET_TYPES = [
   'workload',
   'project_health',
   'capacity',
+  'portfolio_rollup',
+  'risk_heatmap',
+  'budget_variance',
 ] as const;
 export type WidgetType = (typeof WIDGET_TYPES)[number];
 
@@ -121,6 +124,23 @@ export const CapacityWidgetConfigSchema = z
   .strict();
 export type CapacityWidgetConfig = z.infer<typeof CapacityWidgetConfigSchema>;
 
+/**
+ * Rollup de portfólio/programa (ADR 0053): cartões agregados (prazo, custo, UST, % concluído, RAG
+ * pior-caso) de um portfólio ou programa específico — motor `aggregateRollup` de `portfolio.ts`.
+ */
+export const PortfolioRollupWidgetConfigSchema = z
+  .object({ scope: z.enum(['portfolio', 'program']), id: z.uuid() })
+  .strict();
+export type PortfolioRollupWidgetConfig = z.infer<typeof PortfolioRollupWidgetConfigSchema>;
+
+/** Matriz de riscos (probabilidade × impacto) dos riscos abertos de um ou mais boards. */
+export const RiskHeatmapWidgetConfigSchema = z.object({ boardIds }).strict();
+export type RiskHeatmapWidgetConfig = z.infer<typeof RiskHeatmapWidgetConfigSchema>;
+
+/** Planejado × realizado × previsto (EAC) dos orçamentos de um ou mais boards. */
+export const BudgetVarianceWidgetConfigSchema = z.object({ boardIds }).strict();
+export type BudgetVarianceWidgetConfig = z.infer<typeof BudgetVarianceWidgetConfigSchema>;
+
 export const WIDGET_CONFIG_SCHEMAS = {
   number: NumberWidgetConfigSchema,
   chart_bar: ChartBarWidgetConfigSchema,
@@ -129,6 +149,9 @@ export const WIDGET_CONFIG_SCHEMAS = {
   workload: WorkloadWidgetConfigSchema,
   project_health: ProjectHealthWidgetConfigSchema,
   capacity: CapacityWidgetConfigSchema,
+  portfolio_rollup: PortfolioRollupWidgetConfigSchema,
+  risk_heatmap: RiskHeatmapWidgetConfigSchema,
+  budget_variance: BudgetVarianceWidgetConfigSchema,
 } as const satisfies Record<WidgetType, z.ZodType>;
 
 export type WidgetConfig = {

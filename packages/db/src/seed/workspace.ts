@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { initialPositions, newId, type FilterGroup } from '@cube-track/shared';
+import { defaultHealthRules, initialPositions, newId, type FilterGroup } from '@cube-track/shared';
 import { sql } from 'drizzle-orm';
 
 import {
@@ -17,6 +17,7 @@ import {
   forms,
   formSubmissions,
   groups,
+  healthRuleSets,
   invitations,
   issues,
   items,
@@ -270,6 +271,12 @@ export async function seedWorkspace(
     startDate: '2025-06-02',
     endDate: '2027-06-01',
     position: initialPositions(1)[0] ?? 'a0',
+    createdBy: owner,
+  });
+  await tx.insert(healthRuleSets).values({
+    tenantId,
+    boardId: null,
+    rules: defaultHealthRules(),
     createdBy: owner,
   });
   return { portfolioId, programId, scoringModelId };

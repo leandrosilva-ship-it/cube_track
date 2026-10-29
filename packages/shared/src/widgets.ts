@@ -21,6 +21,9 @@ export const WIDGET_TYPES = [
   'portfolio_rollup',
   'risk_heatmap',
   'budget_variance',
+  'ust_balance',
+  'ust_by_dimension',
+  'ust_forecast',
 ] as const;
 export type WidgetType = (typeof WIDGET_TYPES)[number];
 
@@ -141,6 +144,31 @@ export type RiskHeatmapWidgetConfig = z.infer<typeof RiskHeatmapWidgetConfigSche
 export const BudgetVarianceWidgetConfigSchema = z.object({ boardIds }).strict();
 export type BudgetVarianceWidgetConfig = z.infer<typeof BudgetVarianceWidgetConfigSchema>;
 
+/** Saldo de UST de um contrato (ADR 0054): contratado × consumido × restante, motor `contracts.ts`. */
+export const UstBalanceWidgetConfigSchema = z.object({ contractId: z.uuid() }).strict();
+export type UstBalanceWidgetConfig = z.infer<typeof UstBalanceWidgetConfigSchema>;
+
+/**
+ * UST consumida por mês, ou por um valor de coluna (ex.: órgão/frente) dos itens com OS do
+ * contrato — `columnKey`/`boardId` só fazem sentido (e são exigidos) quando `dimension: 'column'`.
+ */
+export const UstByDimensionWidgetConfigSchema = z
+  .object({
+    contractId: z.uuid(),
+    dimension: z.enum(['month', 'column']),
+    boardId: z.uuid().optional(),
+    columnKey: z.string().min(1).max(64).optional(),
+  })
+  .strict()
+  .refine((config) => config.dimension !== 'column' || (config.boardId !== undefined && config.columnKey !== undefined), {
+    message: "boardId e columnKey são obrigatórios quando dimension é 'column'.",
+  });
+export type UstByDimensionWidgetConfig = z.infer<typeof UstByDimensionWidgetConfigSchema>;
+
+/** Previsão de esgotamento do saldo (ADR 0054) — motor `forecastExhaustion` de `contracts.ts`. */
+export const UstForecastWidgetConfigSchema = z.object({ contractId: z.uuid() }).strict();
+export type UstForecastWidgetConfig = z.infer<typeof UstForecastWidgetConfigSchema>;
+
 export const WIDGET_CONFIG_SCHEMAS = {
   number: NumberWidgetConfigSchema,
   chart_bar: ChartBarWidgetConfigSchema,
@@ -152,6 +180,9 @@ export const WIDGET_CONFIG_SCHEMAS = {
   portfolio_rollup: PortfolioRollupWidgetConfigSchema,
   risk_heatmap: RiskHeatmapWidgetConfigSchema,
   budget_variance: BudgetVarianceWidgetConfigSchema,
+  ust_balance: UstBalanceWidgetConfigSchema,
+  ust_by_dimension: UstByDimensionWidgetConfigSchema,
+  ust_forecast: UstForecastWidgetConfigSchema,
 } as const satisfies Record<WidgetType, z.ZodType>;
 
 export type WidgetConfig = {

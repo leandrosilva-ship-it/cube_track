@@ -42,6 +42,9 @@ export const EMAIL_TEMPLATES = [
   'risk_assigned',
   'issue_assigned',
   'project_health_alert',
+  'contract_balance_low',
+  'contract_expiring',
+  'service_order_stalled',
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
@@ -110,6 +113,7 @@ export const MAINTENANCE_JOBS = [
   'notification-digest-hourly',
   'notification-digest-daily',
   'portfolio-health-daily',
+  'contract-alerts-daily',
 ] as const;
 export type MaintenanceJob = (typeof MAINTENANCE_JOBS)[number];
 

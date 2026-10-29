@@ -292,6 +292,39 @@ export const EVENT_PAYLOADS = {
     ruleSetId: z.uuid(),
     boardId: z.uuid().nullable(),
   }),
+  /** CRUD de contrato (ADR 0054) — sem board, entrega por tenant (recurso de workspace inteiro). */
+  'contract.changed': z.object({
+    contractId: z.uuid(),
+    workspaceId: z.uuid(),
+    change: z.enum(['created', 'updated', 'deleted']),
+  }),
+  /** CRUD de item do catálogo de serviços (ADR 0054) — sem board, entrega por tenant. */
+  'service_catalog_item.changed': z.object({
+    catalogItemId: z.uuid(),
+    contractId: z.uuid(),
+    change: z.enum(['created', 'updated', 'deleted']),
+  }),
+  /** CRUD/transição de OS (ADR 0054): com item/board vinculado entrega na room do board (o saldo do
+   * contrato é recalculado ao ler, não precisa de evento próprio); sem board, por tenant. */
+  'service_order.changed': z.object({
+    serviceOrderId: z.uuid(),
+    contractId: z.uuid(),
+    boardId: z.uuid().nullable(),
+    itemId: z.uuid().nullable(),
+    change: z.enum(['created', 'updated', 'deleted']),
+  }),
+  /** CRUD/decisão de medição (ADR 0054) — sem board, entrega por tenant. */
+  'measurement.changed': z.object({
+    measurementId: z.uuid(),
+    contractId: z.uuid(),
+    change: z.enum(['created', 'updated', 'approved', 'rejected', 'deleted']),
+  }),
+  /** CRUD de fatura (ADR 0054) — sem board, entrega por tenant. */
+  'invoice.changed': z.object({
+    invoiceId: z.uuid(),
+    contractId: z.uuid(),
+    change: z.enum(['created', 'updated', 'deleted']),
+  }),
   'notification.created': z.object({
     notificationId: z.uuid(),
     type: z.string(),

@@ -44,5 +44,35 @@ export function widgetDataToCsvRows(title: string, data: WidgetData): { header: 
           ]),
         ),
       };
+    case 'portfolio_rollup':
+      return {
+        header: ['Métrica', 'Valor'],
+        rows: [
+          ['Projetos', String(data.rollup.boardCount)],
+          ['% concluído', data.rollup.percentComplete.toFixed(1)],
+          ['Custo planejado', data.rollup.plannedCost.toFixed(2)],
+          ['Custo realizado', data.rollup.actualCost.toFixed(2)],
+          ['Custo previsto (EAC)', data.rollup.forecastCost.toFixed(2)],
+          ['Riscos abertos', String(data.rollup.openRisks)],
+          ['Riscos críticos', String(data.rollup.criticalRisks)],
+          ['Saúde geral', data.rollup.overall],
+        ],
+      };
+    case 'risk_heatmap':
+      return {
+        header: ['Risco', 'Probabilidade', 'Impacto', 'Status'],
+        rows: data.risks.map((risk) => [risk.title, String(risk.probability), String(risk.impact), risk.status]),
+      };
+    case 'budget_variance':
+      return {
+        header: ['Orçamento', 'Projeto', 'Planejado', 'Realizado', 'Previsto (EAC)'],
+        rows: data.budgets.map((budget) => [
+          budget.name,
+          budget.boardName ?? '',
+          budget.plannedAmount,
+          budget.actualAmount,
+          budget.forecastAmount,
+        ]),
+      };
   }
 }

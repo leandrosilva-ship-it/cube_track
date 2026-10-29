@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { schema } from '@cube-track/db';
 import {
+  aggregateRollup,
   aggregateValues,
   Decimal,
   isGroupFilter,
@@ -9,16 +10,21 @@ import {
   storedNumber,
   type AggregateSource,
   type BatteryWidgetConfig,
+  type BoardRollupInput,
+  type BudgetVarianceWidgetConfig,
   type CapacityBucket,
   type CapacityWidgetConfig,
   type ChartBarWidgetConfig,
   type ChartPieWidgetConfig,
   type FilterGroup,
   type NumberWidgetConfig,
+  type PortfolioRollupWidgetConfig,
+  type RiskHeatmapWidgetConfig,
+  type RollupResult,
   type WidgetFilter,
   type WorkloadWidgetConfig,
 } from '@cube-track/shared';
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 
 import type { AuthPrincipal } from '../../../core/context/request-context.js';
 import { TransactionRunner } from '../../../core/database/transaction-runner.js';
@@ -31,7 +37,10 @@ import { BoardDefinitionRepository } from '../../work/infrastructure/board-defin
 import { ItemsService } from '../../work/application/items.service.js';
 import type { WidgetDto } from './widgets.service.js';
 
-const { memberships, projectHealth, users } = schema;
+const { memberships, projectHealth, users, portfolios, programs, boards, budgets, costEntries, risks } = schema;
+
+/** Risco "crítico" (ADR 0053): score probabilidade × impacto (1–25) >= 15 — convenção comum de PPM. */
+const CRITICAL_RISK_SCORE = 15;
 
 export type WidgetData =
   | { kind: 'number'; value: string | null }
@@ -60,6 +69,24 @@ export type WidgetData =
         summary: string | null;
       } | null;
       history: { id: string; reportedAt: string; overall: 'green' | 'yellow' | 'red' | 'grey' }[];
+    }
+  | { kind: 'portfolio_rollup'; scope: 'portfolio' | 'program'; name: string | null; rollup: RollupResult }
+  | {
+      kind: 'risk_heatmap';
+      risks: { id: string; title: string; boardId: string; probability: number; impact: number; status: string }[];
+    }
+  | {
+      kind: 'budget_variance';
+      budgets: {
+        budgetId: string;
+        boardId: string | null;
+        boardName: string | null;
+        name: string;
+        category: 'capex' | 'opex';
+        plannedAmount: string;
+        actualAmount: string;
+        forecastAmount: string;
+      }[];
     };
 
 /** Valor da célula no item (colunas vinculadas leem o campo nativo — mesma regra do CSV/Excel). */
@@ -163,6 +190,12 @@ export class WidgetDataService {
         return this.computeProjectHealth(user, parseWidgetConfig('project_health', widget.config).boardId);
       case 'capacity':
         return this.computeCapacity(user, parseWidgetConfig('capacity', widget.config));
+      case 'portfolio_rollup':
+        return this.computePortfolioRollup(user, parseWidgetConfig('portfolio_rollup', widget.config));
+      case 'risk_heatmap':
+        return this.computeRiskHeatmap(user, parseWidgetConfig('risk_heatmap', widget.config));
+      case 'budget_variance':
+        return this.computeBudgetVariance(user, parseWidgetConfig('budget_variance', widget.config));
     }
   }
 
@@ -400,6 +433,205 @@ export class WidgetDataService {
         reportedAt: row.reportedAt.toISOString(),
         overall: row.overall,
       })),
+    };
+  }
+
+  /** Boards de um portfólio: diretos (`portfolioId`) + os de todo programa do portfólio. */
+  private async boardsOfPortfolio(portfolioId: string): Promise<{ id: string }[]> {
+    const programRows = await this.runner.tx
+      .select({ id: programs.id })
+      .from(programs)
+      .where(and(eq(programs.portfolioId, portfolioId), isNull(programs.deletedAt)));
+    const programIds = programRows.map((row) => row.id);
+    const rows = await this.runner.tx
+      .select({ id: boards.id })
+      .from(boards)
+      .where(
+        and(
+          isNull(boards.deletedAt),
+          programIds.length > 0
+            ? or(eq(boards.portfolioId, portfolioId), inArray(boards.programId, programIds))
+            : eq(boards.portfolioId, portfolioId),
+        ),
+      );
+    return rows;
+  }
+
+  /**
+   * Rollup de portfólio/programa (ADR 0053): agrega os boards (diretos ou via programas) com o motor
+   * `aggregateRollup` de `packages/shared`. UST ainda não entra no rollup (depende do módulo de
+   * Contratos/OS, Prompt 13) — sempre `0` nesta entrega.
+   */
+  private async computePortfolioRollup(
+    user: AuthPrincipal,
+    config: PortfolioRollupWidgetConfig,
+  ): Promise<WidgetData> {
+    const owner =
+      config.scope === 'portfolio'
+        ? await this.runner.tx
+            .select({ workspaceId: portfolios.workspaceId, name: portfolios.name })
+            .from(portfolios)
+            .where(eq(portfolios.id, config.id))
+            .then((rows) => rows[0])
+        : await this.runner.tx
+            .select({ workspaceId: programs.workspaceId, name: programs.name })
+            .from(programs)
+            .where(eq(programs.id, config.id))
+            .then((rows) => rows[0]);
+    if (owner === undefined) return { kind: 'portfolio_rollup', scope: config.scope, name: null, rollup: aggregateRollup([]) };
+    if (!(await this.access.can(user, 'portfolio.read', { type: 'workspace', id: owner.workspaceId })))
+      return { kind: 'portfolio_rollup', scope: config.scope, name: owner.name, rollup: aggregateRollup([]) };
+
+    const boardRows =
+      config.scope === 'portfolio'
+        ? await this.boardsOfPortfolio(config.id)
+        : await this.runner.tx
+            .select({ id: boards.id })
+            .from(boards)
+            .where(and(eq(boards.programId, config.id), isNull(boards.deletedAt)))
+            .then((rows) => rows.map((row) => ({ id: row.id })));
+    const boardIds = boardRows.map((row) => row.id);
+    if (boardIds.length === 0) return { kind: 'portfolio_rollup', scope: config.scope, name: owner.name, rollup: aggregateRollup([]) };
+
+    const boardMeta = await this.runner.tx
+      .select({ id: boards.id, startDate: boards.startDate, endDate: boards.endDate })
+      .from(boards)
+      .where(inArray(boards.id, boardIds));
+    const budgetRows = await this.runner.tx
+      .select({ id: budgets.id, boardId: budgets.boardId, plannedAmount: budgets.plannedAmount })
+      .from(budgets)
+      .where(and(inArray(budgets.boardId, boardIds), isNull(budgets.deletedAt)));
+    const budgetIds = budgetRows.map((row) => row.id);
+    const costRows =
+      budgetIds.length === 0
+        ? []
+        : await this.runner.tx
+            .select({ budgetId: costEntries.budgetId, kind: costEntries.kind, amount: costEntries.amount })
+            .from(costEntries)
+            .where(and(inArray(costEntries.budgetId, budgetIds), isNull(costEntries.deletedAt)));
+    const riskRows = await this.runner.tx
+      .select({ boardId: risks.boardId, probability: risks.probability, impact: risks.impact })
+      .from(risks)
+      .where(and(inArray(risks.boardId, boardIds), isNull(risks.deletedAt), inArray(risks.status, ['open', 'mitigating'])));
+    const healthRows = await this.runner.tx
+      .select({
+        boardId: projectHealth.boardId,
+        overall: projectHealth.overall,
+        percentComplete: projectHealth.percentComplete,
+        eac: projectHealth.eac,
+        reportedAt: projectHealth.reportedAt,
+      })
+      .from(projectHealth)
+      .where(inArray(projectHealth.boardId, boardIds))
+      .orderBy(desc(projectHealth.reportedAt));
+
+    const latestHealthByBoard = new Map<string, (typeof healthRows)[number]>();
+    for (const row of healthRows) if (!latestHealthByBoard.has(row.boardId)) latestHealthByBoard.set(row.boardId, row);
+
+    const inputs: BoardRollupInput[] = boardMeta.map((board) => {
+      const boardBudgets = budgetRows.filter((row) => row.boardId === board.id);
+      const plannedCost = boardBudgets.reduce((sum, row) => sum + Number(row.plannedAmount), 0);
+      const budgetIdsOfBoard = new Set(boardBudgets.map((row) => row.id));
+      const actualCost = costRows
+        .filter((row) => budgetIdsOfBoard.has(row.budgetId) && row.kind === 'actual')
+        .reduce((sum, row) => sum + Number(row.amount), 0);
+      const health = latestHealthByBoard.get(board.id);
+      const forecastCost = health?.eac !== undefined && health.eac !== null ? Number(health.eac) : actualCost;
+      const boardRisks = riskRows.filter((row) => row.boardId === board.id);
+      return {
+        boardId: board.id,
+        startDate: board.startDate,
+        endDate: board.endDate,
+        percentComplete:
+          health?.percentComplete !== undefined && health.percentComplete !== null
+            ? Number(health.percentComplete)
+            : null,
+        overall: health?.overall ?? 'grey',
+        plannedCost,
+        actualCost,
+        forecastCost,
+        ustTotal: 0,
+        openRisks: boardRisks.length,
+        criticalRisks: boardRisks.filter((row) => row.probability * row.impact >= CRITICAL_RISK_SCORE).length,
+      };
+    });
+    return { kind: 'portfolio_rollup', scope: config.scope, name: owner.name, rollup: aggregateRollup(inputs) };
+  }
+
+  /** Matriz de riscos abertos (probabilidade × impacto) dos boards informados que o usuário pode ler. */
+  private async computeRiskHeatmap(user: AuthPrincipal, config: RiskHeatmapWidgetConfig): Promise<WidgetData> {
+    const readableBoardIds: string[] = [];
+    for (const boardId of config.boardIds) {
+      if (await this.access.can(user, 'board.read', { type: 'board', id: boardId })) readableBoardIds.push(boardId);
+    }
+    if (readableBoardIds.length === 0) return { kind: 'risk_heatmap', risks: [] };
+    const rows = await this.runner.tx
+      .select({
+        id: risks.id,
+        title: risks.title,
+        boardId: risks.boardId,
+        probability: risks.probability,
+        impact: risks.impact,
+        status: risks.status,
+      })
+      .from(risks)
+      .where(and(inArray(risks.boardId, readableBoardIds), isNull(risks.deletedAt), inArray(risks.status, ['open', 'mitigating'])));
+    return { kind: 'risk_heatmap', risks: rows };
+  }
+
+  /**
+   * Planejado × realizado × previsto (EAC quando relatado, senão igual ao realizado) dos orçamentos
+   * de projeto dos boards informados que o usuário pode ler.
+   */
+  private async computeBudgetVariance(user: AuthPrincipal, config: BudgetVarianceWidgetConfig): Promise<WidgetData> {
+    const readableBoardIds: string[] = [];
+    for (const boardId of config.boardIds) {
+      if (await this.access.can(user, 'board.read', { type: 'board', id: boardId })) readableBoardIds.push(boardId);
+    }
+    if (readableBoardIds.length === 0) return { kind: 'budget_variance', budgets: [] };
+    const boardNames = new Map(
+      (
+        await this.runner.tx.select({ id: boards.id, name: boards.name }).from(boards).where(inArray(boards.id, readableBoardIds))
+      ).map((row) => [row.id, row.name]),
+    );
+    const budgetRows = await this.runner.tx
+      .select()
+      .from(budgets)
+      .where(and(inArray(budgets.boardId, readableBoardIds), isNull(budgets.deletedAt)));
+    const budgetIds = budgetRows.map((row) => row.id);
+    const costRows =
+      budgetIds.length === 0
+        ? []
+        : await this.runner.tx
+            .select({ budgetId: costEntries.budgetId, kind: costEntries.kind, amount: costEntries.amount })
+            .from(costEntries)
+            .where(and(inArray(costEntries.budgetId, budgetIds), isNull(costEntries.deletedAt)));
+    const healthRows = await this.runner.tx
+      .select({ boardId: projectHealth.boardId, eac: projectHealth.eac, reportedAt: projectHealth.reportedAt })
+      .from(projectHealth)
+      .where(inArray(projectHealth.boardId, readableBoardIds))
+      .orderBy(desc(projectHealth.reportedAt));
+    const latestEacByBoard = new Map<string, string | null>();
+    for (const row of healthRows) if (!latestEacByBoard.has(row.boardId)) latestEacByBoard.set(row.boardId, row.eac);
+
+    return {
+      kind: 'budget_variance',
+      budgets: budgetRows.map((budget) => {
+        const actualAmount = costRows
+          .filter((row) => row.budgetId === budget.id && row.kind === 'actual')
+          .reduce((sum, row) => sum + Number(row.amount), 0);
+        const eac = budget.boardId === null ? null : (latestEacByBoard.get(budget.boardId) ?? null);
+        return {
+          budgetId: budget.id,
+          boardId: budget.boardId,
+          boardName: budget.boardId === null ? null : (boardNames.get(budget.boardId) ?? null),
+          name: budget.name,
+          category: budget.category,
+          plannedAmount: budget.plannedAmount,
+          actualAmount: actualAmount.toFixed(2),
+          forecastAmount: eac ?? actualAmount.toFixed(2),
+        };
+      }),
     };
   }
 }

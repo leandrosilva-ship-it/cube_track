@@ -109,6 +109,23 @@ const TEMPLATES: Record<
     lines: [`Seu timesheet da semana de ${data.periodStart ?? ''} foi ${data.status ?? ''}.`],
     action: { label: 'Ver timesheet', url: data.link ?? '' },
   }),
+  risk_assigned: (data) => ({
+    subject: `Risco atribuído a você: "${data.title ?? ''}"`,
+    lines: [`Você foi definido como responsável pelo risco "${data.title ?? ''}" no projeto ${data.boardName ?? ''}.`],
+    action: { label: 'Ver risco', url: data.link ?? '' },
+  }),
+  issue_assigned: (data) => ({
+    subject: `Problema atribuído a você: "${data.title ?? ''}"`,
+    lines: [`Você foi definido como responsável pelo problema "${data.title ?? ''}" no projeto ${data.boardName ?? ''}.`],
+    action: { label: 'Ver problema', url: data.link ?? '' },
+  }),
+  project_health_alert: (data) => ({
+    subject: `Saúde do projeto ${data.boardName ?? ''} mudou para ${data.status ?? ''}`,
+    lines: [
+      `A saúde geral do projeto ${data.boardName ?? ''} mudou automaticamente para "${data.status ?? ''}" conforme as regras configuradas.`,
+    ],
+    action: { label: 'Ver Project Health', url: data.link ?? '' },
+  }),
 };
 
 /** Renderiza o e-mail (texto e HTML com escape de todo conteúdo dinâmico). */

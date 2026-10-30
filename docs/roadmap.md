@@ -638,17 +638,23 @@ pnpm --filter @cube-track/web test:e2e        # inclui os specs novos de portfó
   carrega o `dashboardId` dos widgets de UST — mesmo padrão de `project_health.changed`/
   `dashboard.changed` do Prompt 12).
 - **i18n**: textos do módulo (telas, diálogos, status da OS, alertas) em pt-BR/en/es.
-- **Testes**: `packages/shared` — `contracts.test.ts` (23 casos), confirmados passando nesta sessão
-  (289 testes no pacote `shared`, todos passando). `apps/web` — `features/contracts/model.test.ts`,
-  confirmado passando nesta sessão (227 testes no pacote `web`, todos passando). `apps/api` —
-  `contracts.e2e.test.ts` (3 blocos: Contratos e catálogo; Ordem de Serviço — auto-fill, override
+- **Testes**: `packages/shared` — `contracts.test.ts` (23 casos), 289 testes no pacote `shared`,
+  todos passando. `apps/web` — `features/contracts/model.test.ts` (36 casos) e os 5 novos `case` de
+  `apps/web/src/realtime/apply.test.ts`, 227 testes no pacote `web`, todos passando. `apps/api` —
+  `contracts.e2e.test.ts` (4 blocos: Contratos e catálogo; Ordem de Serviço — auto-fill, override
   auditado, ciclo e saldo, **critério de aceite 1**; Medição mensal e faturamento, **critério de
-  aceite 2**; enforcement do módulo opcional), já verificado passando numa execução anterior deste
-  mesmo ciclo de trabalho — não executado de novo nesta sessão de documentação por um problema de
-  autenticação do banco de teste local (`SASL: client password must be a string`, `TEST_DATABASE_URL`
-  deste ambiente), não um problema do código ou dos testes em si. E2E Playwright
-  (`apps/web/e2e/contracts.spec.ts`): **em andamento** em paralelo a esta sessão — o arquivo ainda não
-  existe no repositório no momento em que esta entrada foi escrita.
+  aceite 2**; enforcement do módulo opcional), 8/8 passando contra Postgres/Redis reais. E2E Playwright
+  (`apps/web/e2e/contracts.spec.ts`, 4 specs): escrito e **executado de ponta a ponta** (API + worker +
+  web reais, dois navegadores) nesta mesma sessão — passou 4/4, duas vezes seguidas. Essa execução real
+  (não só leitura de código) encontrou e corrigiu 3 bugs genuínos que nenhuma camada anterior de teste
+  tinha pego: (1) aceitar uma OS não atualizava o saldo em outro navegador porque `service_order.changed`
+  só chega à room do board, nunca à tela de Contratos — a OS agora também emite `contract.changed`
+  (tenant-scoped) ao transicionar; (2) o item "Configurações do workspace" do menu do seletor de
+  workspace usava `DropdownMenuItem asChild` com um padrão incompatível com o slot único do Radix,
+  travando o menu inteiro; (3) quatro diálogos do módulo (`measurements-panel.tsx`,
+  `invoices-panel.tsx`, `contracts-page.tsx`, `catalog-panel.tsx`) renderizavam `Modal` sem o `Dialog`
+  que o envolve (contrato do componente compartilhado), quebrando ao abrir. Detalhes no commit
+  `fd8d38f`.
 - **Documentação**: ADR 0054, `docs/contracts.md` (novo), `docs/permissions.md` (seção
   "Contratos/OS/UST"), `docs/realtime-events.md` (5 tipos de evento novos), este roadmap.
 
@@ -676,13 +682,6 @@ pnpm --filter @cube-track/web test:e2e        # inclui os specs novos de portfó
   job diário de alertas o avisa, e só quando há um alerta ativo.
 - UST ainda não entra no rollup de portfólio do Prompt 12 (`aggregateRollup` continua somando `0`) —
   ligar os dois módulos fica para um prompt futuro.
-- `apps/api/test/contracts.e2e.test.ts`: verificado passando numa execução anterior deste ciclo de
-  trabalho, não reexecutado nesta sessão de documentação por um problema de autenticação do banco de
-  teste local deste ambiente (não relacionado ao código do módulo). Os specs Playwright de
-  Contratos/OS/UST (`apps/web/e2e/contracts.spec.ts`) estavam sendo escritos em paralelo a esta sessão
-  e ainda não existiam no repositório no momento em que esta entrada foi escrita — conferir se já
-  foram concluídos e, nesse caso, rodar `pnpm --filter @cube-track/web test:e2e` num ambiente com a
-  infraestrutura completa antes de considerar o prompt validado em produção.
 - `docs/openapi.json` não foi regenerado nesta sessão (`pnpm --filter @cube-track/api openapi:export`
   exige a API de pé) — regenerar num ambiente com a infraestrutura.
 
@@ -695,7 +694,7 @@ pnpm --filter @cube-track/api start      # API :3001
 pnpm --filter @cube-track/worker start   # relay + alertas diários de contrato
 pnpm --filter @cube-track/web start      # web :3000 — ana.ribeiro@empresademo.com.br / CubeTrack@2026
 pnpm lint && pnpm typecheck && pnpm test
-pnpm --filter @cube-track/web test:e2e        # inclui os specs de Contratos/OS/UST em apps/web/e2e/, quando concluídos
+pnpm --filter @cube-track/web test:e2e        # inclui apps/web/e2e/contracts.spec.ts (Contratos/OS/UST)
 ```
 
 **Próximos passos:** Prompt 14, com IA (assistente, resumos, chatbot do board, sugestões).

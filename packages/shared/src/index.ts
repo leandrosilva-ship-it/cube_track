@@ -5,7 +5,9 @@ export * from './capacity.js';
 export * from './business-time.js';
 export * from './columns/index.js';
 export * from './contracts.js';
-export * from './crypto.js';
+// crypto.js (encryptSecret/decryptSecret) usa node:crypto: de propósito fora do barrel, importar de
+// '@cube-track/shared/crypto' — caso contrário o webpack do apps/web falha ao montar o bundle do
+// cliente (qualquer Client Component que importe algo do barrel arrasta node:crypto junto).
 export * from './csv.js';
 export * from './decimal.js';
 export * from './display-id.js';

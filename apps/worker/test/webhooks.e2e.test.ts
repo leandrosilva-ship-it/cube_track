@@ -1,7 +1,8 @@
 import { createHmac, randomBytes } from 'node:crypto';
 
 import { schema, type DatabaseHandle } from '@cube-track/db';
-import { encryptSecret, newId } from '@cube-track/shared';
+import { newId } from '@cube-track/shared';
+import { encryptSecret } from '@cube-track/shared/crypto';
 import type { Queue } from 'bullmq';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';

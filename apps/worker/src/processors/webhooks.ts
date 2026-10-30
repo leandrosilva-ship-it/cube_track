@@ -2,11 +2,11 @@ import { createHmac } from 'node:crypto';
 
 import { schema, withTenant, type DatabaseHandle } from '@cube-track/db';
 import {
-  decryptSecret,
   DomainEventJobSchema,
   WebhookDeliveryJobSchema,
   type DomainEventJob,
 } from '@cube-track/shared';
+import { decryptSecret } from '@cube-track/shared/crypto';
 import type { Job, Queue } from 'bullmq';
 import { and, eq, isNull, or, sql } from 'drizzle-orm';
 

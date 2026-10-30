@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { schema } from '@cube-track/db';
-import { encryptSecret, REALTIME_EVENT_TYPES, type RealtimeEventType } from '@cube-track/shared';
+import { REALTIME_EVENT_TYPES, type RealtimeEventType } from '@cube-track/shared';
+import { encryptSecret } from '@cube-track/shared/crypto';
 import { and, desc, eq, isNull } from 'drizzle-orm';
 
 import { APP_CONFIG, type AppConfig } from '../../../core/config/config.js';

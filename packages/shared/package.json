@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./crypto": "./src/crypto.ts",
     "./realtime": "./src/realtime.ts",
     "./fractional-index": "./src/fractional-index.ts",
     "./csv": "./src/csv.ts"

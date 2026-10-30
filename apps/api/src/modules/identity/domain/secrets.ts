@@ -7,7 +7,7 @@ export { randomToken, safeEqualHex, sha256Hex } from '../../../core/crypto/secre
 
 // Cifra de segredos em repouso: vive em `@cube-track/shared` (ADR 0051) para que o worker também a
 // use (decifrar o segredo de um webhook para assinar a entrega) sem depender desta API.
-export { decryptSecret, encryptSecret } from '@cube-track/shared';
+export { decryptSecret, encryptSecret } from '@cube-track/shared/crypto';
 
 /** Códigos de recuperação de MFA (`xxxx-xxxx`, base32 sem ambiguidade). */
 export function generateRecoveryCodes(count = 10): string[] {

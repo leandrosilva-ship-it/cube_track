@@ -1,0 +1,1 @@
+ALTER TABLE "service_order_items" ADD COLUMN "ust_override_reason" text;

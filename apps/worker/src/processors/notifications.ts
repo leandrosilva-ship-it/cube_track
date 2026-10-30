@@ -408,7 +408,7 @@ async function managerOf(tx: Transaction, tenantId: string, userId: string): Pro
   return profile?.managerId ?? null;
 }
 
-interface NotifyInput {
+export interface NotifyInput {
   userId: string;
   type: string;
   title: string;
@@ -425,7 +425,7 @@ interface NotifyInput {
  * Devolve o e-mail da pessoa quando um envio instantâneo deve acontecer (o chamador monta o
  * `EmailJob` com o template certo), ou `null` quando não deve enviar.
  */
-async function notifyUser(
+export async function notifyUser(
   tx: Transaction,
   tenantId: string,
   actorId: string | null,

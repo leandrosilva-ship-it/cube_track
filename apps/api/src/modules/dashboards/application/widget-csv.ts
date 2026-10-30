@@ -74,5 +74,30 @@ export function widgetDataToCsvRows(title: string, data: WidgetData): { header: 
           budget.forecastAmount,
         ]),
       };
+    case 'ust_balance':
+      return {
+        header: ['Métrica', 'Valor'],
+        rows: [
+          ['Contrato', data.contractNumber],
+          ['UST contratada', data.balance.ustContracted.toFixed(4)],
+          ['UST consumida', data.balance.ustConsumed.toFixed(4)],
+          ['Saldo', data.balance.ustBalance.toFixed(4)],
+          ['% consumido', data.balance.percentConsumed.toFixed(1)],
+        ],
+      };
+    case 'ust_by_dimension':
+      return {
+        header: ['Categoria', 'UST'],
+        rows: data.categories.map((entry) => [entry.label, entry.value.toFixed(4)]),
+      };
+    case 'ust_forecast':
+      return {
+        header: ['Métrica', 'Valor'],
+        rows: [
+          ['Saldo atual', data.balance.ustBalance.toFixed(4)],
+          ['Consumo médio diário', data.forecast.dailyBurnRate.toFixed(4)],
+          ['Previsão de esgotamento', data.forecast.estimatedExhaustionDate ?? 'sem projeção'],
+        ],
+      };
   }
 }

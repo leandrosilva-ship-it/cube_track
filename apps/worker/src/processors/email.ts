@@ -126,6 +126,21 @@ const TEMPLATES: Record<
     ],
     action: { label: 'Ver Project Health', url: data.link ?? '' },
   }),
+  contract_balance_low: (data) => ({
+    subject: 'Saldo de UST baixo',
+    lines: [data.message ?? 'O saldo de UST de um contrato está baixo.'],
+    action: { label: 'Ver contrato', url: data.link ?? '' },
+  }),
+  contract_expiring: (data) => ({
+    subject: 'Vigência de contrato perto do fim',
+    lines: [data.message ?? 'A vigência de um contrato está perto do fim.'],
+    action: { label: 'Ver contrato', url: data.link ?? '' },
+  }),
+  service_order_stalled: (data) => ({
+    subject: 'Ordem de Serviço sem emissão',
+    lines: [data.message ?? 'Uma Ordem de Serviço está solicitada há vários dias sem ser emitida.'],
+    action: { label: 'Ver contrato', url: data.link ?? '' },
+  }),
 };
 
 /** Renderiza o e-mail (texto e HTML com escape de todo conteúdo dinâmico). */

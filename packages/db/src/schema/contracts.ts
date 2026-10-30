@@ -127,6 +127,11 @@ export const serviceOrderItems = tenantTable(
     ustUnit: numeric('ust_unit', MONEY).notNull(),
     ustTotal: numeric('ust_total', MONEY).notNull(),
     description: text('description'),
+    /**
+     * Obrigatória (na borda, Zod/serviço) sempre que `ustUnit` difere do `defaultUst` do item de
+     * catálogo escolhido — ajuste manual da UST auto-preenchida exige justificativa (ADR 0054).
+     */
+    ustOverrideReason: text('ust_override_reason'),
   },
   (t) => [
     tenantFk('service_order_items', t.tenantId, t.serviceOrderId, serviceOrders),

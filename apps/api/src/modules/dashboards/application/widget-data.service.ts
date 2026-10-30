@@ -3,7 +3,9 @@ import { schema } from '@cube-track/db';
 import {
   aggregateRollup,
   aggregateValues,
+  CONSUMING_ORDER_STATUSES,
   Decimal,
+  forecastExhaustion,
   isGroupFilter,
   parseWidgetConfig,
   shiftDays,
@@ -16,19 +18,25 @@ import {
   type CapacityWidgetConfig,
   type ChartBarWidgetConfig,
   type ChartPieWidgetConfig,
+  type ContractBalance,
+  type ExhaustionForecast,
   type FilterGroup,
   type NumberWidgetConfig,
   type PortfolioRollupWidgetConfig,
   type RiskHeatmapWidgetConfig,
   type RollupResult,
+  type UstBalanceWidgetConfig,
+  type UstByDimensionWidgetConfig,
+  type UstForecastWidgetConfig,
   type WidgetFilter,
   type WorkloadWidgetConfig,
 } from '@cube-track/shared';
-import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, or } from 'drizzle-orm';
 
 import type { AuthPrincipal } from '../../../core/context/request-context.js';
 import { TransactionRunner } from '../../../core/database/transaction-runner.js';
 import { AccessService } from '../../access/application/access.service.js';
+import { ContractsService } from '../../contracts/application/contracts.service.js';
 import { CapacityService } from '../../resources/application/capacity.service.js';
 import type { ColumnDefinition } from '../../work/domain/board-definition.js';
 import { todayIn } from '../../work/domain/board-definition.js';
@@ -37,7 +45,7 @@ import { BoardDefinitionRepository } from '../../work/infrastructure/board-defin
 import { ItemsService } from '../../work/application/items.service.js';
 import type { WidgetDto } from './widgets.service.js';
 
-const { memberships, projectHealth, users, portfolios, programs, boards, budgets, costEntries, risks } = schema;
+const { memberships, projectHealth, users, portfolios, programs, boards, budgets, costEntries, risks, serviceOrders } = schema;
 
 /** Risco "crítico" (ADR 0053): score probabilidade × impacto (1–25) >= 15 — convenção comum de PPM. */
 const CRITICAL_RISK_SCORE = 15;
@@ -99,7 +107,14 @@ export type WidgetData =
         actualAmount: string;
         forecastAmount: string;
       }[];
-    };
+    }
+  | { kind: 'ust_balance'; contractId: string; contractNumber: string; balance: ContractBalance }
+  | {
+      kind: 'ust_by_dimension';
+      dimension: 'month' | 'column';
+      categories: { key: string; label: string; value: number }[];
+    }
+  | { kind: 'ust_forecast'; contractId: string; balance: ContractBalance; forecast: ExhaustionForecast };
 
 /** Valor da célula no item (colunas vinculadas leem o campo nativo — mesma regra do CSV/Excel). */
 function cellValue(column: ColumnDefinition, item: ItemDto): unknown {
@@ -184,6 +199,7 @@ export class WidgetDataService {
     private readonly items: ItemsService,
     private readonly definitions: BoardDefinitionRepository,
     private readonly capacity: CapacityService,
+    private readonly contracts: ContractsService,
   ) {}
 
   async compute(user: AuthPrincipal, widget: WidgetDto): Promise<WidgetData> {
@@ -208,6 +224,12 @@ export class WidgetDataService {
         return this.computeRiskHeatmap(user, parseWidgetConfig('risk_heatmap', widget.config));
       case 'budget_variance':
         return this.computeBudgetVariance(user, parseWidgetConfig('budget_variance', widget.config));
+      case 'ust_balance':
+        return this.computeUstBalance(user, parseWidgetConfig('ust_balance', widget.config));
+      case 'ust_by_dimension':
+        return this.computeUstByDimension(user, parseWidgetConfig('ust_by_dimension', widget.config));
+      case 'ust_forecast':
+        return this.computeUstForecast(user, parseWidgetConfig('ust_forecast', widget.config));
     }
   }
 
@@ -653,5 +675,105 @@ export class WidgetDataService {
         };
       }),
     };
+  }
+
+  /** Saldo de UST (ADR 0054) — reaproveita `ContractsService.get` (permissão, módulo e saldo ao vivo). */
+  private async computeUstBalance(user: AuthPrincipal, config: UstBalanceWidgetConfig): Promise<WidgetData> {
+    const contract = await this.contracts.get(user, config.contractId);
+    return { kind: 'ust_balance', contractId: contract.id, contractNumber: contract.number, balance: contract.balance };
+  }
+
+  /** UST consumida (OS aceitas/medidas/faturadas) por mês, ou por bucket de uma coluna de um board. */
+  private async computeUstByDimension(user: AuthPrincipal, config: UstByDimensionWidgetConfig): Promise<WidgetData> {
+    await this.contracts.assertRead(user, config.contractId);
+    if (config.dimension === 'month') {
+      const orders = await this.runner.tx
+        .select({ acceptedAt: serviceOrders.acceptedAt, totalUst: serviceOrders.totalUst })
+        .from(serviceOrders)
+        .where(
+          and(
+            eq(serviceOrders.contractId, config.contractId),
+            isNull(serviceOrders.deletedAt),
+            inArray(serviceOrders.status, CONSUMING_ORDER_STATUSES),
+            isNotNull(serviceOrders.acceptedAt),
+          ),
+        );
+      const byMonth = new Map<string, number>();
+      for (const order of orders) {
+        const month = (order.acceptedAt ?? '').slice(0, 7);
+        byMonth.set(month, (byMonth.get(month) ?? 0) + Number(order.totalUst));
+      }
+      const categories = [...byMonth.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([month, value]) => ({ key: month, label: month, value }));
+      return { kind: 'ust_by_dimension', dimension: 'month', categories };
+    }
+    if (config.boardId === undefined || config.columnKey === undefined)
+      return { kind: 'ust_by_dimension', dimension: 'column', categories: [] };
+    const rows = await this.itemsOf(user, config.boardId, null);
+    if (rows.length === 0) return { kind: 'ust_by_dimension', dimension: 'column', categories: [] };
+    const columns = await this.columnsOf(config.boardId);
+    const column = columns.get(config.columnKey);
+    const orderRows = await this.runner.tx
+      .select({ itemId: serviceOrders.itemId, totalUst: serviceOrders.totalUst })
+      .from(serviceOrders)
+      .where(
+        and(
+          eq(serviceOrders.contractId, config.contractId),
+          isNull(serviceOrders.deletedAt),
+          inArray(serviceOrders.status, CONSUMING_ORDER_STATUSES),
+          inArray(
+            serviceOrders.itemId,
+            rows.map((row) => row.id),
+          ),
+        ),
+      );
+    const ustByItem = new Map<string, number>();
+    for (const order of orderRows) {
+      if (order.itemId === null) continue;
+      ustByItem.set(order.itemId, (ustByItem.get(order.itemId) ?? 0) + Number(order.totalUst));
+    }
+    const buckets = new Map<string, { label: string; value: number }>();
+    for (const row of rows) {
+      const ust = ustByItem.get(row.id);
+      if (ust === undefined) continue;
+      const bucket = bucketOf(column, row);
+      if (bucket === null) continue;
+      const entry = buckets.get(bucket.key) ?? { label: bucket.label, value: 0 };
+      entry.value += ust;
+      buckets.set(bucket.key, entry);
+    }
+    const categories = [...buckets.entries()]
+      .sort(([, a], [, b]) => b.value - a.value)
+      .map(([key, { label, value }]) => ({ key, label, value }));
+    return { kind: 'ust_by_dimension', dimension: 'column', categories };
+  }
+
+  /**
+   * Previsão de esgotamento do saldo (ADR 0054): histórico de consumo acumulado (OS aceitas por data
+   * de aceite) alimenta `forecastExhaustion` — mesmo motor testado no pacote compartilhado.
+   */
+  private async computeUstForecast(user: AuthPrincipal, config: UstForecastWidgetConfig): Promise<WidgetData> {
+    const contract = await this.contracts.get(user, config.contractId);
+    const orders = await this.runner.tx
+      .select({ acceptedAt: serviceOrders.acceptedAt, totalUst: serviceOrders.totalUst })
+      .from(serviceOrders)
+      .where(
+        and(
+          eq(serviceOrders.contractId, config.contractId),
+          isNull(serviceOrders.deletedAt),
+          inArray(serviceOrders.status, CONSUMING_ORDER_STATUSES),
+          isNotNull(serviceOrders.acceptedAt),
+        ),
+      )
+      .orderBy(asc(serviceOrders.acceptedAt));
+    let cumulative = 0;
+    const history = orders.map((order) => {
+      cumulative += Number(order.totalUst);
+      return { date: order.acceptedAt ?? '', consumedUst: cumulative };
+    });
+    const today = todayIn(await this.definitions.tenantTimezone(this.runner.tx, user.tenantId));
+    const forecast = forecastExhaustion(history, contract.balance.ustBalance, today);
+    return { kind: 'ust_forecast', contractId: contract.id, balance: contract.balance, forecast };
   }
 }

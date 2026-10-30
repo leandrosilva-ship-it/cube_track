@@ -13,6 +13,7 @@ import type { Logger } from './logger.js';
 import { OutboxRelay } from './outbox-relay.js';
 import { automationsProcessor } from './processors/automations.js';
 import { computedProcessor } from './processors/computed.js';
+import { createContractAlertsDaily } from './processors/contracts.js';
 import { createMailer, emailProcessor } from './processors/email.js';
 import { fileScanProcessor } from './processors/file-scan.js';
 import { maintenanceProcessor, scheduleMaintenance } from './processors/maintenance.js';
@@ -72,6 +73,13 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
     logger,
   });
   const recomputePortfolioHealth = createPortfolioHealthDaily({ database: appDb, redis, logger });
+  const checkContractAlerts = createContractAlertsDaily({
+    database: appDb,
+    redis,
+    emails: queues[QUEUES.emails],
+    appUrl: config.APP_URL,
+    logger,
+  });
 
   const workers: Worker[] = [
     createWorker(
@@ -113,6 +121,7 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
         checkSla,
         checkNotificationDigest,
         recomputePortfolioHealth,
+        checkContractAlerts,
       }),
       { ...common, concurrency: 1 },
     ),

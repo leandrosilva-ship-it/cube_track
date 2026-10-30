@@ -55,6 +55,34 @@ export interface ItemIndicators {
   unreadUpdates: number;
 }
 
+/**
+ * Resumo da OS vinculada ao item, para colunas com binding `service_order.*` (ADR 0054/0017). Só
+ * anexado quando o board tem `contractId` e pelo menos uma coluna usa esse binding (mesmo cuidado
+ * de não fazer o join à toa de `item.*`). Somente leitura — filtro/ordenação por essas colunas
+ * continua fora de escopo (`item-query.ts`'s `bindingField()` já recusa com `field_not_filterable`).
+ */
+export interface ItemServiceOrderSummary {
+  number: string | null;
+  seiProcess: string | null;
+  requestedAt: string | null;
+  issuedAt: string | null;
+  totalUst: string | null;
+  /** Códigos de catálogo das linhas da OS, separados por vírgula (ex.: "D1, D3"). */
+  catalogCodes: string | null;
+  billedAt: string | null;
+}
+
+/** Binding (`service_order.*`) de cada campo do resumo — usado para redigir por permissão de coluna. */
+export const SERVICE_ORDER_FIELD_BINDINGS: Record<keyof ItemServiceOrderSummary, string> = {
+  number: 'service_order.number',
+  seiProcess: 'service_order.sei_process',
+  requestedAt: 'service_order.requested_at',
+  issuedAt: 'service_order.issued_at',
+  totalUst: 'service_order.total_ust',
+  catalogCodes: 'service_order.catalog_codes',
+  billedAt: 'service_order.billed_at',
+};
+
 export interface ItemDto {
   id: string;
   boardId: string;
@@ -83,6 +111,7 @@ export interface ItemDto {
   updatedBy: string | null;
   archivedAt: string | null;
   indicators?: ItemIndicators;
+  serviceOrder?: ItemServiceOrderSummary | null;
   /** Campos ocultados por permissão de coluna (valor retornado como null). */
   redactedFields: string[];
 }
@@ -110,6 +139,7 @@ export function toItemDto(
   item: ItemRecord,
   visibility: ColumnVisibility,
   indicators?: ItemIndicators,
+  serviceOrder?: ItemServiceOrderSummary | null,
 ): ItemDto {
   const redactedFields: string[] = [];
   const native = (field: NativeField, value: string | null): string | null => {
@@ -123,6 +153,18 @@ export function toItemDto(
   for (const [key, version] of Object.entries(item.fieldVersions)) {
     if (!visibility.hidden.has(key)) fieldVersions[key] = version;
   }
+  const redactedServiceOrder =
+    serviceOrder === undefined || serviceOrder === null
+      ? serviceOrder
+      : (Object.fromEntries(
+          (Object.entries(serviceOrder) as [keyof ItemServiceOrderSummary, string | null][]).map(
+            ([field, value]) => {
+              if (!visibility.hiddenBindings.has(SERVICE_ORDER_FIELD_BINDINGS[field])) return [field, value];
+              redactedFields.push(SERVICE_ORDER_FIELD_BINDINGS[field]);
+              return [field, null];
+            },
+          ),
+        ) as unknown as ItemServiceOrderSummary);
   return {
     id: item.id,
     boardId: item.boardId,
@@ -151,6 +193,7 @@ export function toItemDto(
     updatedBy: item.updatedBy,
     archivedAt: item.archivedAt?.toISOString() ?? null,
     ...(indicators === undefined ? {} : { indicators }),
+    ...(redactedServiceOrder === undefined ? {} : { serviceOrder: redactedServiceOrder }),
     redactedFields,
   };
 }

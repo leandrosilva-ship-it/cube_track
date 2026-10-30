@@ -41,6 +41,15 @@ export interface CreateWorkspaceInput {
   color?: string | undefined;
 }
 
+export interface UpdateWorkspaceInput {
+  name?: string | undefined;
+  description?: string | null | undefined;
+  icon?: string | null | undefined;
+  color?: string | null | undefined;
+  visibility?: 'open' | 'closed' | undefined;
+  enabledModules?: string[] | undefined;
+}
+
 export interface CreateFolderInput {
   name: string;
   parentId?: string | null | undefined;
@@ -299,6 +308,58 @@ export class StructureService {
     });
     await this.structureChanged(user, id);
     return created;
+  }
+
+  /**
+   * Ajustes do workspace, incluindo `enabledModules` (ADR 0017/ADR 0054) — primeira rota de
+   * escrita desse campo; emite `workspace.structure_changed` para a árvore/dados do workspace em
+   * cache (inclusive `enabledModules`, hoje exposto ali) recarregarem em qualquer sessão aberta.
+   */
+  async updateWorkspace(user: AuthPrincipal, workspaceId: string, input: UpdateWorkspaceInput) {
+    await this.access.assert(user, 'workspace.manage', { type: 'workspace', id: workspaceId }, 'Workspace');
+    const tx = this.runner.tx;
+    const [existing] = await tx
+      .select({
+        name: workspaces.name,
+        description: workspaces.description,
+        icon: workspaces.icon,
+        color: workspaces.color,
+        visibility: workspaces.visibility,
+        enabledModules: workspaces.enabledModules,
+      })
+      .from(workspaces)
+      .where(and(eq(workspaces.id, workspaceId), isNull(workspaces.deletedAt)));
+    if (existing === undefined) throw new NotFoundError('Workspace');
+    const [updated] = await tx
+      .update(workspaces)
+      .set({
+        name: input.name ?? existing.name,
+        description: input.description === undefined ? existing.description : input.description,
+        icon: input.icon === undefined ? existing.icon : input.icon,
+        color: input.color === undefined ? existing.color : input.color,
+        visibility: input.visibility ?? existing.visibility,
+        enabledModules: input.enabledModules ?? existing.enabledModules,
+      })
+      .where(eq(workspaces.id, workspaceId))
+      .returning({
+        id: workspaces.id,
+        name: workspaces.name,
+        description: workspaces.description,
+        icon: workspaces.icon,
+        color: workspaces.color,
+        visibility: workspaces.visibility,
+        enabledModules: workspaces.enabledModules,
+      });
+    if (updated === undefined) throw new Error('Falha ao atualizar workspace.');
+    this.domainEvents.recordChange({
+      action: 'workspace.update',
+      entityType: 'workspace',
+      entityId: workspaceId,
+      before: { enabledModules: existing.enabledModules },
+      after: { enabledModules: updated.enabledModules },
+    });
+    await this.structureChanged(user, workspaceId);
+    return updated;
   }
 
   // ------------------------------------------------------------------------------ Tree ---

@@ -1,4 +1,5 @@
 import {
+  EnabledModulesSchema,
   FilterGroupSchema,
   KanbanConfigSchema,
   TableConfigSchema,
@@ -29,6 +30,22 @@ export const CreateWorkspaceBody = z.object({
   description: z.string().max(2_000).optional(),
   color: color.optional(),
 });
+
+/**
+ * Ajustes do workspace (nome, descrição, ícone/cor, visibilidade e módulos opcionais — ADR 0017/
+ * ADR 0054). Primeira rota de escrita de `enabledModules`: até o Prompt 13 a coluna só existia com
+ * o valor padrão `{core}`, sem nenhum jeito de alterá-la.
+ */
+export const UpdateWorkspaceBody = z
+  .object({
+    name: name.optional(),
+    description: z.string().max(2_000).nullable().optional(),
+    icon: z.string().max(64).nullable().optional(),
+    color: color.nullable().optional(),
+    visibility: z.enum(['open', 'closed']).optional(),
+    enabledModules: EnabledModulesSchema.optional(),
+  })
+  .strict();
 
 export const FolderSchema = z.object({
   id: z.uuid(),

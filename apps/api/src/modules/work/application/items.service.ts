@@ -32,6 +32,7 @@ import {
   type ItemDto,
   type ItemIndicators,
   type ItemRecord,
+  type ItemServiceOrderSummary,
 } from '../domain/item.js';
 import { BoardDefinitionRepository } from '../infrastructure/board-definition.repository.js';
 import { ItemQueryBuilder } from '../infrastructure/item-query.js';
@@ -156,10 +157,28 @@ export class ItemsService {
     const rows = await this.repository.runList(this.runner.tx, compiled.query);
     const page = rows.slice(0, compiled.limit);
     const last = page.at(-1);
+    const items = page.map((row) => rowToItem(row));
+    const hasServiceOrderBinding = visibility.columns.some(
+      (column) => column.binding?.startsWith('service_order.') === true,
+    );
+    const serviceOrders = hasServiceOrderBinding
+      ? await this.repository.serviceOrderSummaries(
+          this.runner.tx,
+          boardId,
+          items.map((item) => item.id),
+        )
+      : new Map<string, ItemServiceOrderSummary>();
     return {
-      data: page.map((row) =>
-        toItemDto(rowToItem(row), visibility, withIndicators ? indicatorsOf(row) : undefined),
-      ),
+      data: page.map((row, index) => {
+        const item = items[index];
+        if (item === undefined) throw new Error('Item ausente na página.');
+        return toItemDto(
+          item,
+          visibility,
+          withIndicators ? indicatorsOf(row) : undefined,
+          serviceOrders.get(item.id),
+        );
+      }),
       pageInfo: {
         hasNextPage: rows.length > compiled.limit,
         nextCursor:
@@ -174,7 +193,14 @@ export class ItemsService {
     const item = await this.repository.findById(this.runner.tx, itemId);
     if (item === null) throw new NotFoundError('Item');
     await this.access.assert(user, 'item.read', { type: 'item', item }, 'Item');
-    return toItemDto(item, await this.visibility(user, item.boardId));
+    const visibility = await this.visibility(user, item.boardId);
+    const hasServiceOrderBinding = visibility.columns.some(
+      (column) => column.binding?.startsWith('service_order.') === true,
+    );
+    const serviceOrder = hasServiceOrderBinding
+      ? (await this.repository.serviceOrderSummaries(this.runner.tx, item.boardId, [item.id])).get(item.id)
+      : undefined;
+    return toItemDto(item, visibility, undefined, serviceOrder);
   }
 
   // -------------------------------------------------------------------------------- escrita ---

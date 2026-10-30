@@ -40,6 +40,23 @@ export class StructureController {
     return this.structure.createWorkspace(user, body);
   }
 
+  @Patch('workspaces/:workspaceId')
+  @Audited({ action: 'workspace.update', entityType: 'workspace' })
+  @Endpoint({
+    summary: 'Ajustar workspace (nome, aparência, visibilidade, módulos opcionais)',
+    tags: ['workspaces'],
+    params: S.WorkspaceParams,
+    body: S.UpdateWorkspaceBody,
+    response: WorkspaceSchema,
+  })
+  updateWorkspace(
+    @CurrentPrincipal() user: AuthPrincipal,
+    @Input('params') params: z.infer<typeof S.WorkspaceParams>,
+    @Input('body') body: z.infer<typeof S.UpdateWorkspaceBody>,
+  ) {
+    return this.structure.updateWorkspace(user, params.workspaceId, body);
+  }
+
   @Get('workspaces/:workspaceId/tree')
   @Endpoint({
     summary: 'Árvore de pastas e boards do workspace (filtrada por permissão)',

@@ -2,9 +2,20 @@ import { Injectable } from '@nestjs/common';
 import { schema, type Transaction } from '@cube-track/db';
 import { and, asc, desc, eq, gt, inArray, isNull, lt, sql } from 'drizzle-orm';
 
-import type { ItemRecord } from '../domain/item.js';
+import type { ItemRecord, ItemServiceOrderSummary } from '../domain/item.js';
 
-const { items, groups, statusLabels, dropdownOptions, memberships, teams } = schema;
+const {
+  items,
+  groups,
+  statusLabels,
+  dropdownOptions,
+  memberships,
+  teams,
+  boards,
+  serviceOrders,
+  serviceOrderItems,
+  serviceCatalogItems,
+} = schema;
 
 const itemColumns = {
   id: items.id,
@@ -291,5 +302,60 @@ export class ItemsRepository {
   ): Promise<Record<string, unknown>[]> {
     const result = await tx.execute(query);
     return result.rows;
+  }
+
+  /**
+   * Resumo da OS de cada item, para colunas com binding `service_order.*` (ADR 0054). Vazio quando
+   * o board não tem contrato — chamador decide se vale a pena chamar (evita o join à toa, mesma
+   * economia do caminho `item.*`).
+   */
+  async serviceOrderSummaries(
+    tx: Transaction,
+    boardId: string,
+    itemIds: readonly string[],
+  ): Promise<Map<string, ItemServiceOrderSummary>> {
+    const result = new Map<string, ItemServiceOrderSummary>();
+    if (itemIds.length === 0) return result;
+    const [board] = await tx.select({ contractId: boards.contractId }).from(boards).where(eq(boards.id, boardId));
+    if (board?.contractId === undefined || board.contractId === null) return result;
+    const orders = await tx
+      .select({
+        id: serviceOrders.id,
+        itemId: serviceOrders.itemId,
+        number: serviceOrders.number,
+        seiProcess: serviceOrders.seiProcess,
+        requestedAt: serviceOrders.requestedAt,
+        issuedAt: serviceOrders.issuedAt,
+        totalUst: serviceOrders.totalUst,
+        billedAt: serviceOrders.billedAt,
+      })
+      .from(serviceOrders)
+      .where(and(inArray(serviceOrders.itemId, [...itemIds]), isNull(serviceOrders.deletedAt)));
+    if (orders.length === 0) return result;
+    const orderIds = orders.map((order) => order.id);
+    const lineRows = await tx
+      .select({ serviceOrderId: serviceOrderItems.serviceOrderId, code: serviceCatalogItems.code })
+      .from(serviceOrderItems)
+      .innerJoin(serviceCatalogItems, eq(serviceCatalogItems.id, serviceOrderItems.catalogItemId))
+      .where(inArray(serviceOrderItems.serviceOrderId, orderIds));
+    const codesByOrder = new Map<string, string[]>();
+    for (const row of lineRows) {
+      const list = codesByOrder.get(row.serviceOrderId) ?? [];
+      list.push(row.code);
+      codesByOrder.set(row.serviceOrderId, list);
+    }
+    for (const order of orders) {
+      if (order.itemId === null) continue;
+      result.set(order.itemId, {
+        number: order.number,
+        seiProcess: order.seiProcess,
+        requestedAt: order.requestedAt,
+        issuedAt: order.issuedAt,
+        totalUst: order.totalUst,
+        catalogCodes: (codesByOrder.get(order.id) ?? []).join(', '),
+        billedAt: order.billedAt,
+      });
+    }
+    return result;
   }
 }

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { ContractsModule } from '../contracts/contracts.module.js';
 import { ResourcesModule } from '../resources/resources.module.js';
 import { WorkServicesModule } from '../work/work.module.js';
 import { DashboardsService } from './application/dashboards.service.js';
@@ -10,7 +11,7 @@ import { DashboardsController } from './presentation/dashboards.controller.js';
 
 /** Dashboards, widgets, agregações e saúde do projeto (Prompt 9, ADR 0050; widget de capacidade ADR 0052). */
 @Module({
-  imports: [WorkServicesModule, ResourcesModule],
+  imports: [WorkServicesModule, ResourcesModule, ContractsModule],
   controllers: [DashboardsController],
   providers: [DashboardsService, WidgetsService, WidgetDataService, ProjectHealthService],
 })

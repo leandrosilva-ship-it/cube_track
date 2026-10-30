@@ -128,6 +128,8 @@ export const qk = {
   catalogOf: (contractId: string) => ['contracts', contractId, 'catalog-items'] as const,
   measurementsOf: (contractId: string) => ['contracts', contractId, 'measurements'] as const,
   invoicesOf: (contractId: string) => ['contracts', contractId, 'invoices'] as const,
+  serviceOrdersOfBoard: (boardId: string) => ['boards', boardId, 'service-orders'] as const,
+  serviceOrderOfItem: (itemId: string) => ['items', itemId, 'service-order'] as const,
 };
 
 export interface CapacityScopeParams {

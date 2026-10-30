@@ -270,6 +270,7 @@ export const ptBR = {
     automate: 'Automatizar',
     process: 'Processo',
     governance: 'Governança',
+    serviceOrders: 'Ordens de Serviço',
     agents: 'Agentes',
     featureLater: 'Disponível quando o módulo for habilitado para esta organização.',
     inviteDialog: {

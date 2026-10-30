@@ -68,6 +68,7 @@ export function makeBoard(overrides: Partial<BoardDetail> = {}): BoardDetail {
     settings: { statusColumnKey: 'c_status' },
     isTemplate: false,
     seq: 1,
+    contractId: null,
     permissions: [
       'board.read',
       'item.create',

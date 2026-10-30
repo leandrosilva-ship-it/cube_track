@@ -267,6 +267,7 @@ export const en: Messages = {
     automate: 'Automate',
     process: 'Process',
     governance: 'Governance',
+    serviceOrders: 'Service Orders',
     agents: 'Agents',
     featureLater: 'Available when the module is enabled for this organization.',
     inviteDialog: {

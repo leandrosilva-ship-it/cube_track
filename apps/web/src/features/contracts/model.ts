@@ -1,4 +1,11 @@
-import type { Contract, Invoice, InvoiceStatus, Measurement, MeasurementStatus } from '@/lib/api/types';
+import type {
+  Contract,
+  Invoice,
+  InvoiceStatus,
+  Measurement,
+  MeasurementStatus,
+  ServiceOrderStatus,
+} from '@/lib/api/types';
 
 /**
  * Funções puras do módulo Contratos/OS/UST (ADR 0054) — sem I/O, fáceis de testar isoladamente.
@@ -104,4 +111,97 @@ export function hasActiveInvoice(measurementId: string, invoices: readonly Invoi
     (invoice) =>
       invoice.measurementId === measurementId && (invoice.status === 'issued' || invoice.status === 'paid'),
   );
+}
+
+// -------------------------------------------------------------------- ordens de serviço (OS) ---
+
+export const SERVICE_ORDER_STATUSES: readonly ServiceOrderStatus[] = [
+  'draft',
+  'requested',
+  'issued',
+  'in_progress',
+  'delivered',
+  'accepted',
+  'measured',
+  'invoiced',
+  'cancelled',
+];
+
+/**
+ * Sequência linear da OS (ADR 0054) — espelha `TRANSITION_SEQUENCE` de
+ * `apps/api/.../service-orders.service.ts`. `cancelled` não faz parte da sequência: é tratado à
+ * parte em `isValidServiceOrderTransition`.
+ */
+const SERVICE_ORDER_SEQUENCE: readonly Exclude<ServiceOrderStatus, 'cancelled'>[] = [
+  'draft',
+  'requested',
+  'issued',
+  'in_progress',
+  'delivered',
+  'accepted',
+  'measured',
+  'invoiced',
+];
+
+/**
+ * Espelha exatamente `isValidTransition` do backend (`ServiceOrdersService`): sequência linear
+ * draft→…→invoiced, mais `cancelled` alcançável de qualquer status não-terminal (menos `invoiced`,
+ * e não de `cancelled` para `cancelled`). Mantida aqui só para decidir quais ações oferecer na UI —
+ * a validação de verdade é sempre refeita pelo backend.
+ */
+function isValidServiceOrderTransition(from: ServiceOrderStatus, to: ServiceOrderStatus): boolean {
+  if (to === 'cancelled') return from !== 'invoiced' && from !== 'cancelled';
+  if (from === 'cancelled' || from === 'invoiced') return false;
+  const fromIndex = SERVICE_ORDER_SEQUENCE.indexOf(from);
+  const toIndex = SERVICE_ORDER_SEQUENCE.indexOf(to);
+  if (fromIndex === -1 || toIndex === -1) return false;
+  return toIndex === fromIndex + 1;
+}
+
+/** `draft` nunca é destino de transição (é sempre o status inicial) — só origem. */
+const SERVICE_ORDER_TRANSITION_TARGETS: readonly Exclude<ServiceOrderStatus, 'draft'>[] = [
+  'requested',
+  'issued',
+  'in_progress',
+  'delivered',
+  'accepted',
+  'measured',
+  'invoiced',
+  'cancelled',
+];
+
+/** Status de destino que a OS pode assumir a partir do status atual (botões de transição na UI). */
+export function allowedServiceOrderTransitions(
+  status: ServiceOrderStatus,
+): Exclude<ServiceOrderStatus, 'draft'>[] {
+  return SERVICE_ORDER_TRANSITION_TARGETS.filter((candidate) => isValidServiceOrderTransition(status, candidate));
+}
+
+export function serviceOrderStatusTone(status: ServiceOrderStatus): BadgeTone {
+  switch (status) {
+    case 'accepted':
+    case 'measured':
+    case 'invoiced':
+      return 'success';
+    case 'cancelled':
+      return 'danger';
+    case 'in_progress':
+    case 'delivered':
+      return 'info';
+    case 'requested':
+    case 'issued':
+      return 'warning';
+    case 'draft':
+      return 'neutral';
+  }
+}
+
+/**
+ * Uma UST/unidade informada manualmente (diferente do `defaultUst` do catálogo) exige justificativa
+ * — mesma regra de `resolveUstUnit` em `ServiceOrderItemsService` (backend). Um valor em branco ainda
+ * não é considerado divergente (o usuário pode estar no meio da digitação).
+ */
+export function requiresOverrideReason(ustUnit: string, catalogDefaultUst: string): boolean {
+  if (ustUnit.trim() === '') return false;
+  return Number(ustUnit) !== Number(catalogDefaultUst);
 }

@@ -39,6 +39,7 @@ export const itemPanelEn = {
     checklist: 'Subitems',
     dependencies: 'Dependencies',
     approvals: 'Approvals',
+    serviceOrders: 'Service Order',
   },
   reactions: {
     add: 'Add reaction',

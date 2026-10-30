@@ -39,6 +39,7 @@ export const itemPanelEs = {
     checklist: 'Subítems',
     dependencies: 'Dependencias',
     approvals: 'Aprobaciones',
+    serviceOrders: 'OS/UST',
   },
   reactions: {
     add: 'Agregar reacción',

@@ -16,6 +16,7 @@ import {
 } from '@cube-track/ui';
 import {
   Bot,
+  ClipboardList,
   Link2,
   MoreHorizontal,
   Pencil,
@@ -36,6 +37,7 @@ import { openDialog } from '@/stores/shell';
 import { useSession } from '@/stores/session';
 
 import { AutomationsDialog } from '../automations/automations-dialog';
+import { ServiceOrdersDialog } from '../contracts/service-orders-dialog';
 import { GovernanceDialog } from '../governance/governance-dialog';
 import { ProcessSettingsDialog } from '../processes/process-settings-dialog';
 import { useFavorites, useToggleFavorite } from '../workspace/hooks';
@@ -85,11 +87,12 @@ export function BoardHeader({ board }: { board: BoardDetail }) {
   const canManageProcess = board.kind === 'process' && board.permissions.includes('process.manage');
   const canManageWebhooks = board.permissions.includes('webhook.manage');
   const canGovernance = board.kind === 'project';
+  const canServiceOrders = board.contractId !== null;
   const canInvite = useSession((state) => state.tenant !== null);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(board.description ?? '');
   const [dialog, setDialog] = useState<
-    'invite' | 'share' | 'automate' | 'process' | 'webhooks' | 'governance' | null
+    'invite' | 'share' | 'automate' | 'process' | 'webhooks' | 'governance' | 'serviceOrders' | null
   >(null);
   const isFavorite = (favorites.data ?? []).some((entry) => entry.entityId === board.id);
 
@@ -318,6 +321,22 @@ export function BoardHeader({ board }: { board: BoardDetail }) {
                   <ShieldCheck aria-hidden="true" />
                   <span className="hidden xl:inline">{t('governance')}</span>
                   <span className="sr-only xl:hidden">{t('governance')}</span>
+                </Button>
+              </DialogTrigger>
+            ) : null}
+            {dialog === 'serviceOrders' && canServiceOrders ? <ServiceOrdersDialog board={board} /> : null}
+            {canServiceOrders ? (
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDialog('serviceOrders');
+                  }}
+                >
+                  <ClipboardList aria-hidden="true" />
+                  <span className="hidden xl:inline">{t('serviceOrders')}</span>
+                  <span className="sr-only xl:hidden">{t('serviceOrders')}</span>
                 </Button>
               </DialogTrigger>
             ) : null}

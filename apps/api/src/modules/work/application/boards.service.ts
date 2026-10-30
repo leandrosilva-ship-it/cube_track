@@ -109,6 +109,7 @@ export class BoardsService {
         settings: boards.settings,
         isTemplate: boards.isTemplate,
         seq: boards.seq,
+        contractId: boards.contractId,
       })
       .from(boards)
       .where(eq(boards.id, boardId));

@@ -181,6 +181,8 @@ export const BoardDetailSchema = z.object({
   settings: z.record(z.string(), z.unknown()),
   isTemplate: z.boolean(),
   seq: z.number().int(),
+  /** Contrato (ADR 0054) ao qual este board está vinculado, se o módulo `contracts` estiver em uso. */
+  contractId: z.uuid().nullable(),
   permissions: z.array(z.string()),
   itemScope: z.enum(['all', 'assigned']),
   groups: z.array(

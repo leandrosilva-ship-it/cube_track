@@ -18,6 +18,7 @@ import {
 import {
   ChevronDown,
   ChevronUp,
+  ClipboardCheck,
   ClipboardList,
   FileText,
   History,
@@ -47,6 +48,7 @@ import { FilesTab } from './files-tab';
 import { useFollowStatus, useItemDetail, useSetFollowing } from './hooks';
 import { neighborsOf, useItemPanelOrder } from './item-panel-store';
 import { useItemPresence } from './item-presence';
+import { ServiceOrderTab } from './service-order-tab';
 import { UpdatesTab } from './updates-tab';
 
 type ItemPanelTab =
@@ -56,7 +58,8 @@ type ItemPanelTab =
   | 'fields'
   | 'checklist'
   | 'dependencies'
-  | 'approvals';
+  | 'approvals'
+  | 'serviceOrders';
 
 /** Painel de detalhe do item: drawer com URL própria (`?item=<id>`), abas e navegação anterior/próximo. */
 export function ItemPanel({ board }: { board: BoardDetail }) {
@@ -89,6 +92,7 @@ export function ItemPanel({ board }: { board: BoardDetail }) {
   const item = detail.data;
   const canUpdate = board.permissions.includes('item.update');
   const canComment = board.permissions.includes('item.comment') || canUpdate;
+  const contractId = board.contractId;
 
   return (
     <Dialog
@@ -167,6 +171,12 @@ export function ItemPanel({ board }: { board: BoardDetail }) {
                 <ShieldCheck aria-hidden="true" />
                 {t('tabs.approvals')}
               </TabsTrigger>
+              {contractId !== null ? (
+                <TabsTrigger value="serviceOrders">
+                  <ClipboardCheck aria-hidden="true" />
+                  {t('tabs.serviceOrders')}
+                </TabsTrigger>
+              ) : null}
             </TabsList>
             {item === undefined ? (
               <div className="flex flex-col gap-2 pt-4" aria-busy="true">
@@ -196,6 +206,11 @@ export function ItemPanel({ board }: { board: BoardDetail }) {
                 <TabsContent value="approvals">
                   <ApprovalsTab item={item} canRequest={canUpdate} />
                 </TabsContent>
+                {contractId !== null ? (
+                  <TabsContent value="serviceOrders">
+                    <ServiceOrderTab item={item} contractId={contractId} canManage={canUpdate} />
+                  </TabsContent>
+                ) : null}
               </>
             )}
           </Tabs>

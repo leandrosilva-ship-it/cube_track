@@ -39,6 +39,7 @@ export const itemPanelPtBR = {
     checklist: 'Subitens',
     dependencies: 'Dependências',
     approvals: 'Aprovações',
+    serviceOrders: 'OS/UST',
   },
   reactions: {
     add: 'Adicionar reação',

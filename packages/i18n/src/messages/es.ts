@@ -267,6 +267,7 @@ export const es: Messages = {
     automate: 'Automatizar',
     process: 'Proceso',
     governance: 'Gobernanza',
+    serviceOrders: 'Órdenes de Servicio',
     agents: 'Agentes',
     featureLater: 'Disponible cuando el módulo se habilite para esta organización.',
     inviteDialog: {

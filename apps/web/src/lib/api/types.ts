@@ -196,6 +196,8 @@ export interface BoardDetail {
   settings: BoardSettings;
   isTemplate: boolean;
   seq: number;
+  /** Contrato (ADR 0054) ao qual este board está vinculado, ou `null` fora do módulo Contratos/OS/UST. */
+  contractId: string | null;
   permissions: string[];
   itemScope: 'all' | 'assigned';
   groups: BoardGroup[];
@@ -1629,4 +1631,83 @@ export interface CreateInvoiceInput {
 export interface UpdateInvoiceInput {
   dueDate?: string | null;
   nfeKey?: string | null;
+}
+
+export type ServiceOrderStatus =
+  | 'draft'
+  | 'requested'
+  | 'issued'
+  | 'in_progress'
+  | 'delivered'
+  | 'accepted'
+  | 'measured'
+  | 'invoiced'
+  | 'cancelled';
+
+export interface ServiceOrderItem {
+  id: string;
+  serviceOrderId: string;
+  catalogItemId: string;
+  catalogItemCode: string;
+  catalogItemName: string;
+  quantity: string;
+  ustUnit: string;
+  ustTotal: string;
+  description: string | null;
+  ustOverrideReason: string | null;
+}
+
+export interface ServiceOrder {
+  id: string;
+  contractId: string;
+  /** `null` quando a OS é vinculada só ao item (nunca é o caso hoje: item sempre pertence a um board). */
+  boardId: string | null;
+  /** `null` para uma OS avulsa (sem item), criada direto no board. */
+  itemId: string | null;
+  number: string;
+  seiProcess: string | null;
+  description: string | null;
+  status: ServiceOrderStatus;
+  requestedAt: string | null;
+  issuedAt: string | null;
+  startDate: string | null;
+  plannedEndDate: string | null;
+  deliveredAt: string | null;
+  acceptedAt: string | null;
+  billedAt: string | null;
+  /** Sempre a soma das linhas — nunca editável à mão. */
+  totalUst: string;
+  requesterName: string | null;
+  items: ServiceOrderItem[];
+}
+
+export interface CreateServiceOrderInput {
+  number: string;
+  seiProcess?: string | null;
+  description?: string | null;
+  requesterName?: string | null;
+}
+
+export interface UpdateServiceOrderInput {
+  description?: string | null;
+  seiProcess?: string | null;
+  requesterName?: string | null;
+  startDate?: string | null;
+  plannedEndDate?: string | null;
+}
+
+export interface CreateServiceOrderItemInput {
+  catalogItemId: string;
+  quantity: string;
+  /** Omitido = usa o `defaultUst` do catálogo; diferente dele exige `ustOverrideReason`. */
+  ustUnit?: string;
+  ustOverrideReason?: string;
+  description?: string | null;
+}
+
+export interface UpdateServiceOrderItemInput {
+  quantity?: string;
+  ustUnit?: string;
+  ustOverrideReason?: string;
+  description?: string | null;
 }

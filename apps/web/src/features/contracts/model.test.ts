@@ -5,6 +5,7 @@ import type { Contract, Invoice, Measurement } from '@/lib/api/types';
 import {
   alertTone,
   allowedInvoiceTransitions,
+  allowedServiceOrderTransitions,
   canInvoiceMeasurement,
   contractStatusTone,
   hasActiveInvoice,
@@ -13,6 +14,8 @@ import {
   isMeasurementEditable,
   measurementStatusTone,
   remainingBalancePercent,
+  requiresOverrideReason,
+  serviceOrderStatusTone,
   totalAlertCount,
 } from './model';
 
@@ -200,5 +203,60 @@ describe('hasActiveInvoice', () => {
   });
   it('é false sem nenhuma fatura para a medição', () => {
     expect(hasActiveInvoice('m2', [invoice({ measurementId: 'm1', status: 'issued' })])).toBe(false);
+  });
+});
+
+describe('serviceOrderStatusTone', () => {
+  it('aceita/medida/faturada são success', () => {
+    expect(serviceOrderStatusTone('accepted')).toBe('success');
+    expect(serviceOrderStatusTone('measured')).toBe('success');
+    expect(serviceOrderStatusTone('invoiced')).toBe('success');
+  });
+  it('cancelada é danger', () => {
+    expect(serviceOrderStatusTone('cancelled')).toBe('danger');
+  });
+  it('em execução/entregue são info', () => {
+    expect(serviceOrderStatusTone('in_progress')).toBe('info');
+    expect(serviceOrderStatusTone('delivered')).toBe('info');
+  });
+  it('solicitada/emitida são warning', () => {
+    expect(serviceOrderStatusTone('requested')).toBe('warning');
+    expect(serviceOrderStatusTone('issued')).toBe('warning');
+  });
+  it('rascunho é neutral', () => {
+    expect(serviceOrderStatusTone('draft')).toBe('neutral');
+  });
+});
+
+describe('allowedServiceOrderTransitions', () => {
+  it('espelha a sequência linear do backend: rascunho pode solicitar ou cancelar', () => {
+    expect(allowedServiceOrderTransitions('draft')).toEqual(['requested', 'cancelled']);
+  });
+  it('cada etapa intermediária só avança um passo na sequência, além de poder cancelar', () => {
+    expect(allowedServiceOrderTransitions('requested')).toEqual(['issued', 'cancelled']);
+    expect(allowedServiceOrderTransitions('issued')).toEqual(['in_progress', 'cancelled']);
+    expect(allowedServiceOrderTransitions('in_progress')).toEqual(['delivered', 'cancelled']);
+    expect(allowedServiceOrderTransitions('delivered')).toEqual(['accepted', 'cancelled']);
+    expect(allowedServiceOrderTransitions('accepted')).toEqual(['measured', 'cancelled']);
+    expect(allowedServiceOrderTransitions('measured')).toEqual(['invoiced', 'cancelled']);
+  });
+  it('faturada é terminal — não pode nem ser cancelada', () => {
+    expect(allowedServiceOrderTransitions('invoiced')).toEqual([]);
+  });
+  it('cancelada é terminal', () => {
+    expect(allowedServiceOrderTransitions('cancelled')).toEqual([]);
+  });
+});
+
+describe('requiresOverrideReason', () => {
+  it('não exige justificativa quando a UST informada é igual ao padrão do catálogo', () => {
+    expect(requiresOverrideReason('40', '40')).toBe(false);
+    expect(requiresOverrideReason('40.0000', '40')).toBe(false);
+  });
+  it('exige justificativa quando a UST informada diverge do padrão do catálogo', () => {
+    expect(requiresOverrideReason('35', '40')).toBe(true);
+  });
+  it('não exige justificativa enquanto o campo está vazio (usuário ainda digitando)', () => {
+    expect(requiresOverrideReason('', '40')).toBe(false);
   });
 });

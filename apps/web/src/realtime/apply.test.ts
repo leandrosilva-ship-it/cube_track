@@ -627,6 +627,10 @@ describe('Prompt 13: Contratos/OS/UST', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.contract('ct1') });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.serviceOrdersOfBoard(BOARD_ID) });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.serviceOrderOfItem('it1') });
+    // ContractsPage mostra o saldo a partir da LISTA (`qk.contractsOf`), não de `qk.contract`
+    // isoladamente (nenhuma tela usa essa chave) — sem workspaceId no payload, invalida por
+    // predicado qualquer lista de contratos de workspace já em cache.
+    expect(invalidatedByPredicate(invalidate, qk.contractsOf('qualquer-ws'))).toBe(true);
 
     invalidate.mockClear();
     applyRealtimeEvent(

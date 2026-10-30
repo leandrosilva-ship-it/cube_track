@@ -196,9 +196,12 @@ export function useTransitionInvoice(contractId: string) {
 /**
  * Uma OS carrega `contractId`/`boardId`/`itemId` — usamos a resposta para invalidar exatamente os
  * caches que ela pode ter afetado, sem o chamador precisar conhecer esse contexto de antemão.
- * O saldo do contrato (`qk.contract`) é sempre invalidado: ele só muda de verdade quando a OS entra
- * em um status que consome saldo (aceita em diante), mas invalidar sempre é barato e mantém a tela
- * de contrato coerente assim que o usuário voltar a ela.
+ * O saldo do contrato é mostrado na tela de Contratos a partir da LISTA (`qk.contractsOf`,
+ * `ContractsPage` encontra o contrato selecionado nela, não existe tela que use `qk.contract`
+ * isoladamente) — como não sabemos aqui a qual workspace o contrato pertence, invalidamos por
+ * predicado qualquer lista de contratos de workspace já em cache (`['workspaces', *, 'contracts']`),
+ * mesmo padrão usado em `apply.ts` para o mesmo evento. Barato e mantém a tela coerente assim que o
+ * usuário voltar a ela, sem esperar o round-trip do tempo real.
  */
 function invalidateServiceOrderCaches(
   queryClient: QueryClient,
@@ -207,6 +210,9 @@ function invalidateServiceOrderCaches(
   if (order.boardId !== null) void queryClient.invalidateQueries({ queryKey: qk.serviceOrdersOfBoard(order.boardId) });
   if (order.itemId !== null) void queryClient.invalidateQueries({ queryKey: qk.serviceOrderOfItem(order.itemId) });
   void queryClient.invalidateQueries({ queryKey: qk.contract(order.contractId) });
+  void queryClient.invalidateQueries({
+    predicate: (query) => query.queryKey[0] === 'workspaces' && query.queryKey[2] === 'contracts',
+  });
 }
 
 export function useServiceOrdersForBoard(boardId: string) {

@@ -673,6 +673,14 @@ export function applyRealtimeEvent(
       void queryClient.invalidateQueries({ queryKey: qk.contract(contractId) });
       if (orderBoardId !== null) void queryClient.invalidateQueries({ queryKey: qk.serviceOrdersOfBoard(orderBoardId) });
       if (itemId !== null) void queryClient.invalidateQueries({ queryKey: qk.serviceOrderOfItem(itemId) });
+      // O saldo na tela de Contratos vem da LISTA (`qk.contractsOf`, ContractsPage encontra o
+      // contrato selecionado nela — não existe tela que consuma `qk.contract` isoladamente), e o
+      // evento não carrega `workspaceId` para montar essa chave: invalida por predicado qualquer
+      // lista de contratos de workspace já em cache. É o que faz "saldo atualizado automaticamente
+      // a cada OS aceita" valer também em tempo real entre dois navegadores, não só na mesma aba.
+      void queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] === 'workspaces' && query.queryKey[2] === 'contracts',
+      });
       return;
     }
     case 'measurement.changed': {

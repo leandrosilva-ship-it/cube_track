@@ -6,6 +6,7 @@ import { automationsPtBR } from './automations.pt-BR.js';
 import { calendarPtBR } from './calendar.pt-BR.js';
 import { capacityPtBR } from './capacity.pt-BR.js';
 import { itemPanelPtBR } from './collaboration.pt-BR.js';
+import { contractsPtBR } from './contracts.pt-BR.js';
 import { dashboardsPtBR } from './dashboards.pt-BR.js';
 import { formsPtBR } from './forms.pt-BR.js';
 import { ganttPtBR } from './gantt.pt-BR.js';
@@ -18,6 +19,7 @@ import { tablePtBR } from './table.pt-BR.js';
 import { timelinePtBR } from './timeline.pt-BR.js';
 import { timesheetPtBR } from './timesheet.pt-BR.js';
 import { webhooksPtBR } from './webhooks.pt-BR.js';
+import { workspaceSettingsPtBR } from './workspace-settings.pt-BR.js';
 
 export const ptBR = {
   common: {
@@ -195,6 +197,7 @@ export const ptBR = {
       showPanel: 'Mostrar painel',
       openMenu: 'Abrir menu',
       private: 'Privado',
+      settings: 'Configurações do workspace',
     },
     user: {
       menu: 'Menu do usuário',
@@ -408,6 +411,8 @@ export const ptBR = {
   capacity: capacityPtBR,
   portfolio: portfolioPtBR,
   governance: governancePtBR,
+  contracts: contractsPtBR,
+  workspaceSettings: workspaceSettingsPtBR,
   palette: {
     title: 'Paleta de comandos',
     placeholder: 'Buscar boards, páginas e ações…',
@@ -502,6 +507,7 @@ export const ptBR = {
     dashboards: 'Dashboards',
     capacity: 'Capacidade',
     portfolio: 'Portfólio',
+    contracts: 'Contratos',
   },
   settings: {
     title: 'Configurações',

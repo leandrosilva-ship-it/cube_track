@@ -3,6 +3,7 @@ import { automationsEs } from './automations.es.js';
 import { calendarEs } from './calendar.es.js';
 import { capacityEs } from './capacity.es.js';
 import { itemPanelEs } from './collaboration.es.js';
+import { contractsEs } from './contracts.es.js';
 import { dashboardsEs } from './dashboards.es.js';
 import { formsEs } from './forms.es.js';
 import { ganttEs } from './gantt.es.js';
@@ -15,6 +16,7 @@ import { tableEs } from './table.es.js';
 import { timelineEs } from './timeline.es.js';
 import { timesheetEs } from './timesheet.es.js';
 import { webhooksEs } from './webhooks.es.js';
+import { workspaceSettingsEs } from './workspace-settings.es.js';
 
 export const es: Messages = {
   common: {
@@ -192,6 +194,7 @@ export const es: Messages = {
       showPanel: 'Mostrar panel',
       openMenu: 'Abrir menú',
       private: 'Privado',
+      settings: 'Configuración del espacio de trabajo',
     },
     user: {
       menu: 'Menú del usuario',
@@ -407,6 +410,8 @@ export const es: Messages = {
   capacity: capacityEs,
   portfolio: portfolioEs,
   governance: governanceEs,
+  contracts: contractsEs,
+  workspaceSettings: workspaceSettingsEs,
   palette: {
     title: 'Paleta de comandos',
     placeholder: 'Buscar tableros, páginas y acciones…',
@@ -501,6 +506,7 @@ export const es: Messages = {
     dashboards: 'Paneles',
     capacity: 'Capacidad',
     portfolio: 'Portafolio',
+    contracts: 'Contratos',
   },
   settings: {
     title: 'Configuración',

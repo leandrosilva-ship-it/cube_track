@@ -123,6 +123,11 @@ export const qk = {
   healthRulesDefault: () => ['health-rules', 'default'] as const,
   healthRulesOfBoard: (boardId: string) => ['boards', boardId, 'health-rules'] as const,
   boardStatusReport: (boardId: string) => ['boards', boardId, 'status-report'] as const,
+  contractsOf: (workspaceId: string) => ['workspaces', workspaceId, 'contracts'] as const,
+  contract: (id: string) => ['contracts', id] as const,
+  catalogOf: (contractId: string) => ['contracts', contractId, 'catalog-items'] as const,
+  measurementsOf: (contractId: string) => ['contracts', contractId, 'measurements'] as const,
+  invoicesOf: (contractId: string) => ['contracts', contractId, 'invoices'] as const,
 };
 
 export interface CapacityScopeParams {

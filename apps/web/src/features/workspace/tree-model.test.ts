@@ -23,6 +23,10 @@ const tree: WorkspaceTree = {
   canApproveTimesheet: false,
   canManagePortfolio: false,
   canReadPortfolio: false,
+  canManageWorkspace: false,
+  canReadContracts: false,
+  canManageContracts: false,
+  canMeasureContracts: false,
   folders: [
     { id: 'f1', parentId: null, name: 'Clientes', color: null, position: 'a1' },
     { id: 'f2', parentId: 'f1', name: 'Prefeitura', color: null, position: 'a0' },

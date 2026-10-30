@@ -119,6 +119,10 @@ export interface WorkspaceTree {
   canApproveTimesheet: boolean;
   canManagePortfolio: boolean;
   canReadPortfolio: boolean;
+  canManageWorkspace: boolean;
+  canReadContracts: boolean;
+  canManageContracts: boolean;
+  canMeasureContracts: boolean;
   folders: TreeFolder[];
   boards: TreeBoard[];
 }
@@ -769,7 +773,10 @@ export type WidgetType =
   | 'capacity'
   | 'portfolio_rollup'
   | 'risk_heatmap'
-  | 'budget_variance';
+  | 'budget_variance'
+  | 'ust_balance'
+  | 'ust_by_dimension'
+  | 'ust_forecast';
 
 export interface Dashboard {
   id: string;
@@ -849,6 +856,18 @@ export type WidgetData =
         actualAmount: string;
         forecastAmount: string;
       }[];
+    }
+  | { kind: 'ust_balance'; contractId: string; contractNumber: string; balance: ContractBalance }
+  | {
+      kind: 'ust_by_dimension';
+      dimension: 'month' | 'column';
+      categories: { key: string; label: string; value: number }[];
+    }
+  | {
+      kind: 'ust_forecast';
+      contractId: string;
+      balance: ContractBalance;
+      forecast: { dailyBurnRate: number; estimatedExhaustionDate: string | null };
     };
 
 export interface DashboardWidgetData {
@@ -1465,4 +1484,149 @@ export interface BoardStatusReport {
   openRisks: Risk[];
   openIssues: GovernanceIssue[];
   stageGates: StageGate[];
+}
+
+// --------------------------------------------------------------------- contratos/OS/UST (ADR 0054) ---
+
+export type ContractStatus = 'draft' | 'active' | 'suspended' | 'closed';
+export type ContractAlertType = 'low_balance' | 'expiring' | 'service_order_stalled';
+export type AlertSeverity = 'warning' | 'critical';
+
+export interface ContractAlert {
+  type: ContractAlertType;
+  severity: AlertSeverity;
+  message: string;
+}
+
+export interface ContractBalance {
+  ustContracted: number;
+  ustConsumed: number;
+  ustBalance: number;
+  percentConsumed: number;
+}
+
+export interface StalledOrderAlert {
+  serviceOrderId: string;
+  number: string;
+  alert: ContractAlert;
+}
+
+export interface Contract {
+  id: string;
+  workspaceId: string;
+  number: string;
+  title: string;
+  clientName: string;
+  clientDocument: string | null;
+  object: string | null;
+  seiProcess: string | null;
+  biddingReference: string | null;
+  startDate: string;
+  endDate: string;
+  ustUnitPrice: string;
+  ustContracted: string;
+  totalValue: string;
+  status: ContractStatus;
+  managerId: string | null;
+  notes: string | null;
+  /** Calculado ao vivo pelo backend em cada leitura — nunca recalcular no cliente. */
+  balance: ContractBalance;
+  alerts: ContractAlert[];
+  stalledOrders: StalledOrderAlert[];
+}
+
+export interface CreateContractInput {
+  number: string;
+  title: string;
+  clientName: string;
+  clientDocument?: string | null;
+  object?: string | null;
+  seiProcess?: string | null;
+  biddingReference?: string | null;
+  startDate: string;
+  endDate: string;
+  ustUnitPrice: string;
+  ustContracted: string;
+  totalValue: string;
+  status?: ContractStatus;
+  managerId?: string | null;
+  notes?: string | null;
+}
+export type UpdateContractInput = Partial<CreateContractInput>;
+
+export interface CatalogItem {
+  id: string;
+  contractId: string;
+  code: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  defaultUst: string;
+  unit: string;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface CreateCatalogItemInput {
+  code: string;
+  name: string;
+  description?: string | null;
+  category?: string | null;
+  defaultUst: string;
+  unit?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+export type UpdateCatalogItemInput = Partial<Omit<CreateCatalogItemInput, 'code'>>;
+
+export type MeasurementStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
+
+export interface Measurement {
+  id: string;
+  contractId: string;
+  periodStart: string;
+  periodEnd: string;
+  /** Sempre a soma das OS aceitas do período — nunca digitado à mão. */
+  measuredUst: string;
+  glosaUst: string;
+  approvedUst: string | null;
+  amount: string | null;
+  status: MeasurementStatus;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  notes: string | null;
+}
+
+export interface GenerateMeasurementInput {
+  periodStart: string;
+  periodEnd: string;
+}
+export interface UpdateMeasurementInput {
+  glosaUst?: string;
+  notes?: string | null;
+}
+
+export type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'cancelled';
+
+export interface Invoice {
+  id: string;
+  contractId: string;
+  measurementId: string | null;
+  number: string;
+  issueDate: string;
+  dueDate: string | null;
+  amount: string;
+  status: InvoiceStatus;
+  paidAt: string | null;
+  nfeKey: string | null;
+}
+
+export interface CreateInvoiceInput {
+  number: string;
+  dueDate?: string | null;
+  nfeKey?: string | null;
+}
+export interface UpdateInvoiceInput {
+  dueDate?: string | null;
+  nfeKey?: string | null;
 }

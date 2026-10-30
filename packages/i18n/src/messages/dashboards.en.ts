@@ -26,6 +26,9 @@ export const dashboardsEn: typeof dashboardsPtBR = {
     portfolio_rollup: 'Portfolio/program rollup',
     risk_heatmap: 'Risk matrix',
     budget_variance: 'Planned vs. actual',
+    ust_balance: 'UST balance',
+    ust_by_dimension: 'UST consumed (month/column)',
+    ust_forecast: 'Exhaustion forecast (UST)',
   },
   widgetMenu: {
     open: 'Widget actions',
@@ -79,6 +82,13 @@ export const dashboardsEn: typeof dashboardsPtBR = {
       program: 'Program',
     },
     rollupTarget: 'Portfolio/program',
+    ustContract: 'Contract',
+    ustDimension: 'Group by',
+    ustDimensionOptions: {
+      month: 'Month',
+      column: 'Board column',
+    },
+    ustColumn: 'Column',
     aggregate: {
       label: 'Aggregate',
       sum: 'Sum',
@@ -119,5 +129,13 @@ export const dashboardsEn: typeof dashboardsPtBR = {
       red: 'Red (critical)',
       grey: 'Grey (not assessed)',
     },
+  },
+  ustBalance: {
+    remaining: 'Remaining balance — contract {number}',
+  },
+  ustForecast: {
+    burnRate: 'Average burn rate: {value} UST/day',
+    noProjection: 'Not enough consumption history to project.',
+    exhaustionDate: 'Estimated exhaustion: {date}',
   },
 };

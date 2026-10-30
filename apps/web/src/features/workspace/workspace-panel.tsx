@@ -20,6 +20,7 @@ import {
   PanelLeftClose,
   Plus,
   Search,
+  Settings,
   Star,
 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
@@ -102,6 +103,14 @@ export function WorkspacePanel({ onNavigate, collapsible = false }: WorkspacePan
             >
               {t('new')}
             </DropdownMenuItem>
+            {tree.data?.canManageWorkspace === true && workspaceId !== null ? (
+              <DropdownMenuItem asChild>
+                <Link href={`/w/${workspaceId}/settings`} onClick={onNavigate}>
+                  <Settings className="size-4" aria-hidden="true" />
+                  {t('settings')}
+                </Link>
+              </DropdownMenuItem>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
         {collapsible ? (

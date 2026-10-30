@@ -8,7 +8,7 @@ import { useErrorMessage } from '@/lib/errors/use-error-message';
 import { qk } from '@/lib/query/keys';
 import { useAuthenticated, useSession } from '@/stores/session';
 
-import { workspaceApi, type CreateBoardInput } from './api';
+import { workspaceApi, type CreateBoardInput, type UpdateWorkspaceInput } from './api';
 import { applyMove, type MoveIntent } from './tree-model';
 
 export function useWorkspaces() {
@@ -35,6 +35,18 @@ export function useCreateWorkspace() {
   return useMutation({
     mutationFn: workspaceApi.create,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.workspaces(), exact: true }),
+  });
+}
+
+/** Ajustes do workspace, incluindo módulos opcionais (ADR 0017/0054) — exige `workspace.manage`. */
+export function useUpdateWorkspace(workspaceId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: UpdateWorkspaceInput) => workspaceApi.update(workspaceId, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: qk.workspaces(), exact: true });
+      void queryClient.invalidateQueries({ queryKey: qk.tree(workspaceId) });
+    },
   });
 }
 

@@ -3,6 +3,7 @@ import { automationsEn } from './automations.en.js';
 import { calendarEn } from './calendar.en.js';
 import { capacityEn } from './capacity.en.js';
 import { itemPanelEn } from './collaboration.en.js';
+import { contractsEn } from './contracts.en.js';
 import { dashboardsEn } from './dashboards.en.js';
 import { formsEn } from './forms.en.js';
 import { ganttEn } from './gantt.en.js';
@@ -15,6 +16,7 @@ import { tableEn } from './table.en.js';
 import { timelineEn } from './timeline.en.js';
 import { timesheetEn } from './timesheet.en.js';
 import { webhooksEn } from './webhooks.en.js';
+import { workspaceSettingsEn } from './workspace-settings.en.js';
 
 export const en: Messages = {
   common: {
@@ -192,6 +194,7 @@ export const en: Messages = {
       showPanel: 'Show panel',
       openMenu: 'Open menu',
       private: 'Private',
+      settings: 'Workspace settings',
     },
     user: {
       menu: 'User menu',
@@ -406,6 +409,8 @@ export const en: Messages = {
   capacity: capacityEn,
   portfolio: portfolioEn,
   governance: governanceEn,
+  contracts: contractsEn,
+  workspaceSettings: workspaceSettingsEn,
   palette: {
     title: 'Command palette',
     placeholder: 'Search boards, pages and actions…',
@@ -500,6 +505,7 @@ export const en: Messages = {
     dashboards: 'Dashboards',
     capacity: 'Capacity',
     portfolio: 'Portfolio',
+    contracts: 'Contracts',
   },
   settings: {
     title: 'Settings',

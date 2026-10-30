@@ -26,7 +26,9 @@ export interface WidgetTypeMeta {
     | 'calendar-clock'
     | 'layers'
     | 'flame'
-    | 'wallet';
+    | 'wallet'
+    | 'coins'
+    | 'trending-down';
 }
 
 export const WIDGET_TYPE_META: WidgetTypeMeta[] = [
@@ -40,6 +42,9 @@ export const WIDGET_TYPE_META: WidgetTypeMeta[] = [
   { type: 'portfolio_rollup', icon: 'layers' },
   { type: 'risk_heatmap', icon: 'flame' },
   { type: 'budget_variance', icon: 'wallet' },
+  { type: 'ust_balance', icon: 'coins' },
+  { type: 'ust_by_dimension', icon: 'bar-chart' },
+  { type: 'ust_forecast', icon: 'trending-down' },
 ];
 
 const DEFAULT_SIZE: Record<WidgetType, { w: number; h: number }> = {
@@ -53,6 +58,9 @@ const DEFAULT_SIZE: Record<WidgetType, { w: number; h: number }> = {
   portfolio_rollup: { w: 12, h: 3 },
   risk_heatmap: { w: 6, h: 4 },
   budget_variance: { w: 6, h: 4 },
+  ust_balance: { w: 3, h: 2 },
+  ust_by_dimension: { w: 6, h: 4 },
+  ust_forecast: { w: 3, h: 2 },
 };
 
 /** Posição ao final da grade (empilha abaixo do último widget — sem redimensionar/arrastar). */

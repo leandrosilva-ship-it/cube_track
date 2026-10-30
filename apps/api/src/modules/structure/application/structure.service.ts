@@ -412,6 +412,10 @@ export class StructureService {
       canApproveTimesheet: permissions.includes('timesheet.approve'),
       canManagePortfolio: permissions.includes('portfolio.manage'),
       canReadPortfolio: permissions.includes('portfolio.read'),
+      canManageWorkspace: permissions.includes('workspace.manage'),
+      canReadContracts: permissions.includes('contract.read'),
+      canManageContracts: permissions.includes('contract.manage'),
+      canMeasureContracts: permissions.includes('contract.measure'),
       folders: folderRows,
       boards: readable.map((board) => ({
         ...board,

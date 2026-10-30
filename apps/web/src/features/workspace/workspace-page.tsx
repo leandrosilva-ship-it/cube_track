@@ -1,7 +1,7 @@
 'use client';
 
 import { Button, EmptyState, Skeleton } from '@cube-track/ui';
-import { Briefcase, Folder, Gauge, LayoutDashboard, LayoutGrid } from 'lucide-react';
+import { Briefcase, FileText, Folder, Gauge, LayoutDashboard, LayoutGrid } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { PageHeader } from '@/components/common/page-header';
@@ -55,6 +55,14 @@ export function WorkspacePage({ workspaceId }: { workspaceId: string }) {
                 <Link href={`/w/${workspaceId}/portfolio`}>
                   <Briefcase className="size-4" aria-hidden="true" />
                   {t('portfolio')}
+                </Link>
+              </Button>
+            ) : null}
+            {tree.data?.canReadContracts === true && workspace?.enabledModules.includes('contracts') === true ? (
+              <Button asChild variant="secondary" size="sm">
+                <Link href={`/w/${workspaceId}/contracts`}>
+                  <FileText className="size-4" aria-hidden="true" />
+                  {t('contracts')}
                 </Link>
               </Button>
             ) : null}

@@ -28,10 +28,22 @@ export interface Neighbors {
   beforeId?: string | null;
 }
 
+export interface UpdateWorkspaceInput {
+  name?: string;
+  description?: string | null;
+  icon?: string | null;
+  color?: string | null;
+  visibility?: Workspace['visibility'];
+  /** Sempre inclui `'core'` (ADR 0017/0054). */
+  enabledModules?: string[];
+}
+
 export const workspaceApi = {
   list: () => api<{ data: Workspace[] }>('/v1/workspaces').then((response) => response.data),
   create: (input: { name: string; description?: string }) =>
     api<Workspace>('/v1/workspaces', { method: 'POST', body: input }),
+  update: (workspaceId: string, input: UpdateWorkspaceInput) =>
+    api<Workspace>(`/v1/workspaces/${workspaceId}`, { method: 'PATCH', body: input }),
   tree: (workspaceId: string) => api<WorkspaceTree>(`/v1/workspaces/${workspaceId}/tree`),
   createFolder: (workspaceId: string, input: { name: string; parentId?: string | null }) =>
     api<TreeFolder>(`/v1/workspaces/${workspaceId}/folders`, { method: 'POST', body: input }),

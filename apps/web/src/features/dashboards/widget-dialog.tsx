@@ -11,6 +11,7 @@ import { useErrorMessage } from '@/lib/errors/use-error-message';
 import { qk } from '@/lib/query/keys';
 
 import { useBoard } from '../board/hooks';
+import { useContracts } from '../contracts/hooks';
 import { usePortfolios, usePrograms } from '../portfolio/model';
 import { useMembers } from '../shell/hooks';
 import { useWorkspaceBoards } from '../table/hooks';
@@ -87,8 +88,14 @@ export function WidgetDialog({
     (config.scope as 'portfolio' | 'program' | undefined) ?? 'portfolio',
   );
   const [rollupId, setRollupId] = useState((config.id as string | undefined) ?? '');
+  const [ustContractId, setUstContractId] = useState((config.contractId as string | undefined) ?? '');
+  const [ustDimension, setUstDimension] = useState<'month' | 'column'>(
+    (config.dimension as 'month' | 'column' | undefined) ?? 'month',
+  );
+  const [ustColumnKey, setUstColumnKey] = useState((config.columnKey as string | undefined) ?? '');
   const portfoliosQuery = usePortfolios(workspaceId);
   const programsQuery = usePrograms(workspaceId);
+  const contractsQuery = useContracts(workspaceId);
   const members = useMembers();
   const skillsQuery = useQuery({
     queryKey: qk.skills(),
@@ -137,6 +144,14 @@ export function WidgetDialog({
         return { boardIds };
       case 'budget_variance':
         return { boardIds };
+      case 'ust_balance':
+      case 'ust_forecast':
+        return ustContractId === '' ? null : { contractId: ustContractId };
+      case 'ust_by_dimension':
+        if (ustContractId === '') return null;
+        if (ustDimension === 'month') return { contractId: ustContractId, dimension: 'month' };
+        if (boardId === undefined || ustColumnKey === '') return null;
+        return { contractId: ustContractId, dimension: 'column', boardId, columnKey: ustColumnKey };
     }
   };
 
@@ -392,6 +407,45 @@ export function WidgetDialog({
                 onValueChange={setRollupId}
               />
             </Field>
+          </>
+        ) : null}
+
+        {type === 'ust_balance' || type === 'ust_by_dimension' || type === 'ust_forecast' ? (
+          <Field label={t('widgetDialog.ustContract')}>
+            <Select
+              value={ustContractId}
+              options={(contractsQuery.data ?? []).map((contract) => ({
+                value: contract.id,
+                label: `${contract.number} — ${contract.title}`,
+              }))}
+              onValueChange={setUstContractId}
+            />
+          </Field>
+        ) : null}
+
+        {type === 'ust_by_dimension' ? (
+          <>
+            <Field label={t('widgetDialog.ustDimension')}>
+              <Select
+                value={ustDimension}
+                options={(['month', 'column'] as const).map((value) => ({
+                  value,
+                  label: t(`widgetDialog.ustDimensionOptions.${value}`),
+                }))}
+                onValueChange={(value) => {
+                  setUstDimension(value as 'month' | 'column');
+                }}
+              />
+            </Field>
+            {ustDimension === 'column' ? (
+              <Field label={t('widgetDialog.ustColumn')}>
+                <Select
+                  value={ustColumnKey}
+                  options={columnOptions(categoryColumns(columns))}
+                  onValueChange={setUstColumnKey}
+                />
+              </Field>
+            ) : null}
           </>
         ) : null}
       </div>

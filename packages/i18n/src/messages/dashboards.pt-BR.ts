@@ -25,6 +25,9 @@ export const dashboardsPtBR = {
     portfolio_rollup: 'Rollup de portfólio/programa',
     risk_heatmap: 'Matriz de riscos',
     budget_variance: 'Planejado x realizado',
+    ust_balance: 'Saldo de UST',
+    ust_by_dimension: 'UST consumida (mês/coluna)',
+    ust_forecast: 'Previsão de esgotamento (UST)',
   },
   widgetMenu: {
     open: 'Mais ações do widget',
@@ -78,6 +81,13 @@ export const dashboardsPtBR = {
       program: 'Programa',
     },
     rollupTarget: 'Portfólio/programa',
+    ustContract: 'Contrato',
+    ustDimension: 'Agrupar por',
+    ustDimensionOptions: {
+      month: 'Mês',
+      column: 'Coluna do board',
+    },
+    ustColumn: 'Coluna',
     aggregate: {
       label: 'Agregação',
       sum: 'Soma',
@@ -118,5 +128,13 @@ export const dashboardsPtBR = {
       red: 'Vermelho (crítico)',
       grey: 'Cinza (não avaliado)',
     },
+  },
+  ustBalance: {
+    remaining: 'Saldo restante — contrato {number}',
+  },
+  ustForecast: {
+    burnRate: 'Consumo médio: {value} UST/dia',
+    noProjection: 'Sem consumo suficiente para projetar.',
+    exhaustionDate: 'Previsão de esgotamento: {date}',
   },
 };

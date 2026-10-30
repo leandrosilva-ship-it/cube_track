@@ -7,6 +7,7 @@ import {
   BarChart3,
   Battery,
   CalendarClock,
+  Coins,
   Download,
   Flame,
   HeartPulse,
@@ -16,6 +17,7 @@ import {
   PieChart,
   Pencil,
   Trash2,
+  TrendingDown,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -40,6 +42,9 @@ const WIDGET_ICONS: Record<WidgetType, typeof Hash> = {
   portfolio_rollup: Layers,
   risk_heatmap: Flame,
   budget_variance: Wallet,
+  ust_balance: Coins,
+  ust_by_dimension: BarChart3,
+  ust_forecast: TrendingDown,
 };
 
 export interface WidgetCardProps {
@@ -182,7 +187,57 @@ function WidgetBody({
       return <RiskHeatmapBody data={data} />;
     case 'budget_variance':
       return <BudgetVarianceBody data={data} />;
+    case 'ust_balance':
+      return <UstBalanceBody data={data} />;
+    case 'ust_by_dimension':
+      return <UstByDimensionBody data={data} title={title} />;
+    case 'ust_forecast':
+      return <UstForecastBody data={data} />;
   }
+}
+
+function UstBalanceBody({ data }: { data: Extract<WidgetData, { kind: 'ust_balance' }> }) {
+  const t = useTranslations('dashboards');
+  const percentRemaining =
+    data.balance.ustContracted > 0 ? Math.max(0, Math.min(100, 100 - data.balance.percentConsumed)) : 0;
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-2">
+      <p className="text-3xl font-semibold tabular-nums">{data.balance.ustBalance.toLocaleString('pt-BR')}</p>
+      <p className="text-xs text-fg-muted">{t('ustBalance.remaining', { number: data.contractNumber })}</p>
+      <div className="h-2 w-full max-w-40 overflow-hidden rounded-full bg-surface-subtle">
+        <div className="h-full rounded-full bg-primary" style={{ width: `${percentRemaining}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function UstByDimensionBody({ data, title }: { data: Extract<WidgetData, { kind: 'ust_by_dimension' }>; title: string }) {
+  const t = useTranslations('dashboards');
+  if (data.categories.length === 0) return <EmptyBody message={t('widgetMenu.noData')} />;
+  return (
+    <Chart
+      ariaLabel={title}
+      height="100%"
+      option={chartBarOption({ kind: 'chart', categories: data.categories.map((entry) => ({ ...entry, color: null })) })}
+    />
+  );
+}
+
+function UstForecastBody({ data }: { data: Extract<WidgetData, { kind: 'ust_forecast' }> }) {
+  const t = useTranslations('dashboards');
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-1 text-center">
+      <p className="text-2xl font-semibold tabular-nums">{data.balance.ustBalance.toLocaleString('pt-BR')}</p>
+      <p className="text-xs text-fg-muted">
+        {t('ustForecast.burnRate', { value: data.forecast.dailyBurnRate.toFixed(2) })}
+      </p>
+      <p className="text-xs text-fg-muted">
+        {data.forecast.estimatedExhaustionDate === null
+          ? t('ustForecast.noProjection')
+          : t('ustForecast.exhaustionDate', { date: data.forecast.estimatedExhaustionDate })}
+      </p>
+    </div>
+  );
 }
 
 function PortfolioRollupBody({ data }: { data: Extract<WidgetData, { kind: 'portfolio_rollup' }> }) {

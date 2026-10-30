@@ -101,6 +101,28 @@ export class MeasurementsService {
       orderUstTotals: orders.map((order) => Number(order.totalUst)),
       glosaUst: 0,
     });
+    const [existing] = await this.runner.tx
+      .select()
+      .from(measurements)
+      .where(
+        and(
+          eq(measurements.contractId, contractId),
+          eq(measurements.periodStart, input.periodStart),
+          eq(measurements.periodEnd, input.periodEnd),
+          inArray(measurements.status, ['draft', 'submitted']),
+        ),
+      );
+    if (existing !== undefined) {
+      const glosaUst = Math.min(Number(existing.glosaUst), measuredUst);
+      const [row] = await this.runner.tx
+        .update(measurements)
+        .set({ measuredUst: measuredUst.toString(), glosaUst: glosaUst.toString() })
+        .where(eq(measurements.id, existing.id))
+        .returning();
+      if (row === undefined) throw new Error('Falha ao regenerar medição.');
+      await this.emitChanged(user, row, 'updated');
+      return toDto(row);
+    }
     const [row] = await this.runner.tx
       .insert(measurements)
       .values({

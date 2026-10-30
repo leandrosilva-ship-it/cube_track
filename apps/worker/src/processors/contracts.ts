@@ -120,8 +120,11 @@ export function createContractAlertsDaily(deps: ContractAlertsDeps) {
           return alerts.length;
         },
       );
+      const today = new Date().toISOString().slice(0, 10);
       for (const email of emailJobs)
-        await deps.emails.add(email.template, email, { jobId: `contract-alerts-daily:${row.contract_id}:${email.template}:${email.to}` });
+        await deps.emails.add(email.template, email, {
+          jobId: `contract-alerts-daily:${row.contract_id}:${email.template}:${email.to}:${today}`,
+        });
       outcomes.push({ contractId: row.contract_id, alerts: alertCount });
     }
     deps.logger.info({ contracts: outcomes.length, alerts: outcomes.reduce((sum, o) => sum + o.alerts, 0) }, 'Alertas diários de contrato concluídos');

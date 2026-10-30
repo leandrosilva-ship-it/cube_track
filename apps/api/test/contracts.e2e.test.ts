@@ -88,6 +88,7 @@ describe('Módulo Contratos/OS/UST — gestão, auto-fill, ciclo da OS, saldo, m
   });
 
   afterAll(async () => {
+    if (itemId !== '') await api.delete(`/v1/items/${itemId}`, { token: ana });
     await db.close();
     await server.close();
   });
@@ -191,7 +192,7 @@ describe('Módulo Contratos/OS/UST — gestão, auto-fill, ciclo da OS, saldo, m
         token: ana,
         body: { catalogItemId, quantity: '1', ustUnit: String(catalogDefaultUst + 5) },
       });
-      expect(withoutReason.status).toBe(422);
+      expect(withoutReason.status).toBe(400);
 
       const withReason = await api.post<ServiceOrder>(`/v1/service-orders/${serviceOrderId}/items`, {
         token: ana,

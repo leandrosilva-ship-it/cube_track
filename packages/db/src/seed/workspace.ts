@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import { defaultHealthRules, initialPositions, newId, type FilterGroup } from '@cube-track/shared';
+import { initialPositions, newId, type FilterGroup } from '@cube-track/shared';
 import { sql } from 'drizzle-orm';
 
 import {
@@ -17,7 +17,6 @@ import {
   forms,
   formSubmissions,
   groups,
-  healthRuleSets,
   invitations,
   issues,
   items,
@@ -273,12 +272,7 @@ export async function seedWorkspace(
     position: initialPositions(1)[0] ?? 'a0',
     createdBy: owner,
   });
-  await tx.insert(healthRuleSets).values({
-    tenantId,
-    boardId: null,
-    rules: defaultHealthRules(),
-    createdBy: owner,
-  });
+  // O conjunto de regras padrão (`boardId: null`) do tenant já é criado por `provisionTenant`.
   return { portfolioId, programId, scoringModelId };
 }
 

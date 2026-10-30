@@ -71,6 +71,7 @@ export class BillingController {
   @Endpoint({
     summary: 'Aprovar (recalcula approvedUst/amount) ou rejeitar a medição',
     tags: ['contracts'],
+    status: 200,
     params: S.MeasurementParams,
     body: S.DecideMeasurementBody,
     response: S.MeasurementSchema,
@@ -136,6 +137,7 @@ export class BillingController {
   @Endpoint({
     summary: 'Transicionar status da fatura (emitida → paga/cancelada)',
     tags: ['contracts'],
+    status: 200,
     params: S.InvoiceParams,
     body: S.TransitionInvoiceBody,
     response: S.InvoiceSchema,

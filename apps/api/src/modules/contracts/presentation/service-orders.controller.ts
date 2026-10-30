@@ -97,6 +97,7 @@ export class ServiceOrdersController {
   @Endpoint({
     summary: 'Transicionar status da OS (solicitada → emitida → em execução → entregue → aceita → medida → faturada; ou cancelar)',
     tags: ['contracts'],
+    status: 200,
     params: S.ServiceOrderParams,
     body: S.TransitionServiceOrderBody,
     response: S.ServiceOrderSchema,

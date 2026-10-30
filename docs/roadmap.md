@@ -16,7 +16,7 @@ Legenda: ✅ concluído · 🟡 aguardando validação · ⏳ pendente · 🔄 e
 | 10  | Automações, Processos e Notificações               | ✅ Concluído | Motor de automações (gatilhos/condições/ações), processos com fases/SLA no Kanban, webhooks de saída com HMAC, preferências de notificação por e-mail                                                                         | 0051      |
 | 11  | Capacity e Timesheet                               | ⏳           | Alocação, carga por pessoa, apontamento de horas, aprovações                                                                                                                                                                  | —         |
 | 12  | Portfólio                                          | ⏳           | Programas, portfólios, scoring, rollups, visão executiva                                                                                                                                                                      | —         |
-| 13  | Contratos/OS/UST                                   | ⏳           | Contratos, catálogo, OS, medição UST, faturamento                                                                                                                                                                             | —         |
+| 13  | Contratos/OS/UST                                   | ✅ Concluído | Contrato, catálogo de serviços (Código Edital), OS com ciclo de vida completo, saldo de UST ao vivo, medição mensal reconciliada, faturamento, alertas diários, 3 widgets de UST                                              | 0054      |
 | 14  | IA                                                 | ⏳           | Assistente, resumos, chatbot do board, sugestões                                                                                                                                                                              | —         |
 | 15  | API pública, Integrações, Importadores e Templates | ⏳           | API v1, webhooks, SDK, importador Monday/Jira/Trello/CSV, templates                                                                                                                                                           | —         |
 | 16  | Segurança, Performance, Testes e Deploy            | ⏳           | Hardening, testes de carga, CI/CD, Helm, observabilidade, runbooks                                                                                                                                                            | —         |
@@ -589,3 +589,113 @@ pnpm --filter @cube-track/web test:e2e        # inclui os specs novos de portfó
 ```
 
 **Próximos passos:** Prompt 13, com Contratos/OS/UST.
+
+## Prompt 13 — Resumo
+
+**Feito**
+
+- **Shared** (`packages/shared/src/contracts.ts`): saldo de contrato sempre ao vivo
+  (`computeContractBalance`, com `CONSUMING_ORDER_STATUSES = accepted|measured|invoiced`), três
+  alertas puros e testados (`evaluateLowBalance`, `evaluateExpiring`, `evaluateStalledOrder`),
+  previsão linear de esgotamento de saldo (`forecastExhaustion`), reconciliação de medição mensal
+  (`reconcileMeasurement` — soma real das OS aceitas do período, nunca digitada à mão), UST de linha
+  de OS (`computeServiceOrderItemUst`, 4 casas) e valor de fatura (`computeInvoiceAmount`). Módulo
+  `contracts` adicionado a `packages/shared/src/modules.ts` (já reservado desde a ADR 0017). 5 eventos
+  realtime novos (`contract.changed`, `service_catalog_item.changed`, `service_order.changed`,
+  `measurement.changed`, `invoice.changed`) e 3 tipos de widget de dashboard de UST (`ust_balance`,
+  `ust_by_dimension`, `ust_forecast`).
+- **DB**: 6 tabelas novas (`contracts`, `service_catalog_items`, `service_orders`,
+  `service_order_items`, `measurements`, `invoices`, `packages/db/src/schema/contracts.ts`), todas
+  `tenant_id` + RLS; `boards.contractId` já existia desde o schema antecipado do Prompt 2. Migrações
+  `0022_service_order_item_override_reason.sql` (coluna de justificativa do ajuste manual de UST) e
+  `0023_contract_alert_candidates.sql` (função `app.contract_alert_candidates()` para o cron diário,
+  mesmo padrão `SECURITY DEFINER` de superfície mínima de `app.sla_tracker_alerts()`/
+  `app.portfolio_health_candidates()`). Sete bindings novos de coluna (`service_order.number`/
+  `.sei_process`/`.requested_at`/`.issued_at`/`.total_ust`/`.catalog_codes`/`.billed_at`).
+- **API** (`apps/api/src/modules/contracts`, 3 controllers): contratos + catálogo de serviços
+  (Código Edital), Ordens de Serviço + suas linhas (auto-preenchimento de UST pelo catálogo com
+  override auditado), medição mensal (gerar/ajustar/decidir) e faturamento (criar a partir de medição
+  aprovada, transicionar). Três permissões novas de workspace: `contract.read`, `contract.manage`,
+  `contract.measure`; permissão dupla de Ordem de Serviço (`board.manage` do board vinculado **ou**
+  `contract.manage` do workspace do contrato, mesmo padrão de orçamento board×portfólio do Prompt 12).
+  Módulo opcional: toda rota confirma `enabledModules` do workspace antes de qualquer outra checagem
+  (404 quando desativado, dados preservados).
+- **Worker**: `apps/worker/src/processors/contracts.ts#createContractAlertsDaily` — cron diário que
+  reavalia saldo baixo, vigência perto do fim e OS paradas sem emissão para todo contrato ativo
+  (candidatos de `app.contract_alert_candidates()`), notificando o gestor do contrato (in-app +
+  e-mail) quando houver um definido.
+- **Frontend**: tela standalone de workspace (`apps/web/src/features/contracts/contracts-page.tsx`)
+  com contratos, catálogo, medições e faturas; integração no painel do item e no board (criar/ver a OS
+  vinculada a um item, `service-order-detail.tsx`/`service-order-create-form.tsx`/
+  `service-orders-dialog.tsx`); banner de alertas do contrato; ativação do módulo em
+  **Configurações do Workspace** (`workspace-settings-page.tsx`, `enabledModules`); 3 novos widgets de
+  dashboard de UST.
+- **Tempo real**: `contract.changed`/`service_catalog_item.changed`/`measurement.changed`/
+  `invoice.changed` sempre tenant (recurso de workspace inteiro); `service_order.changed` vai para a
+  room do board quando a OS tem board vinculado, senão tenant. Os 5 eventos têm `case` em
+  `apps/web/src/realtime/apply.ts` (invalidação das listas/detalhes correspondentes;
+  `contract.changed` também invalida por predicado os dados de dashboard em cache, já que o evento não
+  carrega o `dashboardId` dos widgets de UST — mesmo padrão de `project_health.changed`/
+  `dashboard.changed` do Prompt 12).
+- **i18n**: textos do módulo (telas, diálogos, status da OS, alertas) em pt-BR/en/es.
+- **Testes**: `packages/shared` — `contracts.test.ts` (23 casos), confirmados passando nesta sessão
+  (289 testes no pacote `shared`, todos passando). `apps/web` — `features/contracts/model.test.ts`,
+  confirmado passando nesta sessão (227 testes no pacote `web`, todos passando). `apps/api` —
+  `contracts.e2e.test.ts` (3 blocos: Contratos e catálogo; Ordem de Serviço — auto-fill, override
+  auditado, ciclo e saldo, **critério de aceite 1**; Medição mensal e faturamento, **critério de
+  aceite 2**; enforcement do módulo opcional), já verificado passando numa execução anterior deste
+  mesmo ciclo de trabalho — não executado de novo nesta sessão de documentação por um problema de
+  autenticação do banco de teste local (`SASL: client password must be a string`, `TEST_DATABASE_URL`
+  deste ambiente), não um problema do código ou dos testes em si. E2E Playwright
+  (`apps/web/e2e/contracts.spec.ts`): **em andamento** em paralelo a esta sessão — o arquivo ainda não
+  existe no repositório no momento em que esta entrada foi escrita.
+- **Documentação**: ADR 0054, `docs/contracts.md` (novo), `docs/permissions.md` (seção
+  "Contratos/OS/UST"), `docs/realtime-events.md` (5 tipos de evento novos), este roadmap.
+
+**Critérios de aceite**
+
+- ✅ **Saldo do contrato atualizado automaticamente a cada OS aceita**: `computeContractBalance`
+  recalcula ao vivo a cada leitura do contrato a partir do status atual das OS — nenhuma coluna de
+  saldo armazenada, nenhum recálculo assíncrono separado da leitura. Testado em
+  `packages/shared/src/contracts.test.ts` e em `apps/api/test/contracts.e2e.test.ts` ("saldo do
+  contrato só muda quando a OS chega a 'aceita'").
+- ✅ **Relatório de medição mensal confere com a soma dos itens**: `reconcileMeasurement` soma as OS
+  aceitas (ou além) do contrato cujo aceite caiu no período — por construção, não por conferência
+  manual. Testado em `packages/shared/src/contracts.test.ts` e em
+  `apps/api/test/contracts.e2e.test.ts` ("medição do período de hoje confere exatamente com a soma
+  das OS aceitas no período").
+
+**Pendências**
+
+- Colunas vinculadas a `service_order.*` são somente leitura em filtros/ordenação da Tabela —
+  `ItemQueryBuilder.bindingField` só resolve bindings `item.*`; exibição funciona normalmente.
+- A medição mensal agrega por contrato/período (soma de todas as OS aceitas do mês) — não há medição
+  por OS individual nesta entrega, embora `measurements.serviceOrderId` já exista no schema para uma
+  extensão futura.
+- Trocar o gestor de um contrato (criação ou edição) não dispara nenhuma notificação para ele — só o
+  job diário de alertas o avisa, e só quando há um alerta ativo.
+- UST ainda não entra no rollup de portfólio do Prompt 12 (`aggregateRollup` continua somando `0`) —
+  ligar os dois módulos fica para um prompt futuro.
+- `apps/api/test/contracts.e2e.test.ts`: verificado passando numa execução anterior deste ciclo de
+  trabalho, não reexecutado nesta sessão de documentação por um problema de autenticação do banco de
+  teste local deste ambiente (não relacionado ao código do módulo). Os specs Playwright de
+  Contratos/OS/UST (`apps/web/e2e/contracts.spec.ts`) estavam sendo escritos em paralelo a esta sessão
+  e ainda não existiam no repositório no momento em que esta entrada foi escrita — conferir se já
+  foram concluídos e, nesse caso, rodar `pnpm --filter @cube-track/web test:e2e` num ambiente com a
+  infraestrutura completa antes de considerar o prompt validado em produção.
+- `docs/openapi.json` não foi regenerado nesta sessão (`pnpm --filter @cube-track/api openapi:export`
+  exige a API de pé) — regenerar num ambiente com a infraestrutura.
+
+**Como rodar e testar**
+
+```bash
+pnpm infra:up && pnpm db:reset && pnpm db:seed
+pnpm build
+pnpm --filter @cube-track/api start      # API :3001
+pnpm --filter @cube-track/worker start   # relay + alertas diários de contrato
+pnpm --filter @cube-track/web start      # web :3000 — ana.ribeiro@empresademo.com.br / CubeTrack@2026
+pnpm lint && pnpm typecheck && pnpm test
+pnpm --filter @cube-track/web test:e2e        # inclui os specs de Contratos/OS/UST em apps/web/e2e/, quando concluídos
+```
+
+**Próximos passos:** Prompt 14, com IA (assistente, resumos, chatbot do board, sugestões).

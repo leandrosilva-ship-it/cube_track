@@ -252,3 +252,23 @@ Nenhuma permissão nova: `portfolio.manage`/`portfolio.read` (workspace, já exi
 | Ver relatório de status de um portfólio ou programa                                             | `portfolio.read`                                                                                  |
 
 Sobrepor manualmente (`POST .../project-health`, Prompt 9) o relato automático mais recente de um board exige `overrideReason` não vazio no corpo — a API recusa com 400 (`path: 'body.overrideReason'`) sem ele; a permissão continua a mesma (`board.manage`), só a validação de corpo muda conforme o estado do servidor.
+
+### Contratos/OS/UST (Prompt 13, ADR 0054)
+
+Três permissões novas de workspace: `contract.read`, `contract.manage` (contrato, catálogo de serviços, medição, fatura) e `contract.measure` (gerar/ajustar/decidir medição — separada de `contract.manage` porque medir e aprovar um período costuma ser papel de quem fatura, não necessariamente de quem administra o contrato no dia a dia). Todas exigem, antes de qualquer checagem de permissão fazer diferença, que o módulo opcional `contracts` esteja ativo no workspace (ADR 0017) — desativado, a rota responde 404 independentemente do papel do usuário.
+
+| Operação                                                                                   | Permissão exigida                                                                              |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Listar contratos de um workspace                                                              | `contract.read`                                                                                 |
+| Criar/editar/excluir contrato                                                                  | `contract.manage`                                                                                |
+| Ler um contrato (saldo e alertas calculados ao vivo)                                            | `contract.read`                                                                                 |
+| Listar/criar/editar/desativar item do catálogo de serviços (Código Edital)                      | `contract.read` (listar) / `contract.manage` (demais)                                           |
+| Listar OS de um board, ou a OS vinculada a um item                                               | `board.read` (listar do board) / `item.read` (a do item)                                        |
+| Criar OS (avulsa num board, ou vinculada a um item), atualizar dados, transicionar status, excluir, gerenciar linhas | `board.manage` do board vinculado **ou** `contract.manage` do workspace do contrato              |
+| Listar/gerar/ajustar/decidir (aprovar ou rejeitar) medição do contrato                           | `contract.read` (listar) / `contract.measure` (gerar, ajustar glosa/observações, decidir)        |
+| Listar faturas do contrato                                                                        | `contract.read`                                                                                 |
+| Faturar uma medição aprovada, editar/transicionar uma fatura                                      | `contract.manage`                                                                                |
+
+A regra dupla de Ordens de Serviço (`ServiceOrdersService.assertManage`) tenta primeiro `board.manage` do board vinculado; se o usuário não tiver, cai para `contract.manage` do workspace dono do contrato — mesmo padrão da permissão de orçamento board×portfólio do Prompt 12 (um orçamento de board usa `board.manage`; um de programa/portfólio inteiro usa `portfolio.manage`). Em ambos os caminhos, a checagem confirma depois que o módulo `contracts` está ativo no workspace do contrato.
+
+Colunas vinculadas a `service_order.*` (Código Edital, status e datas da OS) seguem a mesma regra de leitura/redação de qualquer coluna vinculada (§5) — a diferença aqui é funcional, não de permissão: elas são sempre somente leitura em filtros/ordenação da Tabela (ver `docs/contracts.md` §11), independentemente de quem está perguntando.

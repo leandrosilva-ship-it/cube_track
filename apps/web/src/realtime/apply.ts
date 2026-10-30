@@ -642,6 +642,49 @@ export function applyRealtimeEvent(
       void queryClient.invalidateQueries({ queryKey: qk.healthRulesOfBoard(eventBoardId) });
       return;
     }
+    case 'contract.changed': {
+      const { contractId, workspaceId } = event.payload as {
+        contractId: string;
+        workspaceId: string;
+        change: 'created' | 'updated' | 'deleted';
+      };
+      void queryClient.invalidateQueries({ queryKey: qk.contractsOf(workspaceId) });
+      void queryClient.invalidateQueries({ queryKey: qk.contract(contractId) });
+      // Os widgets de UST (ust_balance/ust_by_dimension/ust_forecast) referenciam o contrato mas o
+      // evento não traz o dashboardId — mesmo padrão de `project_health.changed` acima.
+      void queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey.includes('data') && query.queryKey.includes('dashboards'),
+      });
+      return;
+    }
+    case 'service_catalog_item.changed': {
+      const { contractId } = event.payload as { catalogItemId: string; contractId: string; change: string };
+      void queryClient.invalidateQueries({ queryKey: qk.catalogOf(contractId) });
+      return;
+    }
+    case 'service_order.changed': {
+      const { contractId, boardId: orderBoardId, itemId } = event.payload as {
+        serviceOrderId: string;
+        contractId: string;
+        boardId: string | null;
+        itemId: string | null;
+        change: 'created' | 'updated' | 'deleted';
+      };
+      void queryClient.invalidateQueries({ queryKey: qk.contract(contractId) });
+      if (orderBoardId !== null) void queryClient.invalidateQueries({ queryKey: qk.serviceOrdersOfBoard(orderBoardId) });
+      if (itemId !== null) void queryClient.invalidateQueries({ queryKey: qk.serviceOrderOfItem(itemId) });
+      return;
+    }
+    case 'measurement.changed': {
+      const { contractId } = event.payload as { measurementId: string; contractId: string; change: string };
+      void queryClient.invalidateQueries({ queryKey: qk.measurementsOf(contractId) });
+      return;
+    }
+    case 'invoice.changed': {
+      const { contractId } = event.payload as { invoiceId: string; contractId: string; change: string };
+      void queryClient.invalidateQueries({ queryKey: qk.invoicesOf(contractId) });
+      return;
+    }
     case 'notification.created':
       void queryClient.invalidateQueries({ queryKey: qk.notifications() });
       context.onNotification((event.payload as { title: string }).title);

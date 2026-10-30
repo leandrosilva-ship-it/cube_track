@@ -584,3 +584,86 @@ describe('Prompt 12: portfólio, governança e RAG automático', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.healthRulesOfBoard(BOARD_ID) });
   });
 });
+
+describe('Prompt 13: Contratos/OS/UST', () => {
+  it('contract.changed invalida a lista do workspace, o contrato e, por predicado, os dados de dashboards (widgets de UST)', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('contract.changed', { contractId: 'ct1', workspaceId: 'ws1', change: 'updated' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.contractsOf('ws1') });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.contract('ct1') });
+    expect(invalidatedByPredicate(invalidate, ['dashboards', 'qualquer-id', 'data'])).toBe(true);
+  });
+
+  it('service_catalog_item.changed invalida o catálogo do contrato', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('service_catalog_item.changed', { catalogItemId: 'ci1', contractId: 'ct1', change: 'created' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.catalogOf('ct1') });
+  });
+
+  it('service_order.changed invalida o contrato (saldo ao vivo) e a lista do board/OS do item quando presentes', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('service_order.changed', {
+        serviceOrderId: 'so1',
+        contractId: 'ct1',
+        boardId: BOARD_ID,
+        itemId: 'it1',
+        change: 'updated',
+      }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.contract('ct1') });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.serviceOrdersOfBoard(BOARD_ID) });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.serviceOrderOfItem('it1') });
+
+    invalidate.mockClear();
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('service_order.changed', {
+        serviceOrderId: 'so2',
+        contractId: 'ct1',
+        boardId: null,
+        itemId: null,
+        change: 'created',
+      }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.contract('ct1') });
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: qk.serviceOrdersOfBoard(BOARD_ID) });
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: qk.serviceOrderOfItem('it1') });
+  });
+
+  it('measurement.changed invalida as medições do contrato', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('measurement.changed', { measurementId: 'm1', contractId: 'ct1', change: 'approved' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.measurementsOf('ct1') });
+  });
+
+  it('invoice.changed invalida as faturas do contrato', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('invoice.changed', { invoiceId: 'inv1', contractId: 'ct1', change: 'updated' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.invoicesOf('ct1') });
+  });
+});

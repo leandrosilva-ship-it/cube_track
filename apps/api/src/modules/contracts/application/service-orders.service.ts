@@ -236,6 +236,12 @@ export class ServiceOrdersService {
       .returning();
     if (row === undefined) throw new Error('Falha ao transicionar OS.');
     await this.emitChanged(user, row, 'updated');
+    // `service_order.changed` só chega a quem está na room do board (`FanoutService`, redação por
+    // permissão de item/board) — a tela de Contratos (nível workspace, sem board nenhum aberto) nunca
+    // a recebe. Uma transição é o único jeito de uma OS entrar/sair de `CONSUMING_ORDER_STATUSES` e
+    // mudar o saldo visível ali; emitir `contract.changed` também (sempre tenant-scoped, já consumido
+    // por `useContracts`/`apply.ts`) é o que faz o saldo atualizar nessa tela em tempo real.
+    await this.emitContractChanged(user, row.contractId);
     return this.toDto(row);
   }
 
@@ -311,6 +317,23 @@ export class ServiceOrdersService {
       aggregateId: row.id,
       boardId: row.boardId,
       payload: { serviceOrderId: row.id, contractId: row.contractId, boardId: row.boardId, itemId: row.itemId, change },
+      actorId: user.userId,
+    });
+  }
+
+  /** `contract.changed` é sempre tenant-scoped (sem `boardId`) — chega a quem está na tela de Contratos. */
+  private async emitContractChanged(user: AuthPrincipal, contractId: string): Promise<void> {
+    const [contract] = await this.runner.tx
+      .select({ workspaceId: schema.contracts.workspaceId })
+      .from(schema.contracts)
+      .where(eq(schema.contracts.id, contractId));
+    if (contract === undefined) return;
+    await this.events.emit({
+      tenantId: user.tenantId,
+      type: 'contract.changed',
+      aggregateType: 'contract',
+      aggregateId: contractId,
+      payload: { contractId, workspaceId: contract.workspaceId, change: 'updated' },
       actorId: user.userId,
     });
   }

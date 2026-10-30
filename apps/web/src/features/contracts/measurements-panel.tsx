@@ -1,6 +1,6 @@
 'use client';
 
-import { Badge, Button, EmptyState, Field, Input, Modal, Skeleton, Textarea, toast } from '@cube-track/ui';
+import { Badge, Button, Dialog, EmptyState, Field, Input, Modal, Skeleton, Textarea, toast } from '@cube-track/ui';
 import { FileBarChart } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
@@ -170,68 +170,72 @@ export function MeasurementsPanel({ contract, canMeasure, canInvoice }: Measurem
         </ul>
       )}
 
-      {editing !== null ? (
-        <Modal
-          title={t('measurements.editTitle')}
-          closeLabel={tc('close')}
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => { setEditing(null); }}>
-                {tc('cancel')}
-              </Button>
-              <Button onClick={() => void saveEdit()} loading={update.isPending}>
-                {tc('save')}
-              </Button>
-            </>
-          }
-        >
-          <div className="flex flex-col gap-3">
-            <Field label={t('measurements.glosaUst')}>
-              <Input
-                type="number"
-                min="0"
-                step="0.0001"
-                max={editing.measuredUst}
-                value={glosaUst}
-                onChange={(event) => { setGlosaUst(event.target.value); }}
-              />
-            </Field>
-            <Field label={t('measurements.notes')}>
-              <Textarea value={notes} onChange={(event) => { setNotes(event.target.value); }} rows={3} />
-            </Field>
-          </div>
-        </Modal>
-      ) : null}
+      <Dialog open={editing !== null} onOpenChange={(open) => { if (!open) setEditing(null); }}>
+        {editing !== null ? (
+          <Modal
+            title={t('measurements.editTitle')}
+            closeLabel={tc('close')}
+            footer={
+              <>
+                <Button variant="ghost" onClick={() => { setEditing(null); }}>
+                  {tc('cancel')}
+                </Button>
+                <Button onClick={() => void saveEdit()} loading={update.isPending}>
+                  {tc('save')}
+                </Button>
+              </>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              <Field label={t('measurements.glosaUst')}>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.0001"
+                  max={editing.measuredUst}
+                  value={glosaUst}
+                  onChange={(event) => { setGlosaUst(event.target.value); }}
+                />
+              </Field>
+              <Field label={t('measurements.notes')}>
+                <Textarea value={notes} onChange={(event) => { setNotes(event.target.value); }} rows={3} />
+              </Field>
+            </div>
+          </Modal>
+        ) : null}
+      </Dialog>
 
-      {invoicing !== null ? (
-        <Modal
-          title={t('measurements.invoiceTitle')}
-          closeLabel={tc('close')}
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => { setInvoicing(null); }}>
-                {tc('cancel')}
-              </Button>
-              <Button
-                onClick={() => void submitInvoice()}
-                loading={createInvoice.isPending}
-                disabled={invoiceNumber.trim() === ''}
-              >
-                {tc('save')}
-              </Button>
-            </>
-          }
-        >
-          <div className="flex flex-col gap-3">
-            <Field label={t('invoices.number')}>
-              <Input value={invoiceNumber} onChange={(event) => { setInvoiceNumber(event.target.value); }} />
-            </Field>
-            <Field label={t('invoices.dueDate')}>
-              <Input type="date" value={invoiceDueDate} onChange={(event) => { setInvoiceDueDate(event.target.value); }} />
-            </Field>
-          </div>
-        </Modal>
-      ) : null}
+      <Dialog open={invoicing !== null} onOpenChange={(open) => { if (!open) setInvoicing(null); }}>
+        {invoicing !== null ? (
+          <Modal
+            title={t('measurements.invoiceTitle')}
+            closeLabel={tc('close')}
+            footer={
+              <>
+                <Button variant="ghost" onClick={() => { setInvoicing(null); }}>
+                  {tc('cancel')}
+                </Button>
+                <Button
+                  onClick={() => void submitInvoice()}
+                  loading={createInvoice.isPending}
+                  disabled={invoiceNumber.trim() === ''}
+                >
+                  {tc('save')}
+                </Button>
+              </>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              <Field label={t('invoices.number')}>
+                <Input value={invoiceNumber} onChange={(event) => { setInvoiceNumber(event.target.value); }} />
+              </Field>
+              <Field label={t('invoices.dueDate')}>
+                <Input type="date" value={invoiceDueDate} onChange={(event) => { setInvoiceDueDate(event.target.value); }} />
+              </Field>
+            </div>
+          </Modal>
+        ) : null}
+      </Dialog>
     </div>
   );
 }

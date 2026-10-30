@@ -1,6 +1,6 @@
 'use client';
 
-import { Badge, Button, EmptyState, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@cube-track/ui';
+import { Badge, Button, Dialog, EmptyState, Skeleton, Tabs, TabsContent, TabsList, TabsTrigger } from '@cube-track/ui';
 import { AlertTriangle, FileText, Plus } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
@@ -161,15 +161,17 @@ export function ContractsPage({ workspaceId }: ContractsPageProps) {
         ) : null}
       </div>
 
-      {dialogContract !== null ? (
-        <ContractDialog
-          workspaceId={workspaceId}
-          {...(dialogContract !== 'new' ? { contract: dialogContract } : {})}
-          onClose={() => {
-            setDialogContract(null);
-          }}
-        />
-      ) : null}
+      <Dialog open={dialogContract !== null} onOpenChange={(open) => { if (!open) setDialogContract(null); }}>
+        {dialogContract !== null ? (
+          <ContractDialog
+            workspaceId={workspaceId}
+            {...(dialogContract !== 'new' ? { contract: dialogContract } : {})}
+            onClose={() => {
+              setDialogContract(null);
+            }}
+          />
+        ) : null}
+      </Dialog>
     </div>
   );
 }

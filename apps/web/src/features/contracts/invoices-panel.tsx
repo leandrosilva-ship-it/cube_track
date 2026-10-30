@@ -1,6 +1,6 @@
 'use client';
 
-import { Badge, Button, EmptyState, Field, Input, Modal, Skeleton, toast } from '@cube-track/ui';
+import { Badge, Button, Dialog, EmptyState, Field, Input, Modal, Skeleton, toast } from '@cube-track/ui';
 import { Receipt } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
@@ -101,36 +101,38 @@ export function InvoicesPanel({ contractId, canManage }: InvoicesPanelProps) {
         </ul>
       )}
 
-      {editing !== null ? (
-        <Modal
-          title={t('invoices.editTitle')}
-          closeLabel={tc('close')}
-          footer={
-            <>
-              <Button variant="ghost" onClick={() => { setEditing(null); }}>
-                {tc('cancel')}
-              </Button>
-              <Button onClick={() => void saveEdit()} loading={update.isPending}>
-                {tc('save')}
-              </Button>
-            </>
-          }
-        >
-          <div className="flex flex-col gap-3">
-            <Field label={t('invoices.dueDate')}>
-              <Input type="date" value={dueDate} onChange={(event) => { setDueDate(event.target.value); }} />
-            </Field>
-            <Field label={t('invoices.nfeKey')}>
-              <Input
-                value={nfeKey}
-                maxLength={44}
-                placeholder={t('invoices.nfeKeyPlaceholder')}
-                onChange={(event) => { setNfeKey(event.target.value); }}
-              />
-            </Field>
-          </div>
-        </Modal>
-      ) : null}
+      <Dialog open={editing !== null} onOpenChange={(open) => { if (!open) setEditing(null); }}>
+        {editing !== null ? (
+          <Modal
+            title={t('invoices.editTitle')}
+            closeLabel={tc('close')}
+            footer={
+              <>
+                <Button variant="ghost" onClick={() => { setEditing(null); }}>
+                  {tc('cancel')}
+                </Button>
+                <Button onClick={() => void saveEdit()} loading={update.isPending}>
+                  {tc('save')}
+                </Button>
+              </>
+            }
+          >
+            <div className="flex flex-col gap-3">
+              <Field label={t('invoices.dueDate')}>
+                <Input type="date" value={dueDate} onChange={(event) => { setDueDate(event.target.value); }} />
+              </Field>
+              <Field label={t('invoices.nfeKey')}>
+                <Input
+                  value={nfeKey}
+                  maxLength={44}
+                  placeholder={t('invoices.nfeKeyPlaceholder')}
+                  onChange={(event) => { setNfeKey(event.target.value); }}
+                />
+              </Field>
+            </div>
+          </Modal>
+        ) : null}
+      </Dialog>
     </div>
   );
 }

@@ -104,11 +104,14 @@ export function WorkspacePanel({ onNavigate, collapsible = false }: WorkspacePan
               {t('new')}
             </DropdownMenuItem>
             {tree.data?.canManageWorkspace === true && workspaceId !== null ? (
-              <DropdownMenuItem asChild>
-                <Link href={`/w/${workspaceId}/settings`} onClick={onNavigate}>
-                  <Settings className="size-4" aria-hidden="true" />
-                  {t('settings')}
-                </Link>
+              <DropdownMenuItem
+                icon={<Settings className="size-4" aria-hidden="true" />}
+                onSelect={() => {
+                  router.push(`/w/${workspaceId}/settings`);
+                  onNavigate?.();
+                }}
+              >
+                {t('settings')}
               </DropdownMenuItem>
             ) : null}
           </DropdownMenuContent>

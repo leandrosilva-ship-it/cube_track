@@ -1,6 +1,6 @@
 'use client';
 
-import { Badge, Button, EmptyState, IconButton, Skeleton, toast } from '@cube-track/ui';
+import { Badge, Button, Dialog, EmptyState, IconButton, Skeleton, toast } from '@cube-track/ui';
 import { ClipboardList, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
@@ -110,15 +110,17 @@ export function CatalogPanel({ contractId, canManage }: CatalogPanelProps) {
         </div>
       )}
 
-      {dialogItem !== null ? (
-        <CatalogItemDialog
-          contractId={contractId}
-          {...(dialogItem !== 'new' ? { item: dialogItem } : {})}
-          onClose={() => {
-            setDialogItem(null);
-          }}
-        />
-      ) : null}
+      <Dialog open={dialogItem !== null} onOpenChange={(open) => { if (!open) setDialogItem(null); }}>
+        {dialogItem !== null ? (
+          <CatalogItemDialog
+            contractId={contractId}
+            {...(dialogItem !== 'new' ? { item: dialogItem } : {})}
+            onClose={() => {
+              setDialogItem(null);
+            }}
+          />
+        ) : null}
+      </Dialog>
     </div>
   );
 }

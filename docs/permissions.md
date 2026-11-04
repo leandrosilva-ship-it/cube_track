@@ -272,3 +272,32 @@ Três permissões novas de workspace: `contract.read`, `contract.manage` (contra
 A regra dupla de Ordens de Serviço (`ServiceOrdersService.assertManage`) tenta primeiro `board.manage` do board vinculado; se o usuário não tiver, cai para `contract.manage` do workspace dono do contrato — mesmo padrão da permissão de orçamento board×portfólio do Prompt 12 (um orçamento de board usa `board.manage`; um de programa/portfólio inteiro usa `portfolio.manage`). Em ambos os caminhos, a checagem confirma depois que o módulo `contracts` está ativo no workspace do contrato.
 
 Colunas vinculadas a `service_order.*` (Código Edital, status e datas da OS) seguem a mesma regra de leitura/redação de qualquer coluna vinculada (§5) — a diferença aqui é funcional, não de permissão: elas são sempre somente leitura em filtros/ordenação da Tabela (ver `docs/contracts.md` §11), independentemente de quem está perguntando.
+
+### Inteligência Artificial (Prompt 14, ADR 0055)
+
+Uma permissão nova de **tenant** (`ai.manage`, papéis `owner`/`admin`) e três novas de **workspace**
+(`ai.use`, `ai.agents.manage`, `ai.agents.approve`, papel `workspace_admin`; `workspace_member` só
+recebe `ai.use`). Diferente dos outros módulos opcionais, a configuração (chave/modelo/limites) é por
+tenant — `ai.manage` nada tem a ver com o módulo opcional `ai` do workspace; são duas checagens
+independentes e **ambas** precisam passar (ver `docs/ai.md` §1): IA configurada/habilitada no tenant
+(senão `ai_not_configured`) **e** módulo `ai` ativo no workspace (senão 404, ADR 0017).
+
+| Operação                                                                                   | Permissão exigida                                                                              |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Ver/editar a configuração de IA do tenant (provedor, chave, modelo, limites), ver uso/custo mensal | `ai.manage`                                                                                      |
+| Perguntar ao assistente, criar item por texto, resumir atualizações/status report, gerar descrição, ver previsões | `ai.use` (+ `item.create` para criar item por texto)                                            |
+| Listar/criar/editar/excluir agentes de IA de um board                                          | `ai.agents.manage`                                                                                |
+| Listar execuções (propostas) de um agente / aprovar / rejeitar / reverter                      | `ai.agents.approve`                                                                               |
+
+`AiAssistantToolsService` não decide permissão por conta própria: cada ferramenta do assistente
+delega a um service de aplicação real (`ItemsService`, `ContractsService`) com o `AuthPrincipal` de
+quem perguntou — a mesma permissão/redação de coluna de `GET /v1/items/:id` vale para o que o
+assistente pode ver. Uma ação de agente aprovada executa com `actorKind: 'automation'` (não um ator de
+usuário comum) — ver `docs/ai.md` §7 e ADR 0055 para a trilha de auditoria completa.
+
+**Lacuna conhecida**: `GET /v1/ai-agents/:id/runs` (a fila de aprovação) exige `ai.agents.approve`,
+mas descobrir quais agentes existem num board (`GET /v1/boards/:boardId/ai-agents`) exige
+`ai.agents.manage` — um papel com só `ai.agents.approve` não tem, nesta entrega, como listar os
+agentes para então ver suas filas. Na prática os dois papéis devem ser concedidos juntos (como já é o
+caso do papel `workspace_admin`); documentado em `docs/ai.md` §10, não resolvido com uma permissão
+nova nesta entrega.

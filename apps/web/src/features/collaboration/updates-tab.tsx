@@ -4,6 +4,7 @@ import { formatRelativeTime } from '@cube-track/i18n';
 import {
   Avatar,
   Badge,
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -12,12 +13,14 @@ import {
   IconButton,
   Skeleton,
 } from '@cube-track/ui';
-import { MessageSquare, MoreHorizontal, Pencil, Pin, PinOff, Trash2 } from 'lucide-react';
+import { MessageSquare, MoreHorizontal, Pencil, Pin, PinOff, Sparkles, Trash2, X } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useState } from 'react';
 
 import type { BoardDetail, Item, ItemReply, ItemUpdate } from '@/lib/api/types';
 
+import { useSummarizeItemUpdates } from '../ai/hooks';
+import { useWorkspaces } from '../workspace/hooks';
 import { Composer } from './composer';
 import {
   useDeleteReply,
@@ -47,11 +50,56 @@ export function UpdatesTab({
   canModerate: boolean;
 }) {
   const t = useTranslations('itemPanel');
+  const ta = useTranslations('ai.itemPanel');
   const feed = useUpdatesFeed(item.id);
   const post = usePostUpdate(item.id);
+  const summarize = useSummarizeItemUpdates(item.id);
+  const workspaces = useWorkspaces();
+  const aiModuleEnabled =
+    (workspaces.data ?? []).find((entry) => entry.id === board.workspaceId)?.enabledModules.includes('ai') ===
+    true;
+  const canUseAi = aiModuleEnabled && board.permissions.includes('ai.use');
+  const [summary, setSummary] = useState<string | null>(null);
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-xs font-semibold uppercase text-fg-subtle">{t('tabs.updates')}</h3>
+        {canUseAi ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            loading={summarize.isPending}
+            onClick={() => {
+              summarize.mutate(undefined, {
+                onSuccess: ({ summary: text }) => {
+                  setSummary(text);
+                },
+              });
+            }}
+          >
+            <Sparkles aria-hidden="true" />
+            {ta('summarizeUpdates')}
+          </Button>
+        ) : null}
+      </div>
+      {summary !== null ? (
+        <div className="flex items-start gap-2 rounded-md border border-border bg-surface-sunken p-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold uppercase text-fg-subtle">{ta('summaryTitle')}</p>
+            <p className="whitespace-pre-wrap text-sm text-fg">{summary}</p>
+          </div>
+          <IconButton
+            label={ta('dismissSummary')}
+            icon={<X aria-hidden="true" />}
+            size="icon-sm"
+            variant="ghost"
+            onClick={() => {
+              setSummary(null);
+            }}
+          />
+        </div>
+      ) : null}
       {canComment ? (
         <Composer
           placeholder={t('composerPlaceholder')}

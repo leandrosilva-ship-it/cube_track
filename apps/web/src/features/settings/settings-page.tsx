@@ -22,6 +22,7 @@ import {
   type ThemePreference,
 } from '@/stores/preferences';
 
+import { AiSettingsSection } from '../ai/ai-settings-section';
 import { useMe } from '../shell/hooks';
 import { NotificationPreferencesSection } from './notification-preferences-section';
 
@@ -233,6 +234,7 @@ function MfaPanel({ enabled }: { enabled: boolean }) {
 
 export function SettingsPage() {
   const t = useTranslations('settings');
+  const ta = useTranslations('ai.settings');
   const tu = useTranslations('shell.user');
   const me = useMe();
   const theme = usePreferences((state) => state.theme);
@@ -324,6 +326,11 @@ export function SettingsPage() {
             </Button>
           </div>
         </Section>
+        {me.data?.tenant.permissions.includes('ai.manage') === true ? (
+          <Section title={ta('title')} id="settings-ai">
+            <AiSettingsSection />
+          </Section>
+        ) : null}
       </div>
     </div>
   );

@@ -36,11 +36,12 @@ import type { BoardDetail } from '@/lib/api/types';
 import { openDialog } from '@/stores/shell';
 import { useSession } from '@/stores/session';
 
+import { AiDialog } from '../ai/ai-dialog';
 import { AutomationsDialog } from '../automations/automations-dialog';
 import { ServiceOrdersDialog } from '../contracts/service-orders-dialog';
 import { GovernanceDialog } from '../governance/governance-dialog';
 import { ProcessSettingsDialog } from '../processes/process-settings-dialog';
-import { useFavorites, useToggleFavorite } from '../workspace/hooks';
+import { useFavorites, useToggleFavorite, useWorkspaces } from '../workspace/hooks';
 import { WebhooksDialog } from '../webhooks/webhooks-dialog';
 import { InviteDialog, ShareDialog } from './board-dialogs';
 import { useUpdateBoardDetails } from './hooks';
@@ -89,10 +90,19 @@ export function BoardHeader({ board }: { board: BoardDetail }) {
   const canGovernance = board.kind === 'project';
   const canServiceOrders = board.contractId !== null;
   const canInvite = useSession((state) => state.tenant !== null);
+  const workspaces = useWorkspaces();
+  const aiModuleEnabled =
+    (workspaces.data ?? []).find((entry) => entry.id === board.workspaceId)?.enabledModules.includes('ai') ===
+    true;
+  const canAi =
+    aiModuleEnabled &&
+    (board.permissions.includes('ai.use') ||
+      board.permissions.includes('ai.agents.manage') ||
+      board.permissions.includes('ai.agents.approve'));
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(board.description ?? '');
   const [dialog, setDialog] = useState<
-    'invite' | 'share' | 'automate' | 'process' | 'webhooks' | 'governance' | 'serviceOrders' | null
+    'invite' | 'share' | 'automate' | 'process' | 'webhooks' | 'governance' | 'serviceOrders' | 'ai' | null
   >(null);
   const isFavorite = (favorites.data ?? []).some((entry) => entry.entityId === board.id);
 
@@ -340,12 +350,23 @@ export function BoardHeader({ board }: { board: BoardDetail }) {
                 </Button>
               </DialogTrigger>
             ) : null}
+            {dialog === 'ai' && canAi ? <AiDialog board={board} /> : null}
+            {canAi ? (
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDialog('ai');
+                  }}
+                >
+                  <Bot aria-hidden="true" />
+                  <span className="hidden xl:inline">{t('ai')}</span>
+                  <span className="sr-only xl:hidden">{t('ai')}</span>
+                </Button>
+              </DialogTrigger>
+            ) : null}
           </Dialog>
-          <ModuleButton
-            icon={<Bot aria-hidden="true" />}
-            label={t('agents')}
-            hint={t('featureLater')}
-          />
         </div>
       </div>
       {editing ? (

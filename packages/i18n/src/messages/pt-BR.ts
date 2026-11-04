@@ -2,6 +2,7 @@
  * Mensagens da interface em pt-BR (idioma padrão e fonte da verdade das chaves).
  * Sintaxe ICU (next-intl): `{name}`, `{count, plural, one {...} other {...}}`.
  */
+import { aiPtBR } from './ai.pt-BR.js';
 import { automationsPtBR } from './automations.pt-BR.js';
 import { calendarPtBR } from './calendar.pt-BR.js';
 import { capacityPtBR } from './capacity.pt-BR.js';
@@ -271,6 +272,7 @@ export const ptBR = {
     process: 'Processo',
     governance: 'Governança',
     serviceOrders: 'Ordens de Serviço',
+    ai: 'IA',
     agents: 'Agentes',
     featureLater: 'Disponível quando o módulo for habilitado para esta organização.',
     inviteDialog: {
@@ -494,12 +496,7 @@ export const ptBR = {
     updates: 'Atualizações',
     inBoard: 'em {board}',
   },
-  ai: {
-    title: 'Assistente de IA',
-    description:
-      'O assistente de IA resume boards, sugere prazos e responde perguntas sobre o seu trabalho. Ele precisa ser habilitado por um administrador da organização.',
-    notEnabled: 'Não habilitado nesta organização',
-  },
+  ai: aiPtBR,
   workspacePage: {
     boards: 'Boards do workspace',
     folders: 'Pastas',

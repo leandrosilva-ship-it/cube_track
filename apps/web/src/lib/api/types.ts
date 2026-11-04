@@ -1,7 +1,12 @@
 /** Tipos das respostas da API REST v1 consumidas pela interface (contrato em docs/openapi.json). */
 
 import type {
+  AiAgentRunStatus,
+  AiFeature,
+  AiModel,
+  AiProvider,
   AutomationActionSpec,
+  AutomationActionType,
   AutomationTriggerSpec,
   ConditionGroup,
   FilterGroup,
@@ -1710,4 +1715,91 @@ export interface UpdateServiceOrderItemInput {
   ustUnit?: string;
   ustOverrideReason?: string;
   description?: string | null;
+}
+
+// ---------------------------------------------------------------------------------------- IA ---
+
+export interface AiSettings {
+  provider: AiProvider;
+  model: AiModel;
+  enabled: boolean;
+  hasApiKey: boolean;
+  monthlyTokenLimit: number | null;
+  monthlyCostLimitCents: number | null;
+  updatedAt: string | null;
+}
+
+export interface AiUsageEntry {
+  feature: AiFeature;
+  tokens: number;
+  costCents: number;
+  calls: number;
+}
+
+export interface AiAssistantResponse {
+  answer: string;
+  toolCalls: string[];
+  usage: { inputTokens: number; outputTokens: number };
+}
+
+export interface AiDelayRiskEntry {
+  itemId: string;
+  name: string;
+  dueDate: string;
+  status: 'overdue' | 'due_soon';
+}
+
+export interface AiAssigneeSuggestion {
+  itemId: string;
+  name: string;
+  suggestedUserId: string;
+  suggestedUserName: string;
+  reason: string;
+}
+
+export interface AiDuplicateCandidate {
+  itemIdA: string;
+  nameA: string;
+  itemIdB: string;
+  nameB: string;
+  similarity: number;
+}
+
+export interface AiPredictions {
+  narrative: string;
+  delayRisk: AiDelayRiskEntry[];
+  assigneeSuggestions: AiAssigneeSuggestion[];
+  duplicates: AiDuplicateCandidate[];
+}
+
+export interface AiAgent {
+  id: string;
+  workspaceId: string;
+  boardId: string | null;
+  name: string;
+  instructions: string;
+  trigger: AutomationTriggerSpec;
+  allowedActions: AutomationActionType[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AiAgentRun {
+  id: string;
+  agentId: string;
+  boardId: string | null;
+  itemId: string | null;
+  status: AiAgentRunStatus;
+  reasoning: string;
+  proposedAction: AutomationActionSpec;
+  beforeSnapshot: Record<string, unknown> | null;
+  costCents: number;
+  requestedAt: string;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  decisionNote: string | null;
+  executedAt: string | null;
+  revertedAt: string | null;
+  revertedBy: string | null;
 }

@@ -17,7 +17,7 @@ Legenda: ✅ concluído · 🟡 aguardando validação · ⏳ pendente · 🔄 e
 | 11  | Capacity e Timesheet                               | ⏳           | Alocação, carga por pessoa, apontamento de horas, aprovações                                                                                                                                                                  | —         |
 | 12  | Portfólio                                          | ⏳           | Programas, portfólios, scoring, rollups, visão executiva                                                                                                                                                                      | —         |
 | 13  | Contratos/OS/UST                                   | ✅ Concluído | Contrato, catálogo de serviços (Código Edital), OS com ciclo de vida completo, saldo de UST ao vivo, medição mensal reconciliada, faturamento, alertas diários, 3 widgets de UST                                              | 0054      |
-| 14  | IA                                                 | ⏳           | Assistente, resumos, chatbot do board, sugestões                                                                                                                                                                              | —         |
+| 14  | IA                                                 | ✅ Concluído | Configuração por tenant, assistente lateral, criação de item por texto, resumos, descrição sugerida, previsões, agentes configuráveis com aprovação humana                                                                   | 0055      |
 | 15  | API pública, Integrações, Importadores e Templates | ⏳           | API v1, webhooks, SDK, importador Monday/Jira/Trello/CSV, templates                                                                                                                                                           | —         |
 | 16  | Segurança, Performance, Testes e Deploy            | ⏳           | Hardening, testes de carga, CI/CD, Helm, observabilidade, runbooks                                                                                                                                                            | —         |
 
@@ -698,3 +698,89 @@ pnpm --filter @cube-track/web test:e2e        # inclui apps/web/e2e/contracts.sp
 ```
 
 **Próximos passos:** Prompt 14, com IA (assistente, resumos, chatbot do board, sugestões).
+
+## Prompt 14 — Resumo
+
+**Feito**
+
+- **Backend** (commits `a8cee46`, `4500cbb`, `90b269c` — sessões anteriores): `packages/shared/src/ai.ts`
+  (provedor/modelo/custo estimado, limites de uso, `wrapUntrustedContent`/`PROMPT_INJECTION_GUARD`,
+  config de agente reaproveitando o motor de gatilhos/ações das automações — ADR 0051 —,
+  `itemNameSimilarity`/`findDuplicateCandidates` para duplicados determinísticos); schema `packages/db`
+  (`ai_settings`, `ai_usage_logs`, `ai_agents`, `ai_agent_runs`, RLS, permissões novas em
+  `provisioning.ts`); `apps/api/src/modules/ai` (configuração do tenant, assistente com tool-use restrito
+  às permissões de quem pergunta, criação de item por texto, resumos/descrição, previsões, CRUD de
+  agentes + aprovação/rejeição/reversão com `actorKind: 'automation'` e snapshot "antes"); processor
+  `apps/worker` que avalia gatilhos e propõe execuções (sempre `pending_approval`, nunca executa
+  sozinho); módulo opcional `ai` (`OPTIONAL_WORKSPACE_MODULES`); ADR 0055, `docs/ai.md`,
+  `docs/permissions.md`/`docs/realtime-events.md` atualizados. 12 e2e de API + 3 e2e de worker,
+  passando.
+- **Frontend** (esta sessão): `apps/web/src/features/ai/` novo — `hooks.ts` (TanStack Query para
+  configuração/uso do tenant, assistente, criação de item, previsões, agentes e execuções, mesmo padrão
+  de `features/automations/hooks.ts`), `model.ts`/`model.test.ts` (conversão de limite monetário
+  centavos↔unidade, seleção das até 3 ações permitidas do agente, tom de badge por status de execução e
+  por risco de atraso, `isRunRevertible`, `similarityPercent`), `ai-settings-section.tsx` (nova seção
+  "Inteligência Artificial" em **Configurações**, só com `ai.manage`: toggle habilitado/desabilitado com
+  aviso LGPD explícito ao ligar pela primeira vez, modelo, chave de API write-only, limites mensais de
+  token/custo, tabela de uso do mês por funcionalidade), `ai-dialog.tsx` + 5 painéis (Assistente — pergunta
+  síncrona com transparência de `toolCalls`; Criar item — texto livre → item com aviso de colunas não
+  preenchidas; Previsões — risco de atraso/sugestão de responsável/duplicados; Agentes — CRUD reaproveitando
+  quase verbatim o construtor de gatilho de `automations-dialog.tsx` e `triggerSummary`/`actionSummary` de
+  `automations/model.ts`; Aprovações — fila por agente com aprovar/rejeitar/reverter). Botão "IA" no
+  cabeçalho do board (`board-header.tsx`), visível só com alguma permissão `ai.*` de board **e** o módulo
+  `ai` ativo no workspace (mesmo mecanismo de `workspace.enabledModules.includes(...)` já usado em
+  `workspace-page.tsx` para Contratos — `BoardDetail` não carrega `enabledModules`, então o board-header
+  busca `useWorkspaces()` e resolve pelo `workspaceId`). Painel do item: botão "Gerar descrição com IA" em
+  **Campos** (nova linha "Descrição do serviço" — `item.descriptionText` não tinha nenhuma UI de edição
+  antes desta entrega; a escrita usa `PATCH /v1/items/:id` com `description`, a mesma rota/permissão
+  `item.update` que qualquer outro campo nativo) e "Resumir atualizações com IA" em **Atualizações**
+  (callout dispensável acima do feed). Hub global `/ai` (`ai-page.tsx`, convertido para Client Component):
+  como todo recurso de IA de verdade é por board e não há endpoint agregado entre workspaces, a página virou
+  um hub — card para Configurações (quem tem `ai.manage`) + lista dos workspaces com o módulo `ai`
+  habilitado, de onde a pessoa abre um board e usa o botão "IA". `apps/web/src/realtime/apply.ts`:
+  `ai_agent.changed` (sem `boardId` no payload — invalida por predicado, como `dashboard.changed`) e
+  `ai_agent_run.changed` (invalida as execuções do agente) — 2 `case` novos + 2 testes em `apply.test.ts`.
+- **i18n**: extraído o stub único (`pt-BR.ts`) em `ai.pt-BR.ts`/`ai.en.ts`/`ai.es.ts` (mesmo padrão de
+  `webhooks.*`/`automations.*`), cobrindo configurações, assistente, criação de item, previsões, agentes
+  e aprovações; rótulos de tipo de gatilho/ação **reaproveitados** de `automations.*` em vez de duplicados
+  (`useTranslations('automations')` dentro dos painéis de IA). Rótulo `board.ai` ("IA") novo nas 3 locales;
+  `workspaceSettings.modules.items.ai` já existia (sessão anterior) e não precisou de alteração.
+
+**Pendências / lacunas conhecidas (nenhuma inventada no backend, que ficou congelado)**
+
+- **Gap confirmado de permissão**: quem tem só `ai.agents.approve` (sem `ai.agents.manage`) não consegue
+  listar os agentes do board (`GET /boards/:boardId/ai-agents` exige `ai.agents.manage`) e portanto não
+  chega a `GET /ai-agents/:id/runs` por essa tela — já documentado em `docs/permissions.md` desde a sessão
+  anterior. A aba "Aprovações" detecta isso (`board.permissions.includes('ai.agents.manage')`) e mostra uma
+  explicação clara (`ai.approvals.gapTitle`/`gapDescription`) em vez de uma lista vazia silenciosa ou um
+  403 cru; resolver de verdade exige mudar o backend (fora do escopo desta entrega, que o manteve
+  congelado).
+- O hub global `/ai` lista **workspaces** com o módulo ativo, não boards individuais — enumerar "boards com
+  IA habilitada" exigiria uma chamada de árvore por workspace (`useTree`) sem paginação server-side; dado o
+  número de workspaces normalmente pequeno por usuário, a lista de workspaces + o botão "IA" de dentro do
+  board já resolve a navegação sem round-trips extras.
+- "Ver aprovações" num agente troca para a aba Aprovações mas não filtra/rola até aquele agente
+  especificamente — a aba já agrupa por agente, então o agente aparece na mesma tela, só não em destaque.
+- Sem teste de carga/E2E Playwright para este prompt (fora do escopo desta entrega — tarefa separada,
+  conforme instrução recebida); toda a UI usa papéis/rótulos acessíveis consistentes com automações/
+  webhooks para que esses specs encontrem os elementos do mesmo jeito.
+
+**Como rodar e testar**
+
+```bash
+pnpm infra:up && pnpm db:reset && pnpm db:seed
+pnpm build
+pnpm --filter @cube-track/api start      # API :3001
+pnpm --filter @cube-track/worker start   # processor de agentes de IA
+pnpm --filter @cube-track/web start      # web :3000 — ana.ribeiro@empresademo.com.br / CubeTrack@2026
+pnpm --filter @cube-track/i18n test && pnpm --filter @cube-track/web typecheck
+pnpm --filter @cube-track/web lint && pnpm --filter @cube-track/web test
+```
+
+Manualmente: habilite o módulo `ai` em Configurações do Workspace, configure provedor/chave/modelo em
+Configurações → Inteligência Artificial (requer `ai.manage`), abra um board desse workspace e use o botão
+"IA" no cabeçalho (requer `ai.use`/`ai.agents.manage`/`ai.agents.approve`) para assistente, criação de
+item, previsões, agentes e aprovações; no painel de um item, teste "Gerar descrição com IA" (aba Campos) e
+"Resumir atualizações com IA" (aba Atualizações).
+
+**Próximos passos:** Prompt 15 — API pública, integrações, importadores e templates.

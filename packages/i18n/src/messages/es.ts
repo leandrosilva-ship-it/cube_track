@@ -1,4 +1,5 @@
 import type { Messages } from './pt-BR.js';
+import { aiEs } from './ai.es.js';
 import { automationsEs } from './automations.es.js';
 import { calendarEs } from './calendar.es.js';
 import { capacityEs } from './capacity.es.js';
@@ -268,6 +269,7 @@ export const es: Messages = {
     process: 'Proceso',
     governance: 'Gobernanza',
     serviceOrders: 'Órdenes de Servicio',
+    ai: 'IA',
     agents: 'Agentes',
     featureLater: 'Disponible cuando el módulo se habilite para esta organización.',
     inviteDialog: {
@@ -493,12 +495,7 @@ export const es: Messages = {
     updates: 'Actualizaciones',
     inBoard: 'en {board}',
   },
-  ai: {
-    title: 'Asistente de IA',
-    description:
-      'El asistente de IA resume tableros, sugiere fechas y responde preguntas sobre tu trabajo. Un administrador de la organización debe habilitarlo.',
-    notEnabled: 'No habilitado en esta organización',
-  },
+  ai: aiEs,
   workspacePage: {
     boards: 'Tableros del espacio de trabajo',
     folders: 'Carpetas',

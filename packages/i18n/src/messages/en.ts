@@ -1,4 +1,5 @@
 import type { Messages } from './pt-BR.js';
+import { aiEn } from './ai.en.js';
 import { automationsEn } from './automations.en.js';
 import { calendarEn } from './calendar.en.js';
 import { capacityEn } from './capacity.en.js';
@@ -268,6 +269,7 @@ export const en: Messages = {
     process: 'Process',
     governance: 'Governance',
     serviceOrders: 'Service Orders',
+    ai: 'AI',
     agents: 'Agents',
     featureLater: 'Available when the module is enabled for this organization.',
     inviteDialog: {
@@ -492,12 +494,7 @@ export const en: Messages = {
     updates: 'Updates',
     inBoard: 'in {board}',
   },
-  ai: {
-    title: 'AI assistant',
-    description:
-      'The AI assistant summarizes boards, suggests due dates and answers questions about your work. It must be enabled by an organization administrator.',
-    notEnabled: 'Not enabled for this organization',
-  },
+  ai: aiEn,
   workspacePage: {
     boards: 'Workspace boards',
     folders: 'Folders',

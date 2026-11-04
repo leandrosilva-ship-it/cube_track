@@ -130,6 +130,11 @@ export const qk = {
   invoicesOf: (contractId: string) => ['contracts', contractId, 'invoices'] as const,
   serviceOrdersOfBoard: (boardId: string) => ['boards', boardId, 'service-orders'] as const,
   serviceOrderOfItem: (itemId: string) => ['items', itemId, 'service-order'] as const,
+  aiSettings: () => ['ai-settings'] as const,
+  aiUsage: () => ['ai-settings', 'usage'] as const,
+  aiPredictions: (boardId: string) => ['boards', boardId, 'ai-predictions'] as const,
+  aiAgents: (boardId: string) => ['boards', boardId, 'ai-agents'] as const,
+  aiAgentRuns: (agentId: string) => ['ai-agents', agentId, 'runs'] as const,
 };
 
 export interface CapacityScopeParams {

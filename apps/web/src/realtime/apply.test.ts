@@ -440,6 +440,34 @@ describe('Prompt 7: painel do item (atualizações, arquivos, checklists, aprova
     expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.webhooksOfBoard(BOARD_ID) });
   });
 
+  it('ai_agent.changed invalida as listas de agentes de IA por predicado (sem boardId no evento)', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('ai_agent.changed', { agentId: 'a1', workspaceId: 'w1', change: 'created' }),
+      context(),
+    );
+    expect(invalidatedByPredicate(invalidate, qk.aiAgents(BOARD_ID))).toBe(true);
+  });
+
+  it('ai_agent_run.changed invalida as execuções do agente', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('ai_agent_run.changed', {
+        runId: 'r1',
+        agentId: 'a1',
+        boardId: BOARD_ID,
+        itemId: null,
+        status: 'pending_approval',
+      }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.aiAgentRuns('a1') });
+  });
+
   it('time_entry.changed invalida os apontamentos do item e, por predicado, os da pessoa', () => {
     const queryClient = new QueryClient();
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries');

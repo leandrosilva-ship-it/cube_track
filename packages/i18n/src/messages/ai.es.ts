@@ -1,0 +1,173 @@
+/** Inteligencia Artificial (es) — ADR 0055: asistente, configuración, agentes, aprobaciones.
+ * Reutiliza `automations.actionType.*`/`automations.triggerType.*`, etc. donde el concepto es
+ * idéntico (vocabulario de disparadores/acciones, ADR 0051), en vez de duplicar esas claves aquí. */
+export const aiEs = {
+  title: 'Asistente de IA',
+  description:
+    'El asistente de IA resume tableros, sugiere plazos y responde preguntas sobre tu trabajo. Debe ser habilitado por un administrador de la organización.',
+  notEnabled: 'No habilitado en esta organización',
+
+  dialogTitle: 'IA',
+  tabs: {
+    assistant: 'Asistente',
+    createItem: 'Crear ítem',
+    predictions: 'Predicciones',
+    agents: 'Agentes',
+    approvals: 'Aprobaciones',
+  },
+
+  settings: {
+    title: 'Inteligencia Artificial',
+    enabledLabel: 'IA habilitada para la organización',
+    enabledOnWarning:
+      'Al habilitarla, la organización empieza a enviar datos de tableros e ítems (nombres, descripciones, comentarios) a un proveedor de IA externo (Anthropic) para generar las respuestas. Confirma que esto cumple con la política de privacidad de la organización.',
+    disabledWarning:
+      'La IA está deshabilitada. Ninguna función de IA (asistente, creación por texto, resúmenes, predicciones, agentes) está disponible en ningún tablero hasta que se habilite aquí.',
+    providerLabel: 'Proveedor',
+    modelLabel: 'Modelo',
+    apiKeyLabel: 'Clave de API',
+    apiKeySetPlaceholder: 'Clave configurada — escribe una nueva para reemplazarla',
+    apiKeyUnsetPlaceholder: 'Ninguna clave configurada',
+    apiKeyHint: 'Nunca se muestra después de guardarla; solo indicamos abajo si hay una clave configurada.',
+    monthlyTokenLimitLabel: 'Límite mensual de tokens',
+    monthlyTokenLimitHint: 'Deja en blanco para no limitar.',
+    monthlyCostLimitLabel: 'Límite mensual de costo (US$)',
+    monthlyCostLimitHint: 'Deja en blanco para no limitar.',
+    save: 'Guardar configuración',
+    saved: 'Configuración de IA guardada.',
+    usageTitle: 'Uso del mes actual',
+    usageEmpty: 'Ningún uso de IA registrado este mes.',
+    usageFeature: 'Función',
+    usageTokens: 'Tokens',
+    usageCost: 'Costo (US$)',
+    usageCalls: 'Llamadas',
+    feature: {
+      assistant: 'Asistente',
+      item_create: 'Crear ítem por texto',
+      summary: 'Resumen de actualizaciones',
+      description: 'Generación de descripción',
+      prediction: 'Predicciones',
+      agent: 'Agentes',
+    },
+  },
+
+  assistant: {
+    description: 'Pregunta sobre los datos de este tablero — el asistente solo usa lo que ya puedes ver.',
+    questionLabel: 'Pregunta',
+    questionPlaceholder: 'Ej.: ¿qué ítems del grupo En curso están atrasados?',
+    ask: 'Preguntar',
+    loading: 'Consultando…',
+    answerTitle: 'Respuesta',
+    toolsUsed: 'Consultó: {tools}',
+    empty: 'Haz una pregunta para empezar.',
+  },
+
+  createItem: {
+    description:
+      'Pega un texto libre (un correo, una nota, un documento) y la IA crea un ítem, completando las columnas posibles.',
+    textLabel: 'Texto',
+    textPlaceholder: 'Pega aquí el texto de origen…',
+    groupLabel: 'Grupo',
+    noGroup: 'Grupo predeterminado del tablero',
+    submit: 'Crear ítem',
+    loading: 'Creando…',
+    created: 'Ítem "{name}" creado.',
+    skippedColumns: 'No se pudo completar automáticamente: {columns}',
+    createAnother: 'Crear otro',
+  },
+
+  predictions: {
+    description: 'Predicciones calculadas a partir de los datos actuales del tablero; la narrativa es generada por IA.',
+    loading: 'Calculando predicciones…',
+    narrativeTitle: 'Resumen',
+    delayRiskTitle: 'Riesgo de atraso',
+    delayRiskEmpty: 'Ningún ítem en riesgo de atraso.',
+    statusOverdue: 'Atrasado',
+    statusDueSoon: 'Vence pronto',
+    assigneeSuggestionsTitle: 'Sugerencias de responsable',
+    assigneeSuggestionsEmpty: 'Ninguna sugerencia de responsable por ahora.',
+    duplicatesTitle: 'Posibles duplicados',
+    duplicatesEmpty: 'Ningún duplicado encontrado.',
+    similarity: '{percent}% similar',
+  },
+
+  agents: {
+    description: 'Los agentes de IA observan el tablero y proponen acciones — toda ejecución requiere aprobación humana.',
+    new: 'Nuevo agente',
+    emptyTitle: 'Ningún agente todavía',
+    emptyDescription: 'Crea un agente para que la IA proponga acciones cuando algo ocurra en el tablero.',
+    edit: 'Editar',
+    delete: 'Eliminar',
+    confirmDelete: '¿Eliminar este agente?',
+    confirmDeleteAction: 'Eliminar',
+    active: 'Activo',
+    inactive: 'Inactivo',
+    viewRuns: 'Ver aprobaciones',
+    createTitle: 'Nuevo agente',
+    editTitle: 'Editar agente',
+    save: 'Guardar',
+    name: 'Nombre',
+    instructions: 'Instrucciones',
+    instructionsHint:
+      'Explica en lenguaje natural cómo debe decidir la IA — solo propone acciones dentro de los tipos permitidos abajo; toda propuesta espera aprobación humana antes de ejecutarse.',
+    allowedActionsLabel: 'Acciones permitidas (hasta 3)',
+    allowedActionsHint:
+      'El agente decide los detalles (qué columna, qué valor, a quién notificar) en tiempo real, dentro de los tipos seleccionados aquí.',
+    incomplete: 'Completa los campos obligatorios y selecciona al menos una acción permitida.',
+    enabledField: 'Agente activo',
+  },
+
+  approvals: {
+    description: 'Propuestas de agentes de IA en espera de decisión — nada se ejecuta sin aprobación.',
+    emptyTitle: 'Ninguna propuesta',
+    emptyDescription: 'Cuando un agente proponga una acción, aparecerá aquí para aprobación.',
+    gapTitle: 'Se requiere gestión de agentes',
+    gapDescription:
+      'Para listar las propuestas por agente, también necesitas acceso a la gestión de agentes de IA de este espacio de trabajo. Pide a un administrador que otorgue ese permiso, o revisa la propuesta con alguien que ya lo tenga.',
+    reasoningLabel: 'Justificación de la IA',
+    proposedActionLabel: 'Acción propuesta',
+    noteLabel: 'Observación (opcional)',
+    notePlaceholder: 'Explica tu decisión…',
+    approve: 'Aprobar',
+    confirmApprove: '¿Aprobar y ejecutar esta acción ahora?',
+    confirmApproveAction: 'Aprobar y ejecutar',
+    reject: 'Rechazar',
+    revert: 'Revertir',
+    costLabel: 'Costo estimado: US$ {cost}',
+    requestedAt: 'Propuesta {date}',
+    status: {
+      pending_approval: 'Esperando aprobación',
+      approved: 'Aprobada',
+      rejected: 'Rechazada',
+      executed: 'Ejecutada',
+      failed: 'Falló',
+      reverted: 'Revertida',
+    },
+  },
+
+  itemPanel: {
+    descriptionFieldLabel: 'Descripción del servicio',
+    descriptionPlaceholder: 'Sin descripción.',
+    generateDescription: 'Generar descripción con IA',
+    generating: 'Generando…',
+    suggestionTitle: 'Sugerencia de la IA',
+    applySuggestion: 'Aplicar',
+    discardSuggestion: 'Descartar',
+    descriptionApplied: 'Descripción actualizada.',
+    summarizeUpdates: 'Resumir actualizaciones con IA',
+    summarizing: 'Resumiendo…',
+    summaryTitle: 'Resumen generado por IA',
+    dismissSummary: 'Descartar',
+  },
+
+  hub: {
+    settingsCardTitle: 'Configuración de IA',
+    settingsCardDescription: 'Proveedor, modelo, clave de API y límites de uso de la organización.',
+    settingsCardAction: 'Abrir configuración',
+    workspacesTitle: 'Espacios de trabajo con IA habilitada',
+    workspacesEmpty: 'Ningún espacio de trabajo tiene el módulo de IA habilitado por ahora.',
+    workspacesHint:
+      'Abre un tablero en esos espacios de trabajo y usa el botón "IA" en el encabezado para el asistente, la creación de ítems, predicciones, agentes y aprobaciones.',
+    openWorkspace: 'Abrir',
+  },
+};

@@ -449,6 +449,19 @@ export function applyRealtimeEvent(
       void queryClient.invalidateQueries({ queryKey: qk.webhooksOfBoard(boardId) });
       return;
     }
+    case 'ai_agent.changed': {
+      // O evento só traz `workspaceId` (ADR 0055), não `boardId` — invalida por predicado, como
+      // `dashboard.changed` faz para a lista de dashboards do workspace.
+      void queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey.includes('ai-agents'),
+      });
+      return;
+    }
+    case 'ai_agent_run.changed': {
+      const { agentId } = event.payload as { agentId: string };
+      void queryClient.invalidateQueries({ queryKey: qk.aiAgentRuns(agentId) });
+      return;
+    }
     case 'phase.changed': {
       const { boardId: eventBoardId } = event.payload as { boardId: string };
       void queryClient.invalidateQueries({ queryKey: qk.processConfig(eventBoardId) });

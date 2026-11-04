@@ -1,7 +1,7 @@
 'use client';
 
 import { toast } from '@cube-track/ui';
-import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 
 import { api } from '@/lib/api/client';
@@ -38,6 +38,26 @@ export function useItemDetail(itemId: string | null) {
     queryFn: () => api<Item>(`/v1/items/${itemId ?? ''}`),
     enabled: itemId !== null,
     retry: (count, error) => !isApiError(error, 404) && !isApiError(error, 403) && count < 2,
+  });
+}
+
+/** Grava `descriptionText` do item (campo nativo, fora do sistema de colunas) — mesma rota
+ * `PATCH /v1/items/:id` usada pelas demais escritas de campo nativo; a permissão (`item.update`) é
+ * sempre checada pelo servidor, independentemente do que a UI mostra. */
+export function useUpdateItemDescription(itemId: string) {
+  const queryClient = useQueryClient();
+  const errorMessage = useErrorMessage();
+  return useMutation({
+    mutationFn: (description: string | null) =>
+      api<Item>(`/v1/items/${itemId}`, { method: 'PATCH', body: { description } }),
+    onSuccess: (updated) => {
+      queryClient.setQueryData<Item>(qk.item(itemId), (current) =>
+        current === undefined ? current : { ...current, descriptionText: updated.descriptionText },
+      );
+    },
+    onError: (error) => {
+      toast.error(errorMessage(error));
+    },
   });
 }
 

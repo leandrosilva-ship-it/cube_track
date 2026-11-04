@@ -325,6 +325,22 @@ export const EVENT_PAYLOADS = {
     contractId: z.uuid(),
     change: z.enum(['created', 'updated', 'deleted']),
   }),
+  /** CRUD de agente de IA (ADR 0055) — sem board, entrega por tenant. */
+  'ai_agent.changed': z.object({
+    agentId: z.uuid(),
+    workspaceId: z.uuid(),
+    change: z.enum(['created', 'updated', 'deleted']),
+  }),
+  /** Execução de agente de IA (ADR 0055): proposta → aprovada/rejeitada → executada/revertida.
+   * Com `boardId` entrega na room do board (quem está vendo o board vê a proposta aparecer); sempre
+   * também por tenant, para a fila de aprovações alcançar quem não está no board. */
+  'ai_agent_run.changed': z.object({
+    runId: z.uuid(),
+    agentId: z.uuid(),
+    boardId: z.uuid().nullable(),
+    itemId: z.uuid().nullable(),
+    status: z.enum(['pending_approval', 'approved', 'rejected', 'executed', 'failed', 'reverted']),
+  }),
   'notification.created': z.object({
     notificationId: z.uuid(),
     type: z.string(),

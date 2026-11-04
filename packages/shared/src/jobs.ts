@@ -13,6 +13,7 @@ export const QUEUES = {
   maintenance: 'maintenance',
   webhooks: 'webhooks',
   webhookDeliveries: 'webhook-deliveries',
+  aiAgents: 'ai-agents',
   deadLetter: 'dead-letter',
 } as const;
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
@@ -45,6 +46,8 @@ export const EMAIL_TEMPLATES = [
   'contract_balance_low',
   'contract_expiring',
   'service_order_stalled',
+  'ai_agent_run_pending',
+  'ai_agent_run_decided',
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
@@ -114,6 +117,7 @@ export const MAINTENANCE_JOBS = [
   'notification-digest-daily',
   'portfolio-health-daily',
   'contract-alerts-daily',
+  'ai-agents-date-check',
 ] as const;
 export type MaintenanceJob = (typeof MAINTENANCE_JOBS)[number];
 
@@ -153,16 +157,23 @@ export type DeadLetterJob = z.infer<typeof DeadLetterJobSchema>;
 
 /** Tipos de evento que cada consumidor recebe do relay. */
 export const EVENT_CONSUMERS: Record<string, readonly QueueName[]> = {
-  'item.created': [QUEUES.searchIndex, QUEUES.automations, QUEUES.computed, QUEUES.portfolio],
+  'item.created': [
+    QUEUES.searchIndex,
+    QUEUES.automations,
+    QUEUES.computed,
+    QUEUES.portfolio,
+    QUEUES.aiAgents,
+  ],
   'item.updated': [
     QUEUES.searchIndex,
     QUEUES.automations,
     QUEUES.schedule,
     QUEUES.computed,
     QUEUES.portfolio,
+    QUEUES.aiAgents,
   ],
   'item.deleted': [QUEUES.searchIndex, QUEUES.computed, QUEUES.portfolio],
-  'item.button_clicked': [QUEUES.automations],
+  'item.button_clicked': [QUEUES.automations, QUEUES.aiAgents],
   'column.created': [QUEUES.computed],
   'column.updated': [QUEUES.computed],
   'board.updated': [QUEUES.searchIndex],
@@ -177,4 +188,5 @@ export const EVENT_CONSUMERS: Record<string, readonly QueueName[]> = {
   'project_health.changed': [QUEUES.notifications],
   'budget.changed': [QUEUES.portfolio],
   'cost_entry.changed': [QUEUES.portfolio],
+  'ai_agent_run.changed': [QUEUES.notifications],
 };

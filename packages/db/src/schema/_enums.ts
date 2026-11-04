@@ -1,4 +1,11 @@
-import { AI_AGENT_RUN_STATUSES, AI_FEATURES } from '@cube-track/shared';
+import {
+  AI_AGENT_RUN_STATUSES,
+  AI_FEATURES,
+  IMPORT_JOB_STATUSES,
+  IMPORT_SOURCES,
+  INTEGRATION_AUTH_KINDS,
+  INTEGRATION_PROVIDERS,
+} from '@cube-track/shared';
 import { pgEnum } from 'drizzle-orm/pg-core';
 
 // Identidade e acesso
@@ -81,7 +88,7 @@ export const mentionTarget = pgEnum('mention_target', ['user', 'team', 'everyone
 export const mentionSource = pgEnum('mention_source', ['update', 'reply', 'item_description']);
 export const actorKind = pgEnum('actor_kind', ['user', 'automation', 'api', 'import', 'system']);
 export const scanStatus = pgEnum('scan_status', ['pending', 'clean', 'infected', 'failed']);
-export const notificationChannel = pgEnum('notification_channel', ['in_app', 'email', 'push']);
+export const notificationChannel = pgEnum('notification_channel', ['in_app', 'email', 'push', 'slack', 'teams']);
 export const notificationFrequency = pgEnum('notification_frequency', [
   'instant',
   'hourly',
@@ -205,6 +212,12 @@ export const invoiceStatus = pgEnum('invoice_status', ['draft', 'issued', 'paid'
 // fonte única da verdade; o enum do Postgres nunca mantém uma lista paralela.
 export const aiFeature = pgEnum('ai_feature', [...AI_FEATURES]);
 export const aiAgentRunStatus = pgEnum('ai_agent_run_status', [...AI_AGENT_RUN_STATUSES]);
+
+// API pública, integrações e importadores (ADR 0056) — valores vindos de `@cube-track/shared`.
+export const integrationProvider = pgEnum('integration_provider', [...INTEGRATION_PROVIDERS]);
+export const integrationAuthKind = pgEnum('integration_auth_kind', [...INTEGRATION_AUTH_KINDS]);
+export const importSource = pgEnum('import_source', [...IMPORT_SOURCES]);
+export const importJobStatus = pgEnum('import_job_status', [...IMPORT_JOB_STATUSES]);
 
 // Governança
 export const retentionAction = pgEnum('retention_action', ['delete', 'anonymize', 'archive']);

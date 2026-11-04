@@ -8,7 +8,8 @@
     "./crypto": "./src/crypto.ts",
     "./realtime": "./src/realtime.ts",
     "./fractional-index": "./src/fractional-index.ts",
-    "./csv": "./src/csv.ts"
+    "./csv": "./src/csv.ts",
+    "./api-access": "./src/api-access.ts"
   },
   "scripts": {
     "lint": "eslint .",

@@ -341,6 +341,39 @@ export const EVENT_PAYLOADS = {
     itemId: z.uuid().nullable(),
     status: z.enum(['pending_approval', 'approved', 'rejected', 'executed', 'failed', 'reverted']),
   }),
+  /** API pública (ADR 0056): token pessoal criado/revogado ou app OAuth criado/editado/excluído — sem
+   * board, entrega por tenant (recurso de organização inteira). */
+  'api_token.changed': z.object({
+    tokenId: z.uuid(),
+    userId: z.uuid(),
+    change: z.enum(['created', 'revoked']),
+  }),
+  'oauth_app.changed': z.object({
+    appId: z.uuid(),
+    change: z.enum(['created', 'updated', 'deleted']),
+  }),
+  /** Conexão de integração de terceiro (Google/Microsoft/Slack/Teams/GitHub/GitLab/Azure DevOps,
+   * ADR 0056) conectada/desconectada — sem board, entrega por tenant. */
+  'integration_connection.changed': z.object({
+    connectionId: z.uuid(),
+    workspaceId: z.uuid(),
+    provider: z.enum(['google', 'microsoft', 'slack', 'teams', 'github', 'gitlab', 'azure_devops']),
+    change: z.enum(['connected', 'disconnected']),
+  }),
+  /** Job de importação (Monday/Trello/Jira/Pipefy/CSV, ADR 0056) mudou de status — entrega na room do
+   * board de destino, para a tela de importação acompanhar o progresso em tempo real. */
+  'import_job.changed': z.object({
+    jobId: z.uuid(),
+    boardId: z.uuid(),
+    status: z.enum(['uploaded', 'processing', 'completed', 'failed']),
+  }),
+  /** CRUD de template (ADR 0056) — `tenantId` nulo (global) nunca gera este evento (a galeria pública
+   * não muda em tempo real para o usuário comum); só a galeria interna do tenant. */
+  'template.changed': z.object({
+    templateId: z.uuid(),
+    kind: z.enum(['board', 'workspace', 'dashboard', 'automation', 'form']),
+    change: z.enum(['created', 'updated', 'deleted']),
+  }),
   'notification.created': z.object({
     notificationId: z.uuid(),
     type: z.string(),

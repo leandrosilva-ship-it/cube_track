@@ -1,4 +1,6 @@
 export * from './ai.js';
+// api-access.js (generateApiToken/hashApiToken) usa node:crypto: de propósito fora do barrel, mesmo
+// motivo do crypto.js abaixo — importar de '@cube-track/shared/api-access'.
 export * from './automations.js';
 export * from './board-templates.js';
 export * from './business-days.js';
@@ -17,6 +19,8 @@ export * from './formula/index.js';
 export * from './forms.js';
 export * from './fractional-index.js';
 export * from './ids.js';
+export * from './importers.js';
+export * from './integrations.js';
 export * from './jobs.js';
 export * from './mail-reply.js';
 export * from './modules.js';
@@ -28,6 +32,7 @@ export * from './query.js';
 export * from './richtext.js';
 export * from './scheduling.js';
 export * from './search.js';
+export * from './templates.js';
 export * from './timeline.js';
 export * from './views.js';
 export * from './wbs.js';

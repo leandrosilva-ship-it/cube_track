@@ -14,6 +14,7 @@ export const QUEUES = {
   webhooks: 'webhooks',
   webhookDeliveries: 'webhook-deliveries',
   aiAgents: 'ai-agents',
+  imports: 'imports',
   deadLetter: 'dead-letter',
 } as const;
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
@@ -48,6 +49,7 @@ export const EMAIL_TEMPLATES = [
   'service_order_stalled',
   'ai_agent_run_pending',
   'ai_agent_run_decided',
+  'import_job_completed',
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
@@ -81,6 +83,16 @@ export const WebhookDeliveryJobSchema = z.object({
   event: DomainEventJobSchema,
 });
 export type WebhookDeliveryJob = z.infer<typeof WebhookDeliveryJobSchema>;
+
+/** Processa um job de importação em background (ADR 0056) — o commit em si (criar grupos/itens linha
+ * a linha) roda aqui, nunca dentro da requisição HTTP que fez o upload. */
+export const ImportJobPayloadSchema = z.object({
+  tenantId: z.uuid(),
+  importJobId: z.uuid(),
+  userId: z.uuid(),
+  boardId: z.uuid(),
+});
+export type ImportJobPayload = z.infer<typeof ImportJobPayloadSchema>;
 
 export const ScheduleJobSchema = z.object({
   tenantId: z.uuid(),
@@ -118,6 +130,9 @@ export const MAINTENANCE_JOBS = [
   'portfolio-health-daily',
   'contract-alerts-daily',
   'ai-agents-date-check',
+  /** Sincronização periódica de calendário (Google/Microsoft, ADR 0056): busca mudanças feitas do lado
+   * do provedor (evento movido/excluído direto no Google Agenda/Outlook) e reflete no item. */
+  'calendar-sync-periodic',
 ] as const;
 export type MaintenanceJob = (typeof MAINTENANCE_JOBS)[number];
 
@@ -189,4 +204,7 @@ export const EVENT_CONSUMERS: Record<string, readonly QueueName[]> = {
   'budget.changed': [QUEUES.portfolio],
   'cost_entry.changed': [QUEUES.portfolio],
   'ai_agent_run.changed': [QUEUES.notifications],
+  /** Avisa quem iniciou a importação quando ela termina (sucesso ou falha) — o relatório de erro fica
+   * disponível na tela, mas o usuário não precisa ficar com a aba aberta esperando (ADR 0056). */
+  'import_job.changed': [QUEUES.notifications],
 };

@@ -24,6 +24,7 @@ import {
   roleScope,
   userStatus,
 } from './_enums.js';
+import { oauthApps } from './api-access.js';
 import { deletedAt, tenantFk, tenantTable } from './_helpers.js';
 
 /**
@@ -246,13 +247,17 @@ export const sessions = tenantTable(
   ],
 );
 
-/** Token de API pessoal/integração. Exibido uma única vez; guardamos prefixo + hash. */
+/**
+ * Token de API pessoal OU de app OAuth (Prompt 15, ADR 0056) — exatamente um entre `userId`/
+ * `oauthAppId` é preenchido (`api_tokens_owner_xor`). Exibido uma única vez; guardamos prefixo + hash.
+ * Um token pessoal é autosserviço (o próprio usuário cria/revoga o seu, sem precisar de
+ * `api_tokens.manage`); um token de app nasce de `POST /v1/oauth/token` (`client_credentials`).
+ */
 export const apiTokens = tenantTable(
   'api_tokens',
   {
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    oauthAppId: uuid('oauth_app_id'),
     name: text('name').notNull(),
     tokenPrefix: text('token_prefix').notNull(),
     tokenHash: text('token_hash').notNull(),
@@ -267,9 +272,12 @@ export const apiTokens = tenantTable(
     metadata: jsonb('metadata').$type<Record<string, unknown>>().notNull().default({}),
   },
   (t) => [
+    tenantFk('api_tokens', t.tenantId, t.oauthAppId, oauthApps),
     uniqueIndex('api_tokens_token_hash_key').on(t.tokenHash),
     index('api_tokens_user_idx').on(t.tenantId, t.userId),
+    index('api_tokens_app_idx').on(t.tenantId, t.oauthAppId),
     check('api_tokens_prefix_len', sql`char_length(${t.tokenPrefix}) between 4 and 16`),
+    check('api_tokens_owner_xor', sql`(${t.userId} is null) <> (${t.oauthAppId} is null)`),
   ],
 );
 

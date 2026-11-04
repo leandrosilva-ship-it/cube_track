@@ -114,6 +114,7 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
       'ai.use',
       'ai.agents.manage',
       'ai.agents.approve',
+      'integrations.manage',
     ],
   },
   {

@@ -16,7 +16,11 @@ export const TENANT_PERMISSIONS = [
   'teams.manage',
   'roles.manage',
   'audit.read',
+  /** Gerencia (lista/revoga) os tokens de QUALQUER usuário e os apps OAuth do tenant (ADR 0056) — não
+   * é preciso para criar/revogar o PRÓPRIO token pessoal, autosserviço como trocar a própria senha. */
   'api_tokens.manage',
+  /** CRUD da galeria interna de templates do tenant (ADR 0056) — a galeria pública é somente leitura
+   * para todos (templates globais, `tenant_id` nulo). */
   'templates.manage',
   'workspace.create',
   /** Configura o provedor de IA, chave, modelo e limites do tenant (ADR 0055, LGPD: liga/desliga). */
@@ -42,6 +46,9 @@ export const WORKSPACE_PERMISSIONS = [
   'ai.agents.manage',
   /** Aprova/rejeita/reverte a execução de uma proposta de agente (ADR 0055, critério de aceite 2). */
   'ai.agents.approve',
+  /** Conecta/configura/desconecta integrações de terceiros do workspace (ADR 0056) — Google/Microsoft,
+   * Slack/Teams, GitHub/GitLab/Azure DevOps. */
+  'integrations.manage',
 ] as const;
 
 export const BOARD_PERMISSIONS = [

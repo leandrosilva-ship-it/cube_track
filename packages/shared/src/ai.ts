@@ -153,3 +153,47 @@ export function parseProposedAction(raw: unknown, allowedActions: readonly Autom
 export function isRevertibleActionType(type: AutomationActionType): boolean {
   return type === 'set_column_value' || type === 'move_to_group';
 }
+
+// --------------------------------------------------------------------------- previsões/duplicatas ---
+
+/** Tokens normalizados (minúsculas, sem acentos/pontuação) de um nome, para comparação de similaridade. */
+function tokensOf(text: string): Set<string> {
+  return new Set(
+    text
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '')
+      .toLocaleLowerCase('pt-BR')
+      .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+      .split(/\s+/)
+      .filter((token) => token.length > 2),
+  );
+}
+
+/** Similaridade de Jaccard (0–1) entre dois nomes de item — determinística, sem chamada de IA. */
+export function itemNameSimilarity(a: string, b: string): number {
+  const left = tokensOf(a);
+  const right = tokensOf(b);
+  if (left.size === 0 || right.size === 0) return 0;
+  let intersection = 0;
+  for (const token of left) if (right.has(token)) intersection += 1;
+  const union = left.size + right.size - intersection;
+  return union === 0 ? 0 : intersection / union;
+}
+
+/** Nomes de itens com similaridade acima do limiar (padrão 0.6) — candidatos a duplicado. */
+export function findDuplicateCandidates<T extends { id: string; name: string }>(
+  items: readonly T[],
+  threshold = 0.6,
+): { a: T; b: T; similarity: number }[] {
+  const pairs: { a: T; b: T; similarity: number }[] = [];
+  for (let i = 0; i < items.length; i += 1) {
+    for (let j = i + 1; j < items.length; j += 1) {
+      const a = items[i];
+      const b = items[j];
+      if (a === undefined || b === undefined) continue;
+      const similarity = itemNameSimilarity(a.name, b.name);
+      if (similarity >= threshold) pairs.push({ a, b, similarity });
+    }
+  }
+  return pairs.sort((x, y) => y.similarity - x.similarity);
+}

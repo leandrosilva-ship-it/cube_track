@@ -1,3 +1,4 @@
+import { AI_AGENT_RUN_STATUSES, AI_FEATURES } from '@cube-track/shared';
 import { pgEnum } from 'drizzle-orm/pg-core';
 
 // Identidade e acesso
@@ -199,6 +200,11 @@ export const measurementStatus = pgEnum('measurement_status', [
   'rejected',
 ]);
 export const invoiceStatus = pgEnum('invoice_status', ['draft', 'issued', 'paid', 'cancelled']);
+
+// Inteligência Artificial (ADR 0055) — os valores vêm de `@cube-track/shared` (packages/shared/src/ai.ts),
+// fonte única da verdade; o enum do Postgres nunca mantém uma lista paralela.
+export const aiFeature = pgEnum('ai_feature', [...AI_FEATURES]);
+export const aiAgentRunStatus = pgEnum('ai_agent_run_status', [...AI_AGENT_RUN_STATUSES]);
 
 // Governança
 export const retentionAction = pgEnum('retention_action', ['delete', 'anonymize', 'archive']);

@@ -27,6 +27,8 @@ const {
   risks,
   issues,
   projectHealth,
+  aiAgents,
+  aiAgentRuns,
 } = schema;
 
 export interface NotificationsDeps {
@@ -48,6 +50,9 @@ export interface NotificationsDeps {
  * - `absence.changed`/`resource_request.changed`/`timesheet_approval.changed` (ADR 0052): pedido/
  *   envio novo notifica quem tem `resources.manage`/`timesheet.approve` no workspace principal do
  *   tenant; decisão (aprovado/rejeitado/atendido) notifica quem pediu/enviou.
+ * - `ai_agent_run.changed` (ADR 0055): proposta nova (`pending_approval`) notifica quem tem
+ *   `ai.agents.approve` no workspace do agente; decidida (rejeitada/executada/revertida) notifica
+ *   quem criou o agente.
  */
 export function notificationsProcessor(deps: NotificationsDeps) {
   return async (job: Job) => {
@@ -75,6 +80,9 @@ export function notificationsProcessor(deps: NotificationsDeps) {
     }
     if (event.type === 'project_health.changed') {
       return notifyProjectHealthAlert(deps, event);
+    }
+    if (event.type === 'ai_agent_run.changed') {
+      return notifyAiAgentRun(deps, event);
     }
     return { notified: 0 };
   };
@@ -352,21 +360,13 @@ async function notifyApproval(
   return { notified };
 }
 
-/** Usuários (diretos ou via time) com `permissionKey` no workspace principal do tenant (ADR 0052). */
-async function resourcePermissionHolders(
+/** Usuários (diretos ou via time) com `permissionKey` num workspace específico. */
+async function workspacePermissionHolders(
   tx: Transaction,
   tenantId: string,
+  workspaceId: string,
   permissionKey: string,
 ): Promise<string[]> {
-  const [workspace] = await tx
-    .select({ id: workspaces.id })
-    .from(workspaces)
-    .where(
-      and(eq(workspaces.tenantId, tenantId), isNull(workspaces.deletedAt), isNull(workspaces.archivedAt)),
-    )
-    .orderBy(asc(workspaces.createdAt))
-    .limit(1);
-  if (workspace === undefined) return [];
   const roleRows = await tx
     .select({ roleId: rolePermissions.roleId })
     .from(rolePermissions)
@@ -380,7 +380,7 @@ async function resourcePermissionHolders(
       and(
         eq(accessGrants.tenantId, tenantId),
         eq(accessGrants.resourceType, 'workspace'),
-        eq(accessGrants.resourceId, workspace.id),
+        eq(accessGrants.resourceId, workspaceId),
         inArray(accessGrants.roleId, roleIds),
       ),
     );
@@ -397,6 +397,24 @@ async function resourcePermissionHolders(
     members.forEach((member) => recipients.add(member.userId));
   }
   return [...recipients];
+}
+
+/** Usuários (diretos ou via time) com `permissionKey` no workspace principal do tenant (ADR 0052). */
+async function resourcePermissionHolders(
+  tx: Transaction,
+  tenantId: string,
+  permissionKey: string,
+): Promise<string[]> {
+  const [workspace] = await tx
+    .select({ id: workspaces.id })
+    .from(workspaces)
+    .where(
+      and(eq(workspaces.tenantId, tenantId), isNull(workspaces.deletedAt), isNull(workspaces.archivedAt)),
+    )
+    .orderBy(asc(workspaces.createdAt))
+    .limit(1);
+  if (workspace === undefined) return [];
+  return workspacePermissionHolders(tx, tenantId, workspace.id, permissionKey);
 }
 
 /** Gestor direto de `userId` (`resource_profiles.managerId`), se existir. */
@@ -867,5 +885,92 @@ async function notifyProjectHealthAlert(
   );
   for (const email of emailJobs)
     await deps.emails.add(email.template, email, { jobId: `project_health.${healthId}.alert.${email.to}` });
+  return { notified };
+}
+
+/**
+ * Notifica aprovadores (`pending_approval`) ou quem criou o agente (decidido: rejeitado/executado/
+ * revertido/falhou) — ADR 0055. `failed`/`approved` não são produzidos pelo fluxo atual (o worker só
+ * grava `pending_approval`; a API decide direto para `rejected`/`executed`/`reverted`), mas ficam
+ * cobertos aqui para o caso de um futuro status intermediário.
+ */
+async function notifyAiAgentRun(deps: NotificationsDeps, event: ReturnType<typeof DomainEventJobSchema.parse>) {
+  const runId = typeof event.payload.runId === 'string' ? event.payload.runId : '';
+  const agentId = typeof event.payload.agentId === 'string' ? event.payload.agentId : '';
+  const status = typeof event.payload.status === 'string' ? event.payload.status : '';
+  const boardId = typeof event.payload.boardId === 'string' ? event.payload.boardId : null;
+  const itemId = typeof event.payload.itemId === 'string' ? event.payload.itemId : null;
+  if (runId === '' || agentId === '') return { notified: 0 };
+  const emailJobs: EmailJob[] = [];
+
+  const notified = await runAsSystem(
+    deps.database,
+    deps.redis,
+    event.tenantId,
+    { kind: 'system', causationId: event.eventId, depth: event.depth, correlationId: event.eventId },
+    async (unit) => {
+      const [agent] = await unit.tx.select().from(aiAgents).where(eq(aiAgents.id, agentId));
+      if (agent === undefined) return 0;
+      const [run] = await unit.tx.select({ reasoning: aiAgentRuns.reasoning }).from(aiAgentRuns).where(eq(aiAgentRuns.id, runId));
+
+      let recipients: string[];
+      let title: string;
+      if (status === 'pending_approval') {
+        recipients = await workspacePermissionHolders(unit.tx, event.tenantId, agent.workspaceId, 'ai.agents.approve');
+        title = `Ação de IA aguardando aprovação: agente "${agent.name}"`;
+      } else if (agent.createdBy !== null) {
+        recipients = [agent.createdBy];
+        const statusLabel =
+          status === 'rejected'
+            ? 'rejeitada'
+            : status === 'executed'
+              ? 'executada'
+              : status === 'reverted'
+                ? 'revertida'
+                : 'processada';
+        title = `Proposta do agente "${agent.name}" foi ${statusLabel}`;
+      } else {
+        return 0;
+      }
+      if (recipients.length === 0) return 0;
+
+      const [board] = boardId === null ? [undefined] : await unit.tx.select({ name: boards.name }).from(boards).where(eq(boards.id, boardId));
+      for (const recipientId of recipients) {
+        const email = await notifyUser(unit.tx, event.tenantId, event.actorId, {
+          userId: recipientId,
+          type: 'ai_agent_run',
+          title,
+          boardId,
+          itemId,
+          entityType: 'ai_agent_run',
+          entityId: runId,
+        });
+        await unit.emit({
+          type: 'notification.created',
+          aggregateType: 'notification',
+          aggregateId: runId,
+          userId: recipientId,
+          payload: { notificationId: runId, type: 'ai_agent_run', title, itemId, boardId },
+        });
+        if (email !== null) {
+          emailJobs.push({
+            to: email,
+            template: status === 'pending_approval' ? 'ai_agent_run_pending' : 'ai_agent_run_decided',
+            locale: 'pt-BR',
+            data: {
+              agentName: agent.name,
+              boardName: board?.name ?? '',
+              status,
+              reasoning: status === 'pending_approval' ? (run?.reasoning ?? '') : '',
+              link: boardId === null ? `${deps.appUrl}/ai-agents/${agent.id}` : `${deps.appUrl}/boards/${boardId}`,
+            },
+          });
+        }
+      }
+      return recipients.length;
+    },
+  );
+  for (const email of emailJobs)
+    await deps.emails.add(email.template, email, { jobId: `ai_agent_run.${runId}.${status}.${email.to}` });
   return { notified };
 }

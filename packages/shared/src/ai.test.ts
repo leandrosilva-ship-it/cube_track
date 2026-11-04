@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   AiAgentConfigError,
   estimateCostCents,
+  findDuplicateCandidates,
   isOverUsageLimit,
   isRevertibleActionType,
+  itemNameSimilarity,
   parseAgentConfig,
   parseProposedAction,
   wrapUntrustedContent,
@@ -119,5 +121,26 @@ describe('isRevertibleActionType', () => {
 
   it('notify não é reversível (enviar uma notificação não tem estado anterior para restaurar)', () => {
     expect(isRevertibleActionType('notify')).toBe(false);
+  });
+});
+
+describe('itemNameSimilarity/findDuplicateCandidates', () => {
+  it('nomes quase idênticos (ordem de palavras diferente, acentuação) têm similaridade alta', () => {
+    expect(itemNameSimilarity('Revisão do Contrato ABC', 'Contrato ABC — revisão')).toBeGreaterThan(0.6);
+  });
+
+  it('nomes sem relação têm similaridade baixa', () => {
+    expect(itemNameSimilarity('Reunião de kickoff', 'Pagamento da fatura 123')).toBeLessThan(0.3);
+  });
+
+  it('encontra pares candidatos a duplicado e ordena do mais similar ao menos similar', () => {
+    const items = [
+      { id: '1', name: 'Revisão do contrato ABC' },
+      { id: '2', name: 'Revisão contrato ABC' },
+      { id: '3', name: 'Reunião com o cliente' },
+    ];
+    const pairs = findDuplicateCandidates(items);
+    expect(pairs).toHaveLength(1);
+    expect([pairs[0]?.a.id, pairs[0]?.b.id].sort()).toEqual(['1', '2']);
   });
 });

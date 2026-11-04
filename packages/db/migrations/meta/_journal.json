@@ -169,6 +169,27 @@
       "when": 1793308555682,
       "tag": "0023_contract_alert_candidates",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1793808379195,
+      "tag": "0024_closed_doorman",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1793808386952,
+      "tag": "0025_ai_rls_and_date_check_candidates",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1793808470417,
+      "tag": "0026_ai_permissions",
+      "breakpoints": true
     }
   ]
 }

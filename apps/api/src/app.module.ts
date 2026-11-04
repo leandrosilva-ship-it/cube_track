@@ -8,6 +8,7 @@ import { CoreModule } from './core/core.module.js';
 import { LoggingModule } from './core/logging/logging.module.js';
 import { HealthController } from './core/observability/health.controller.js';
 import { AccessModule } from './modules/access/access.module.js';
+import { AiModule } from './modules/ai/ai.module.js';
 import { AutomationsModule } from './modules/automations/automations.module.js';
 import { CollaborationModule } from './modules/collaboration/collaboration.module.js';
 import { ContractsModule } from './modules/contracts/contracts.module.js';
@@ -55,6 +56,7 @@ import { WorkModule } from './modules/work/work.module.js';
     TimesheetModule,
     PortfolioModule,
     ContractsModule,
+    AiModule,
     SearchModule,
     // Com REALTIME_MODE=separate o gateway roda só no processo main.realtime (ADR 0027).
     ...(loadConfig().REALTIME_MODE === 'embedded' ? [RealtimeModule] : []),

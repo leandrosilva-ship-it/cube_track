@@ -27,6 +27,7 @@ import { InboundEmailController } from './presentation/inbound-email.controller.
     ReplyTokenService,
     MailInboundService,
   ],
-  exports: [ReplyTokenService],
+  // `UpdatesService` é exportado para o módulo `ai` (resumo de atualizações do item, ADR 0055).
+  exports: [ReplyTokenService, UpdatesService],
 })
 export class CollaborationModule {}

@@ -11,6 +11,7 @@ import { createBoardApp, listen } from './board.js';
 import type { WorkerConfig } from './config.js';
 import type { Logger } from './logger.js';
 import { OutboxRelay } from './outbox-relay.js';
+import { aiAgentsProcessor } from './processors/ai-agents.js';
 import { automationsProcessor } from './processors/automations.js';
 import { computedProcessor } from './processors/computed.js';
 import { createContractAlertsDaily } from './processors/contracts.js';
@@ -64,6 +65,7 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
     logger,
   };
   const automations = automationsProcessor({ database: appDb, redis, logger });
+  const aiAgents = aiAgentsProcessor({ database: appDb, redis, logger, encryptionKey: config.ENCRYPTION_KEY });
   const checkSla = createSlaCheck({ database: appDb, redis, logger });
   const checkNotificationDigest = createNotificationDigest({
     database: appDb,
@@ -100,6 +102,7 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
       common,
     ),
     createWorker(QUEUES.automations, automations.processEvent, common),
+    createWorker(QUEUES.aiAgents, aiAgents.processEvent, common),
     // Recálculo de cronograma serializado (concorrência 1) para evitar conflitos no mesmo board.
     createWorker(QUEUES.schedule, scheduleProcessor({ database: appDb, redis }), {
       ...common,
@@ -122,6 +125,7 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
         checkNotificationDigest,
         recomputePortfolioHealth,
         checkContractAlerts,
+        checkAiAgentDateArrives: aiAgents.checkDateArrives,
       }),
       { ...common, concurrency: 1 },
     ),

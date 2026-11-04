@@ -141,6 +141,19 @@ const TEMPLATES: Record<
     lines: [data.message ?? 'Uma Ordem de Serviço está solicitada há vários dias sem ser emitida.'],
     action: { label: 'Ver contrato', url: data.link ?? '' },
   }),
+  ai_agent_run_pending: (data) => ({
+    subject: `Ação de IA aguardando sua aprovação: "${data.agentName ?? ''}"`,
+    lines: [
+      `O agente de IA "${data.agentName ?? ''}" propôs uma ação${data.boardName === undefined || data.boardName === '' ? '' : ` no board "${data.boardName}"`} e precisa da sua aprovação antes de executar.`,
+      ...(data.reasoning === undefined || data.reasoning === '' ? [] : [`Motivo apresentado pelo modelo: “${data.reasoning}”`]),
+    ],
+    action: { label: 'Ver proposta', url: data.link ?? '' },
+  }),
+  ai_agent_run_decided: (data) => ({
+    subject: `Proposta do agente "${data.agentName ?? ''}" foi ${data.status ?? ''}`,
+    lines: [`A proposta do agente de IA "${data.agentName ?? ''}" foi ${data.status ?? ''}.`],
+    action: { label: 'Ver histórico do agente', url: data.link ?? '' },
+  }),
 };
 
 /** Renderiza o e-mail (texto e HTML com escape de todo conteúdo dinâmico). */

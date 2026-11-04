@@ -1,5 +1,6 @@
 export * from './_enums.js';
 export { tenants } from './_tenants.js';
+export * from './ai.js';
 export * from './automation.js';
 export * from './collaboration.js';
 export * from './columns.js';

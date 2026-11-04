@@ -51,6 +51,7 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
       'api_tokens.manage',
       'templates.manage',
       'workspace.create',
+      'ai.manage',
     ],
   },
   {
@@ -68,6 +69,7 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
       'api_tokens.manage',
       'templates.manage',
       'workspace.create',
+      'ai.manage',
     ],
   },
   {
@@ -109,6 +111,9 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
       'contract.read',
       'contract.manage',
       'contract.measure',
+      'ai.use',
+      'ai.agents.manage',
+      'ai.agents.approve',
     ],
   },
   {
@@ -122,6 +127,7 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
       'dashboard.create',
       'portfolio.read',
       'contract.read',
+      'ai.use',
     ],
   },
   {

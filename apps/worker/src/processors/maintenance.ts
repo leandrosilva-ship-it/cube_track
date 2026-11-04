@@ -16,6 +16,7 @@ export const MAINTENANCE_SCHEDULE: Record<MaintenanceJob, string> = {
   'notification-digest-daily': '0 8 * * *',
   'portfolio-health-daily': '30 4 * * *',
   'contract-alerts-daily': '45 5 * * *',
+  'ai-agents-date-check': '20 6 * * *',
 };
 const TIMEZONE = 'America/Sao_Paulo';
 
@@ -37,6 +38,7 @@ interface MaintenanceDeps {
   ) => Promise<{ outcomes: { tenantId: string; userId: string; count: number }[] }>;
   recomputePortfolioHealth: () => Promise<{ outcomes: { boardId: string; status: string }[] }>;
   checkContractAlerts: () => Promise<{ outcomes: { contractId: string; alerts: number }[] }>;
+  checkAiAgentDateArrives: () => Promise<{ outcomes: { agentId: string; status: string }[] }>;
 }
 
 /** Expurgo da lixeira (30 dias) com auditoria por tenant. */
@@ -128,6 +130,17 @@ export function maintenanceProcessor(deps: MaintenanceDeps) {
         deps.logger.info(
           { contracts: outcomes.length, alerts: outcomes.reduce((sum, o) => sum + o.alerts, 0) },
           'Alertas diários de contrato concluídos',
+        );
+        return;
+      }
+      case 'ai-agents-date-check': {
+        const { outcomes } = await deps.checkAiAgentDateArrives();
+        deps.logger.info(
+          {
+            checked: outcomes.length,
+            proposed: outcomes.filter((o) => o.status === 'proposed').length,
+          },
+          'Varredura diária de agentes de IA por data (date_arrives) concluída',
         );
         return;
       }

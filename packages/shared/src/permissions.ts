@@ -19,6 +19,8 @@ export const TENANT_PERMISSIONS = [
   'api_tokens.manage',
   'templates.manage',
   'workspace.create',
+  /** Configura o provedor de IA, chave, modelo e limites do tenant (ADR 0055, LGPD: liga/desliga). */
+  'ai.manage',
 ] as const;
 
 export const WORKSPACE_PERMISSIONS = [
@@ -34,6 +36,12 @@ export const WORKSPACE_PERMISSIONS = [
   'contract.read',
   'contract.manage',
   'contract.measure',
+  /** Usa o assistente de IA, criação de item por texto, resumos, descrição e previsões (ADR 0055). */
+  'ai.use',
+  /** CRUD de agentes de IA configuráveis do workspace/board. */
+  'ai.agents.manage',
+  /** Aprova/rejeita/reverte a execução de uma proposta de agente (ADR 0055, critério de aceite 2). */
+  'ai.agents.approve',
 ] as const;
 
 export const BOARD_PERMISSIONS = [

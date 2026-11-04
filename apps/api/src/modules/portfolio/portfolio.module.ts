@@ -38,5 +38,7 @@ import { PortfolioController } from './presentation/portfolio.controller.js';
     WhatIfService,
     StatusReportService,
   ],
+  // `StatusReportService` é exportado para o módulo `ai` (narração do status report, ADR 0055).
+  exports: [StatusReportService],
 })
 export class PortfolioModule {}

@@ -102,13 +102,18 @@ export class AccessAdminService {
     if (role.isSystem)
       throw new UnprocessableError('Papéis de sistema não podem ser alterados.', 'system_role');
     if (input.permissions !== undefined) this.validatePermissions(role.scope, input.permissions);
-    await this.runner.tx
-      .update(roles)
-      .set({
-        ...(input.name === undefined ? {} : { name: input.name }),
-        ...(input.description === undefined ? {} : { description: input.description }),
-      })
-      .where(eq(roles.id, roleId));
+    // Corrige um bug real: atualizar SÓ `permissions` (sem `name`/`description`) montava um
+    // `.set({})` vazio e o drizzle rejeitava com "No values to set" — `updateRole` só toca a tabela
+    // `roles` quando há de fato uma coluna própria dela para mudar.
+    if (input.name !== undefined || input.description !== undefined) {
+      await this.runner.tx
+        .update(roles)
+        .set({
+          ...(input.name === undefined ? {} : { name: input.name }),
+          ...(input.description === undefined ? {} : { description: input.description }),
+        })
+        .where(eq(roles.id, roleId));
+    }
     if (input.permissions !== undefined)
       await this.replacePermissions(user, roleId, input.permissions);
     this.events.recordChange({
@@ -120,6 +125,31 @@ export class AccessAdminService {
     });
     await this.changed(user, 'tenant', null);
     return { ...role, ...input };
+  }
+
+  /**
+   * Clona um papel existente (de sistema ou customizado) como ponto de partida para um papel
+   * customizado novo (ADR 0057) — mesmo escopo e as MESMAS permissões do original (editáveis depois
+   * com `updateRole`, inclusive para restringir). Nunca clona para um escopo diferente do original.
+   */
+  async cloneRole(
+    user: AuthPrincipal,
+    sourceRoleId: string,
+    input: { key: string; name: string; description?: string | undefined },
+  ) {
+    await this.access.assert(user, 'roles.manage', { type: 'tenant' });
+    const source = await this.findRole(sourceRoleId);
+    const permissions = await this.runner.tx
+      .select({ key: rolePermissions.permissionKey })
+      .from(rolePermissions)
+      .where(eq(rolePermissions.roleId, sourceRoleId));
+    return this.createRole(user, {
+      key: input.key,
+      name: input.name,
+      description: input.description ?? `Clonado de "${source.name}".`,
+      scope: source.scope,
+      permissions: permissions.map((row) => row.key),
+    });
   }
 
   async deleteRole(user: AuthPrincipal, roleId: string): Promise<void> {

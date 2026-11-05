@@ -43,6 +43,7 @@ const UpdateRoleBody = CreateRoleBody.pick({
   description: true,
   permissions: true,
 }).partial();
+const CloneRoleBody = CreateRoleBody.pick({ key: true, name: true, description: true });
 
 const GrantSchema = z.object({
   id: z.uuid(),
@@ -129,6 +130,25 @@ export class AccessController {
     @Input('body') body: z.infer<typeof CreateRoleBody>,
   ) {
     return this.admin.createRole(user, body);
+  }
+
+  @Post('roles/:id/clone')
+  @Audited({ action: 'role.created', entityType: 'role' })
+  @Endpoint({
+    summary: 'Clonar um papel (de sistema ou customizado) como ponto de partida para um novo',
+    description: 'Requer `roles.manage`. Copia o escopo e as permissões do original.',
+    tags: ['access'],
+    status: 201,
+    params: IdParams,
+    body: CloneRoleBody,
+    response: RoleSchema,
+  })
+  cloneRole(
+    @CurrentPrincipal() user: AuthPrincipal,
+    @Input('params') params: { id: string },
+    @Input('body') body: z.infer<typeof CloneRoleBody>,
+  ) {
+    return this.admin.cloneRole(user, params.id, body);
   }
 
   @Patch('roles/:id')

@@ -371,6 +371,25 @@ describe('Isolamento entre tenants e RBAC em 5 níveis', () => {
       const revoked = await api.delete(`/v1/access-grants/${grant.body.id}`, { token: manager });
       expect(revoked.status).toBe(204);
       expect((await api.get(`/v1/items/${otherItemId}`, { token: guest })).status).toBe(404);
+
+      // Clonar um papel (ADR 0057): mesmo escopo/permissões do original, editável (mais restrito) depois.
+      const clone = await api.post<{ id: string; scope: string; permissions: string[] }>(
+        `/v1/roles/${role.body.id}/clone`,
+        { token: owner, body: { key: 'auditor_externo_jr', name: 'Auditor externo júnior' } },
+      );
+      expect(clone.status).toBe(201);
+      expect(clone.body.scope).toBe('board');
+      expect(clone.body.permissions.sort()).toEqual(['board.read', 'item.comment']);
+      const restricted = await api.patch(`/v1/roles/${clone.body.id}`, {
+        token: owner,
+        body: { permissions: ['board.read'] },
+      });
+      expect(restricted.status).toBe(200);
+      const forbiddenClone = await api.post(`/v1/roles/${role.body.id}/clone`, {
+        token: editor,
+        body: { key: 'auditor_proibido', name: 'Proibido' },
+      });
+      expect(forbiddenClone.status).toBe(403);
     });
 
     it('view pessoal só é visível para o dono', async () => {

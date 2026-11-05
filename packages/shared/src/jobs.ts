@@ -130,9 +130,6 @@ export const MAINTENANCE_JOBS = [
   'portfolio-health-daily',
   'contract-alerts-daily',
   'ai-agents-date-check',
-  /** Sincronização periódica de calendário (Google/Microsoft, ADR 0056): busca mudanças feitas do lado
-   * do provedor (evento movido/excluído direto no Google Agenda/Outlook) e reflete no item. */
-  'calendar-sync-periodic',
 ] as const;
 export type MaintenanceJob = (typeof MAINTENANCE_JOBS)[number];
 

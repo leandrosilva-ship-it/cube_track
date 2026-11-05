@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { GOOGLE_OAUTH_SCOPES, MICROSOFT_OAUTH_SCOPES } from '@cube-track/shared';
+import { GOOGLE_OAUTH_SCOPES, MICROSOFT_OAUTH_SCOPES } from '@cube-track/shared/integrations';
 import { z } from 'zod';
 
 import { UnauthorizedError } from '../../../core/errors/problems.js';

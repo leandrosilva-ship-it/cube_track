@@ -1,12 +1,11 @@
 import { schema, withTenant, type DatabaseHandle, type Transaction } from '@cube-track/db';
+import { DomainEventJobSchema, type ItemFieldChange } from '@cube-track/shared';
+import { decryptSecret, encryptSecret } from '@cube-track/shared/crypto';
 import {
   buildGoogleCalendarEventBody,
   buildMicrosoftCalendarEventBody,
-  DomainEventJobSchema,
   MICROSOFT_OAUTH_SCOPES,
-  type ItemFieldChange,
-} from '@cube-track/shared';
-import { decryptSecret, encryptSecret } from '@cube-track/shared/crypto';
+} from '@cube-track/shared/integrations';
 import type { Job } from 'bullmq';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Redis } from 'ioredis';

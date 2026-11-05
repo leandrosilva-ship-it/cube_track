@@ -1,4 +1,4 @@
-import { isDoneLikeStatusLabel } from '@cube-track/shared';
+import { isDoneLikeStatusLabel } from '@cube-track/shared/integrations';
 
 /** Um rótulo de uma coluna de status candidata ao auto-avanço. */
 export interface StatusLabelCandidate {

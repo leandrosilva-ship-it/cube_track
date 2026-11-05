@@ -1,4 +1,4 @@
-import { INTEGRATION_PROVIDERS } from '@cube-track/shared';
+import { INTEGRATION_PROVIDERS } from '@cube-track/shared/integrations';
 import { z } from 'zod';
 
 export const WorkspaceParams = z.object({ workspaceId: z.uuid() });

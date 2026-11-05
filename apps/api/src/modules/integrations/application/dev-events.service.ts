@@ -1,5 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { schema, type DatabaseHandle } from '@cube-track/db';
+import { decryptSecret, encryptSecret } from '@cube-track/shared/crypto';
 import {
   extractItemReferences,
   normalizeAzureDevOpsEvent,
@@ -7,8 +8,7 @@ import {
   normalizeGitlabEvent,
   verifyGithubSignature,
   type NormalizedDevEvent,
-} from '@cube-track/shared';
-import { decryptSecret, encryptSecret } from '@cube-track/shared/crypto';
+} from '@cube-track/shared/integrations';
 import { and, eq, isNull } from 'drizzle-orm';
 
 import { APP_CONFIG, type AppConfig } from '../../../core/config/config.js';

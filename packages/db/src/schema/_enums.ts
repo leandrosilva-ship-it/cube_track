@@ -3,9 +3,8 @@ import {
   AI_FEATURES,
   IMPORT_JOB_STATUSES,
   IMPORT_SOURCES,
-  INTEGRATION_AUTH_KINDS,
-  INTEGRATION_PROVIDERS,
 } from '@cube-track/shared';
+import { INTEGRATION_AUTH_KINDS, INTEGRATION_PROVIDERS } from '@cube-track/shared/integrations';
 import { pgEnum } from 'drizzle-orm/pg-core';
 
 // Identidade e acesso

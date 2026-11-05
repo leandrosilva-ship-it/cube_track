@@ -1,6 +1,7 @@
 import { schema, type DatabaseHandle, type Transaction } from '@cube-track/db';
-import { DomainEventJobSchema, slackNotificationBlocks, teamsAdaptiveCard, type EmailJob } from '@cube-track/shared';
+import { DomainEventJobSchema, type EmailJob } from '@cube-track/shared';
 import { decryptSecret } from '@cube-track/shared/crypto';
+import { slackNotificationBlocks, teamsAdaptiveCard } from '@cube-track/shared/integrations';
 import type { Job, Queue } from 'bullmq';
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 import type { Redis } from 'ioredis';

@@ -20,7 +20,8 @@ export * from './forms.js';
 export * from './fractional-index.js';
 export * from './ids.js';
 export * from './importers.js';
-export * from './integrations.js';
+// integrations.js (verifyGithubSignature/verifySlackSignature) usa node:crypto: de propósito fora do
+// barrel, mesmo motivo do crypto.js acima — importar de '@cube-track/shared/integrations'.
 export * from './jobs.js';
 export * from './mail-reply.js';
 export * from './modules.js';

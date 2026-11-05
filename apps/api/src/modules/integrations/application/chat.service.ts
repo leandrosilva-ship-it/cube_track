@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { schema, withTenant, type DatabaseHandle } from '@cube-track/db';
-import { verifySlackSignature } from '@cube-track/shared';
+import { verifySlackSignature } from '@cube-track/shared/integrations';
 import { decryptSecret, encryptSecret } from '@cube-track/shared/crypto';
 import { and, asc, eq, isNull } from 'drizzle-orm';
 

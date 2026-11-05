@@ -9,7 +9,8 @@
     "./realtime": "./src/realtime.ts",
     "./fractional-index": "./src/fractional-index.ts",
     "./csv": "./src/csv.ts",
-    "./api-access": "./src/api-access.ts"
+    "./api-access": "./src/api-access.ts",
+    "./integrations": "./src/integrations.ts"
   },
   "scripts": {
     "lint": "eslint .",

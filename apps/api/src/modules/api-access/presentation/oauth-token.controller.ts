@@ -1,6 +1,7 @@
 import { Controller, Post } from '@nestjs/common';
 import { z } from 'zod';
 
+import { Audited } from '../../../core/audit/audited.js';
 import { Endpoint, Input } from '../../../core/http/endpoint.js';
 import { RateLimit } from '../../../core/rate-limit/rate-limit.js';
 import { OAuthAppsService } from '../application/oauth-apps.service.js';
@@ -13,6 +14,7 @@ export class OAuthTokenController {
 
   @Post('token')
   @RateLimit({ limit: 20, windowSeconds: 60, by: 'ip', bucket: 'oauth-token' })
+  @Audited({ action: 'oauth.token_issued', entityType: 'api_token', transactional: false })
   @Endpoint({
     summary: 'Trocar client_id/client_secret por um token de API (grant_type=client_credentials)',
     description:

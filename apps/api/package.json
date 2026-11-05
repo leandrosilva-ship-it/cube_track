@@ -82,6 +82,7 @@
     "tsup": "^8.5.0",
     "typescript": "5.9.3",
     "unplugin-swc": "^1.5.8",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "xml-crypto": "6.4.0"
   }
 }

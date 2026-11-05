@@ -27,6 +27,6 @@ import { SecurityPolicyController } from './presentation/security-policy.control
     SecurityPolicyRepository,
     SecurityPolicyService,
   ],
-  exports: [SecurityPolicyService],
+  exports: [SecurityPolicyService, AuthService],
 })
 export class IdentityModule {}

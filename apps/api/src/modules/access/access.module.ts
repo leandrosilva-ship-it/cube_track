@@ -9,6 +9,6 @@ import { AccessController } from './presentation/access.controller.js';
 @Module({
   controllers: [AccessController],
   providers: [AccessRepository, AccessService, AccessAdminService],
-  exports: [AccessService],
+  exports: [AccessService, AccessAdminService],
 })
 export class AccessModule {}

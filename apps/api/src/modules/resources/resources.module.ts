@@ -21,6 +21,6 @@ import { ResourcesController } from './presentation/resources.controller.js';
     ResourceRequestsService,
     CapacityService,
   ],
-  exports: [AllocationsService, AbsencesService, CapacityService],
+  exports: [AllocationsService, AbsencesService, CapacityService, TeamsService],
 })
 export class ResourcesModule {}

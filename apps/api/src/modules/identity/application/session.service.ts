@@ -31,7 +31,7 @@ export interface IssuedSession {
 export interface IssueInput {
   user: UserRecord;
   membership: MembershipSummary;
-  method: 'password' | 'magic_link' | 'oauth' | 'invitation' | 'signup' | 'refresh' | 'switch';
+  method: 'password' | 'magic_link' | 'oauth' | 'saml' | 'invitation' | 'signup' | 'refresh' | 'switch';
   amr: string[];
   familyId?: string;
 }

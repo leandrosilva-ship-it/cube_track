@@ -52,6 +52,9 @@ export async function createApp(
     exclude: [
       { path: 'health/live', method: RequestMethod.GET },
       { path: 'health/ready', method: RequestMethod.GET },
+      // SCIM 2.0 (ADR 0057): convenção do protocolo é `/scim/v2/...`, sem o prefixo `/v1`.
+      { path: 'scim/v2', method: RequestMethod.ALL },
+      { path: 'scim/v2/{*path}', method: RequestMethod.ALL },
     ],
   });
   app.enableShutdownHooks();

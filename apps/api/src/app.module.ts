@@ -27,9 +27,11 @@ import { PortfolioModule } from './modules/portfolio/portfolio.module.js';
 import { RealtimeModule } from './modules/realtime/realtime.module.js';
 import { ResourcesModule } from './modules/resources/resources.module.js';
 import { SearchModule } from './modules/search/search.module.js';
+import { SsoModule } from './modules/sso/sso.module.js';
 import { StructureModule } from './modules/structure/structure.module.js';
 import { TimesheetModule } from './modules/timesheet/timesheet.module.js';
 import { WorkModule } from './modules/work/work.module.js';
+import { GovernanceModule } from './modules/governance/governance.module.js';
 
 @Module({
   imports: [
@@ -66,6 +68,8 @@ import { WorkModule } from './modules/work/work.module.js';
     TemplatesModule,
     ImportsModule,
     IntegrationsModule,
+    SsoModule,
+    GovernanceModule,
     // Com REALTIME_MODE=separate o gateway roda só no processo main.realtime (ADR 0027).
     ...(loadConfig().REALTIME_MODE === 'embedded' ? [RealtimeModule] : []),
   ],

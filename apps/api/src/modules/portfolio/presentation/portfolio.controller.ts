@@ -1,7 +1,7 @@
 import { Controller, Delete, Get, Patch, Post } from '@nestjs/common';
 import { z } from 'zod';
 
-import { Audited } from '../../../core/audit/audited.js';
+import { Audited, ReadOnlyOperation } from '../../../core/audit/audited.js';
 import { CurrentPrincipal } from '../../../core/auth/decorators.js';
 import type { AuthPrincipal } from '../../../core/context/request-context.js';
 import { Endpoint, Input } from '../../../core/http/endpoint.js';
@@ -260,6 +260,7 @@ export class PortfolioController {
   // ------------------------------------------------------------------------------- what-if ---
 
   @Post('portfolio/what-if')
+  @ReadOnlyOperation()
   @Endpoint({
     summary: 'Simular incluir/excluir/adiar projetos de um portfólio ou programa (não grava nada)',
     tags: ['portfolio'],

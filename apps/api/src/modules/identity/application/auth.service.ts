@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { provisionTenant, schema } from '@cube-track/db';
+import { and, eq, isNull } from 'drizzle-orm';
 import {
   checkAccessRestriction,
   DEFAULT_PASSWORD_POLICY,
@@ -194,7 +195,7 @@ export class AuthService {
   /** Após o 1º fator: exige MFA (se ativo) ou emite a sessão. */
   private async completePrimaryAuthentication(
     user: UserRecord,
-    method: 'password' | 'magic_link' | 'oauth',
+    method: 'password' | 'magic_link' | 'oauth' | 'saml',
     amr: string[],
     preferredTenantId: string | null = null,
   ): Promise<LoginResult> {
@@ -557,10 +558,140 @@ export class AuthService {
     return this.completePrimaryAuthentication(user, 'oauth', ['oauth', provider], stored.tenantRef);
   }
 
+  // ---------------------------------------------------------------------------------- SAML ---
+
+  /**
+   * Conclui o login SAML (ADR 0057): vincula a identidade (NameID) a um usuário existente pelo
+   * e-mail, ou provisiona (usuário + vínculo com o tenant) quando `provisionOnFirstLogin` está
+   * habilitado — diferente do OAuth, SSO corporativo não exige convite prévio (o IdP já é a fonte de
+   * verdade de quem pertence à organização). Emite a MESMA sessão/cookie de qualquer outro método.
+   */
+  async completeSaml(
+    tenantId: string,
+    profile: { email: string; name: string; orgUnit: string | null; nameId: string },
+    config: { provisionOnFirstLogin: boolean; defaultRoleKey: string },
+  ): Promise<LoginResult> {
+    let user = await this.repository.findUserByEmail(profile.email);
+    const membership = user === null ? null : await this.repository.findMembership(user.id, tenantId);
+    if (user === null || membership === null) {
+      if (!config.provisionOnFirstLogin) {
+        throw new ForbiddenError(
+          'Não há conta vinculada a este e-mail nesta organização.',
+          'no_account',
+        );
+      }
+      user = await this.provisionExternalMember({
+        tenantId,
+        email: profile.email,
+        name: profile.name,
+        roleKey: config.defaultRoleKey,
+        kind: config.defaultRoleKey === 'guest' ? 'guest' : 'member',
+        orgUnit: profile.orgUnit,
+      });
+    }
+    await this.repository.linkIdentity(user.id, 'saml', profile.nameId, profile.email);
+    if (user.emailVerifiedAt === null)
+      await this.repository.updateUser(user.id, { emailVerifiedAt: new Date() });
+    return this.completePrimaryAuthentication(user, 'saml', ['saml'], tenantId);
+  }
+
+  /**
+   * Provisiona um usuário (encontra por e-mail ou cria) e o vincula ao tenant com o papel informado
+   * — usado por SSO SAML (primeiro login) e SCIM (`sso/application/scim-users.service.ts`). Único
+   * ponto que cria uma `membership` fora do fluxo normal de convite (ADR 0057): o chamador já
+   * verificou a permissão/confiança adequada (SSO: a asserção do IdP; SCIM: `scim:manage`).
+   */
+  async provisionExternalMember(input: {
+    tenantId: string;
+    email: string;
+    name: string;
+    roleKey: string;
+    kind: 'member' | 'guest';
+    orgUnit: string | null;
+  }): Promise<UserRecord> {
+    let user = await this.repository.findUserByEmail(input.email);
+    user ??= await this.repository.createUser({
+      email: input.email,
+      name: input.name,
+      passwordHash: null,
+      emailVerified: true,
+    });
+    const userId = user.id;
+    await this.runner.run({ tenantId: input.tenantId, userId }, async () => {
+      const tx = this.runner.tx;
+      const [role] = await tx
+        .select({ id: schema.roles.id })
+        .from(schema.roles)
+        .where(
+          and(
+            eq(schema.roles.tenantId, input.tenantId),
+            eq(schema.roles.scope, 'tenant'),
+            eq(schema.roles.key, input.roleKey),
+            isNull(schema.roles.deletedAt),
+          ),
+        );
+      if (role === undefined) {
+        throw new ValidationError([
+          { path: 'roleKey', message: `Papel "${input.roleKey}" não encontrado nesta organização.` },
+        ]);
+      }
+      await tx
+        .insert(schema.memberships)
+        .values({
+          tenantId: input.tenantId,
+          userId,
+          roleId: role.id,
+          kind: input.kind,
+          status: 'active',
+          joinedAt: new Date(),
+          orgUnit: input.orgUnit,
+          createdBy: userId,
+        })
+        .onConflictDoUpdate({
+          target: [schema.memberships.tenantId, schema.memberships.userId],
+          set: {
+            roleId: role.id,
+            kind: input.kind,
+            status: 'active',
+            orgUnit: input.orgUnit,
+            deletedAt: null,
+          },
+        });
+    });
+    return user;
+  }
+
   // ----------------------------------------------------------------------------- utilitários ---
 
   async organizations(userId: string): Promise<MembershipSummary[]> {
     return this.repository.listMemberships(userId);
+  }
+
+  /** Perfil global (identidade) para a exportação de dados do titular (ADR 0057, LGPD). */
+  async profile(userId: string): Promise<UserRecord | null> {
+    return this.repository.findUserById(userId);
+  }
+
+  /**
+   * Execução de uma solicitação de EXCLUSÃO LGPD (ADR 0057): anonimiza em vez de excluir de verdade
+   * — o mesmo padrão já usado para desfazer um cadastro sem organização (`signup`, acima) — porque
+   * `auditLogs`/`outboxEvents`/itens criados pelo usuário mantêm `created_by`/`actor_id` como
+   * referência (integridade referencial e a própria trilha de auditoria exigem o id; só o CONTEÚDO
+   * identificável é removido). Revoga toda sessão e todo token de API pessoal ativo.
+   */
+  async anonymizeUser(userId: string): Promise<void> {
+    await this.repository.updateUser(userId, {
+      status: 'anonymized',
+      email: `removed+${userId}@invalid.local`,
+      name: 'Usuário removido',
+      avatarUrl: null,
+      passwordHash: null,
+      mfaEnabled: false,
+      mfaSecretCiphertext: null,
+      mfaPendingSecretCiphertext: null,
+      mfaRecoveryCodeHashes: [],
+    });
+    await this.sessions.revokeAllForUser(userId, 'lgpd_erasure');
   }
 
   async membershipOrThrow(

@@ -101,6 +101,42 @@ corrigido nesta sessão porque exigiria reescrever a estratégia de paginação/
 consulta de itens (arquivo de 655 linhas, usado por Tabela, Kanban, dashboards e exportação) com
 testes novos, o que é maior que um ajuste pontual de performance seguro de se improvisar.
 
+#### Atualização (2026-11-05) — causa raiz nº 1 corrigida
+
+Sessão de follow-up dedicada à causa raiz nº 1 (coluna customizada). Reproduzida de novo primeiro
+(sem tocar código) com `EXPLAIN (ANALYZE, BUFFERS)` contra o mesmo board de 50 mil itens, confirmando
+o mesmo padrão: `ORDER BY c_ust DESC LIMIT 51` via o `LEFT JOIN` antigo gera um
+`Nested Loop Left Join` sondando `item_field_index_pkey` **uma vez por item do board** (50 mil
+sondagens para devolver 51 linhas) — 338 ms de execução, 232 954 buffers, nenhum índice composto
+tocado. Corrigida em `item-query.ts` (`ItemQueryBuilder.buildProjectedSortQuery`, ver ADR 0058 para o
+detalhe completo da forma da consulta): quando a ordenação é por exatamente uma coluna customizada
+projetada (número/data/texto — o caso que este próprio script mais exercita: `c_ust`/`c_prazo`
+aparecem em 4 das 6 combinações de `QUERIES`), a consulta resolve o topo-N em duas etapas (itens com
+valor via `INNER JOIN` + `ORDER BY ... LIMIT`; itens sem valor via um `LEFT JOIN` comum, só executado
+quando a primeira etapa não preenche a página sozinha) em vez de um único `LEFT JOIN` contra o board
+inteiro — sem mudar paginação por cursor, filtros ou resultado.
+
+Números medidos, antes/depois, mesma sessão, mesmo board (comandos completos no histórico do
+`EXPLAIN` acima):
+
+| Cenário | Antes | Depois |
+| --- | --- | --- |
+| `EXPLAIN ANALYZE`, só o `ORDER BY c_ust DESC LIMIT 51` (sem HTTP/concorrência) | 338 ms (`Nested Loop Left Join`, 232 954 buffers) | 42–90 ms |
+| `pnpm load:items`, 1 VU (sem concorrência) | p95 = 109 ms | p95 = 89–105 ms |
+| `pnpm load:items`, 10 VUs | p95 = 762 ms | p95 = 551 ms |
+| `pnpm load:items`, 50 VUs | p95 = 3,42 s, `http_req_failed` = 1,9 % | p95 = 1,96–2,2 s, `http_req_failed` = 0 % |
+
+O alvo de p95 < 200 ms do CLAUDE.md segue sem ser alcançado sob concorrência (10/50 VUs) **neste
+sandbox** — mas agora pelo motivo esperado (CPU: 4 vCPUs compartilhados com outras sessões de agente
+rodando builds/testes ao mesmo tempo desta medição, `load average` de até 16 observado durante os
+testes), não mais pela forma da consulta: a 1 VU, sem concorrência de CPU, o p95 já fica em
+89–105 ms, dentro do alvo. Teste dedicado (sort/filtro por coluna customizada com itens sem valor,
+paginação por cursor atravessando a fronteira entre "tem valor" e "não tem valor"):
+`apps/api/test/item-query-custom-sort.e2e.test.ts`.
+
+A causa raiz nº 2 (ordenação padrão/por `name` sem índice dedicado) **não foi tocada** nesta sessão
+de follow-up — fora do escopo (ver "Pendências" abaixo).
+
 ### `realtime.js`
 
 O protocolo (Engine.IO/Socket.IO v4 direto sobre `k6/ws`, sem biblioteca cliente) foi implementado e
@@ -123,12 +159,9 @@ lado do servidor para a validação cruzada pedida.
 
 ## Pendências (fora do escopo desta sessão, documentadas para follow-up)
 
-- **Índice não aproveitado em `item-query.ts`** para ordenar/filtrar por coluna customizada em
-  boards grandes (causa raiz nº 1 acima) — precisa de uma estratégia de topo-N (ex.: consulta em
-  duas etapas aproveitando `item_field_index_num_idx`/`_date_idx`/`_text_idx`, com UNION para itens
-  sem valor na coluna quando o resultado da primeira etapa tiver menos que `limit` linhas) que
-  preserve a paginação por cursor e os filtros combinados existentes. Não é um índice novo — os
-  índices já existem; é a forma da consulta que impede o planner de usá-los.
+- ~~Índice não aproveitado em `item-query.ts` para ordenar/filtrar por coluna customizada em boards
+  grandes (causa raiz nº 1 acima)~~ — **corrigido na sessão de follow-up de 2026-11-05**, ver
+  "Atualização" acima e ADR 0058.
 - **Ordenação padrão (sem coluna customizada) em boards de 50 mil itens** também faz
   `Seq Scan`/`Parallel Seq Scan` — avaliar um índice `(board_id, lower(name), id)` ou equivalente
   para o caminho "ordenar por nome", e confirmar se o caminho sem ordenação (por posição) já usa o

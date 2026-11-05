@@ -931,19 +931,28 @@ pnpm --filter @cube-track/sdk build        # dist/ (ESM + .d.ts)
 **Resultados medidos (sandbox de 4 vCPU/16 GB desta sessão — números completos e comandos
 `EXPLAIN ANALYZE` em `tools/load/README.md`)**
 
-- ❌ **p95 < 200 ms não alcançado**: 50 VUs → p95 ≈ 4,3 s; 300 VUs → p95 ≈ 22,3 s (0% de erro —
-  não é limite de taxa nem autenticação, ambos isolados e descartados). Causa raiz confirmada com
-  `EXPLAIN (ANALYZE, BUFFERS)` no board de 50 mil itens: ordenar/filtrar por **qualquer coluna
-  customizada** faz o Postgres preterir os índices compostos já existentes
+- ❌ **p95 < 200 ms não alcançado nesta sessão original**: 50 VUs → p95 ≈ 4,3 s; 300 VUs →
+  p95 ≈ 22,3 s (0% de erro — não é limite de taxa nem autenticação, ambos isolados e descartados).
+  Causa raiz confirmada com `EXPLAIN (ANALYZE, BUFFERS)` no board de 50 mil itens: ordenar/filtrar
+  por **qualquer coluna customizada** faz o Postgres preterir os índices compostos já existentes
   (`item_field_index_num_idx`/`_date_idx`/`_text_idx`/`_bool_idx`) por um `Parallel Hash Right
-  Join` sobre dois `Seq Scan` (~85–95 ms só de execução) — o `LEFT JOIN` entre `items` e
-  `item_field_index` (necessário porque nem todo item tem linha em `item_field_index` para toda
-  coluna) impede o planner de aproveitar o índice para o `ORDER BY ... LIMIT`. Mesmo o caminho sem
-  ordenação faz `Seq Scan` de todo o board nesse volume. Corrigir exige reestruturar a estratégia de
-  paginação/ordenação de `item-query.ts` (topo-N em duas etapas com UNION para itens sem valor,
-  preservando cursor e filtros combinados) — não feito nesta sessão por ser uma mudança de alto
-  risco num arquivo de 655 linhas sem suíte de teste unitário dedicada; diagnóstico completo e
-  critério de correção documentados em `tools/load/README.md` e na ADR 0058 para um follow-up.
+  Join`/`Nested Loop` sobre `item_field_index` sondado por item (~85–340 ms só de execução) — o
+  `LEFT JOIN` entre `items` e `item_field_index` (necessário porque nem todo item tem linha em
+  `item_field_index` para toda coluna) impede o planner de aproveitar o índice para o
+  `ORDER BY ... LIMIT`. **Corrigido em sessão de follow-up (2026-11-05)** — ver ADR 0058
+  ("Atualização") e `tools/load/README.md`: `item-query.ts` agora resolve a ordenação por uma única
+  coluna customizada em duas etapas (itens com valor via `INNER JOIN` + topo-N; itens sem valor via
+  `LEFT JOIN` comum, só executado quando a primeira etapa não enche a página), sem mudar paginação
+  por cursor, filtros ou resultado (teste dedicado:
+  `apps/api/test/item-query-custom-sort.e2e.test.ts`). Medido antes/depois no mesmo board:
+  `EXPLAIN ANALYZE` do `ORDER BY c_ust DESC LIMIT 51` isolado caiu de 338 ms para 42–90 ms; com k6,
+  p95 a 1 VU caiu de 109 ms para 89–105 ms (já dentro do alvo sem concorrência de CPU), a 10 VUs de
+  762 ms para 551 ms, e a 50 VUs de 3,42 s (1,9% de erro) para 1,96–2,2 s (0% de erro). O alvo de
+  200 ms segue sem ser alcançado sob concorrência (10/50 VUs) no sandbox de 4 vCPUs usado — mas agora
+  por contenção de CPU real (sandbox compartilhado com outras sessões de agente, `load average` até
+  16 observado durante a medição), não mais pela forma da consulta. O caminho sem ordenação/por
+  `name` (causa raiz nº 2, `Seq Scan` do board inteiro) **continua pendente**, fora do escopo desta
+  correção.
 - ⚠️ **Propagação realtime < 300 ms — não medida nesta sessão**: o protocolo foi implementado e
   validado ponta a ponta (conexão, autenticação, evento `ready`), mas a chamada `subscribe` do
   gateway retorna erro interno por um bug isolado e confirmado em código de permissões sob
@@ -956,11 +965,12 @@ pnpm --filter @cube-track/sdk build        # dist/ (ESM + .d.ts)
 
 **Pendências**
 
-- Reescrever a estratégia de ordenação/filtro por coluna customizada em `item-query.ts` para
-  aproveitar os índices já existentes em boards grandes (ver ADR 0058 e `tools/load/README.md`).
+- ~~Reescrever a estratégia de ordenação/filtro por coluna customizada em `item-query.ts` para
+  aproveitar os índices já existentes em boards grandes~~ — **corrigido em sessão de follow-up
+  (2026-11-05)**, ver ADR 0058 ("Atualização") e `tools/load/README.md`.
 - Avaliar índice para o caminho "ordenar por nome"/sem ordenação em boards de dezenas de milhares
   de itens (também faz table scan nesse volume, mais barato que o caso de coluna customizada mas
-  ainda caro).
+  ainda caro) — ainda pendente, não coberto pela correção acima.
 - Resolver o bug de `AccessService.can()` para `'board.read'` (fora desta frente) e então rodar
   `pnpm load:realtime` para números reais de propagação.
 - `pnpm --filter @cube-track/web build` falhou nesta sessão por um problema pré-existente e não

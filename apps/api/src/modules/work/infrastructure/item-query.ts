@@ -247,6 +247,23 @@ export class ItemQueryBuilder {
     if (this.input.filter !== null) conditions.push(this.compileGroup(this.input.filter));
 
     const terms: SortTerm[] = this.input.sort.length > 0 ? this.input.sort : [];
+
+    // Caminho rápido: ordenar por exatamente uma coluna customizada projetada em `item_field_index`
+    // (número/data/texto). Evita o `LEFT JOIN` entre `items` e `item_field_index` que impede o
+    // planner de usar os índices compostos (`item_field_index_num_idx` e irmãos) para um top-N
+    // indexado (ADR 0058 — ver `buildProjectedSortQuery`). Ordenação nativa, por status/checkbox ou
+    // com múltiplos termos segue o caminho genérico abaixo, inalterado.
+    if (terms.length === 1) {
+      const target = this.projectedSortTarget(terms[0]?.field ?? '');
+      if (target !== null)
+        return this.buildProjectedSortQuery(
+          conditions,
+          target.column,
+          target.projection,
+          terms[0]?.direction ?? 'asc',
+        );
+    }
+
     const sortExprs =
       terms.length > 0
         ? terms.map((term) => ({
@@ -273,14 +290,7 @@ export class ItemQueryBuilder {
       term.direction === 'asc' ? sql`${term.expr} asc` : sql`${term.expr} desc`,
     );
     const query = sql`
-      select i.id, i.tenant_id, i.board_id, i.group_id, i.parent_item_id, i.name, i.position, i.values, i.field_versions,
-             i.version, i.description_text,
-             i.planned_start_date::text as planned_start_date, i.planned_end_date::text as planned_end_date,
-             i.replanned_start_date::text as replanned_start_date, i.replanned_end_date::text as replanned_end_date,
-             i.actual_start_date::text as actual_start_date, i.actual_end_date::text as actual_end_date,
-             i.progress::text as progress, i.is_milestone, i.schedule_mode,
-             i.created_at, i.updated_at, i.created_by, i.updated_by,
-             i.completed_at, i.archived_at,
+      select ${this.itemRowColumns()},
              ${this.input.withIndicators ? this.indicatorColumns() : sql``}
              ${sql.join(select, sql`, `)}
       from items i
@@ -290,6 +300,136 @@ export class ItemQueryBuilder {
       order by ${sql.join(order, sql`, `)}, i.id asc
       limit ${this.input.limit + 1}`;
     return { query, signature, sortCount: sortExprs.length, limit: this.input.limit };
+  }
+
+  /** Lista de colunas de um item, compartilhada entre o caminho genérico e o top-N por coluna
+   * customizada (`buildProjectedSortQuery`) — mesma forma de linha em ambos, consumida por
+   * `rowToItem` (`items.repository.ts`). */
+  private itemRowColumns(): SQL {
+    return sql`i.id, i.tenant_id, i.board_id, i.group_id, i.parent_item_id, i.name, i.position, i.values, i.field_versions,
+             i.version, i.description_text,
+             i.planned_start_date::text as planned_start_date, i.planned_end_date::text as planned_end_date,
+             i.replanned_start_date::text as replanned_start_date, i.replanned_end_date::text as replanned_end_date,
+             i.actual_start_date::text as actual_start_date, i.actual_end_date::text as actual_end_date,
+             i.progress::text as progress, i.is_milestone, i.schedule_mode,
+             i.created_at, i.updated_at, i.created_by, i.updated_by,
+             i.completed_at, i.archived_at`;
+  }
+
+  /**
+   * Quando um único termo de ordenação cai na projeção de `item_field_index` (número/data/texto —
+   * não nativo, não vinculado a outro módulo, não status/checkbox), devolve a coluna e a projeção
+   * para `buildProjectedSortQuery`. `null` quando o termo deve seguir o caminho genérico (nativo,
+   * status, checkbox) — nesse caso `sortExpression` refaz a mesma validação (erro idêntico,
+   * nenhuma mudança de comportamento). Nunca tem efeito colateral (não empilha `joins`).
+   */
+  private projectedSortTarget(
+    field: string,
+  ): { column: BoardColumn; projection: { column: 'v_num' | 'v_date' | 'v_text'; type: ValueType } } | null {
+    const native =
+      NATIVE[field] ?? (field in NATIVE ? undefined : this.bindingField(this.columnIfExists(field)));
+    if (native !== undefined && native !== null) return null;
+    const column = this.column(field);
+    if (column.type === 'status' || column.type === 'checkbox') return null;
+    const projection = this.projectionFor(column);
+    if (projection === null) return null;
+    return { column, projection };
+  }
+
+  /**
+   * Top-N em duas etapas para ordenar por uma coluna customizada sem o `LEFT JOIN` que impede o
+   * planner de usar `item_field_index_num_idx`/`_date_idx`/`_text_idx` (ADR 0058,
+   * `tools/load/README.md`): `branch_a` resolve, com `INNER JOIN` + `ORDER BY ... LIMIT`, os itens
+   * que TÊM valor na coluna — caminho que o planner pode satisfazer com um índice composto
+   * `(board_id, column_key, valor, item_id)` em vez de materializar o board inteiro. `branch_b`
+   * cobre os itens SEM valor (sempre ordenados por último, em qualquer direção — mesma regra de
+   * `nullSafe`) e só é executado quando `branch_a` não preenche a página sozinha (join lateral
+   * guardado por uma contagem — nunca paga o anti-join quando todo item tem valor). O resultado
+   * final (união + reordenação + limite) é idêntico ao da consulta antiga: mesma paginação por
+   * cursor (`sort_0` com a mesma codificação de `nullSafe`), mesmos filtros e mesmo escopo —
+   * apenas a forma física da consulta muda.
+   */
+  private buildProjectedSortQuery(
+    conditions: SQL[],
+    column: BoardColumn,
+    projection: { column: 'v_num' | 'v_date' | 'v_text'; type: ValueType },
+    direction: 'asc' | 'desc',
+  ): CompiledItemQuery {
+    const key = column.key;
+    const limit = this.input.limit;
+    const signature = sortSignature(this.input.sort);
+    const generic = this.nullSafe(sql`f.${sql.identifier(projection.column)}`, projection.type, direction);
+    if (this.input.cursor !== undefined) {
+      const cursor = decodeCursor(this.input.cursor, signature);
+      if (cursor?.keys.length !== 1 || !isUuidV7(cursor.id)) {
+        throw new ValidationError([
+          { path: 'query.cursor', message: 'Cursor inválido para esta consulta.' },
+        ]);
+      }
+      conditions.push(this.keyset([{ ...generic, direction }], cursor.keys, cursor.id));
+    }
+    const where = sql.join(conditions, sql` and `);
+    const indicators = this.input.withIndicators ? this.indicatorColumns() : sql``;
+    const rows = this.itemRowColumns();
+    const orderDir = direction === 'asc' ? sql`asc` : sql`desc`;
+    const branchA = sql`
+      select ${rows}, ${indicators} ${this.branchSortColumn(projection, direction, true)}
+      from items i
+      join groups g on g.id = i.group_id
+      join item_field_index f on f.item_id = i.id and f.board_id = i.board_id and f.column_key = ${key}
+      where ${where}
+      order by f.${sql.identifier(projection.column)} ${orderDir}, i.id asc
+      limit ${limit + 1}`;
+    const branchB = sql`
+      select ${rows}, ${indicators} ${this.branchSortColumn(projection, direction, false)}
+      from items i
+      join groups g on g.id = i.group_id
+      left join item_field_index f on f.item_id = i.id and f.board_id = i.board_id and f.column_key = ${key}
+      where ${where} and f.item_id is null
+      order by i.id asc
+      limit ${limit + 1}`;
+    // `branch_a` precisa de `materialized`: é referenciada duas vezes (a contagem-guarda e a união)
+    // e sem isso o Postgres poderia inliná-la e executá-la duas vezes. `branch_b` fica como
+    // subconsulta lateral comum (nunca materializada) — o join lateral com a guarda de contagem faz
+    // o Postgres não executá-la quando `branch_a` já preenche a página (confirmado via
+    // `EXPLAIN ANALYZE`: "never executed" nesse caso).
+    const query = sql`
+      with branch_a as materialized (${branchA})
+      select *, (sort_typed)::text as sort_0 from (
+        select * from branch_a
+        union all
+        select b.* from (
+          select 1 from (select count(*) as n from branch_a) c where c.n < ${limit + 1}
+        ) guard
+        cross join lateral (${branchB}) b
+      ) combined
+      order by sort_typed ${orderDir}, id asc
+      limit ${limit + 1}`;
+    return { query, signature, sortCount: 1, limit };
+  }
+
+  /** Valor de ordenação de um ramo do top-N (ver `buildProjectedSortQuery`): com valor, a própria
+   * coluna projetada (ou, para texto, o mesmo prefixo de `nullSafe`, sempre não-nulo neste ramo);
+   * sem valor, a sentinela que `nullSafe` usaria para nulo — nulos sempre por último. */
+  private branchSortColumn(
+    projection: { column: 'v_num' | 'v_date' | 'v_text'; type: ValueType },
+    direction: 'asc' | 'desc',
+    hasValue: boolean,
+  ): SQL {
+    const asc = direction === 'asc';
+    const col = sql`f.${sql.identifier(projection.column)}`;
+    if (projection.type === 'numeric')
+      return hasValue
+        ? sql`(${col})::numeric as sort_typed`
+        : sql`${asc ? 'Infinity' : '-Infinity'}::numeric as sort_typed`;
+    if (projection.type === 'date')
+      return hasValue
+        ? sql`(${col})::date as sort_typed`
+        : sql`${asc ? 'infinity' : '-infinity'}::date as sort_typed`;
+    // texto: mesmo esquema de prefixo de nullSafe() — nulos sempre por último, em qualquer direção.
+    return hasValue
+      ? sql`(${asc ? sql`'0' || ${col}` : sql`'1' || ${col}`})::text as sort_typed`
+      : sql`${asc ? sql`'1'` : sql`'0'`}::text as sort_typed`;
   }
 
   /** Cursor da próxima página a partir da última linha retornada. */

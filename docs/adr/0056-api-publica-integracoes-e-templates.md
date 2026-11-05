@@ -18,7 +18,8 @@ as decisões da parte 3.
 
 Tabelas novas desta parte: `integration_apps`, `integration_connections`, `calendar_sync_links`,
 `external_file_links`, `dev_event_links` (`packages/db/src/schema/integrations.ts`), todas `tenant_id`
-+ RLS (migrações `0028`, `0030`-`0032`). Contrato compartilhado em `packages/shared/src/integrations.ts`.
+
+- RLS (migrações `0028`, `0030`-`0032`). Contrato compartilhado em `packages/shared/src/integrations.ts`.
 
 ## Decisões
 
@@ -167,3 +168,29 @@ Tabelas novas desta parte: `integration_apps`, `integration_connections`, `calen
 - A heurística de auto-avanço de status é conservadora por design: num board com várias colunas de
   status ambíguas, pode optar por NÃO avançar nenhuma — melhor não adivinhar do que corromper um status
   não relacionado, mesmo às custas de exigir configuração manual em boards atípicos.
+
+## Adendo — SDK TypeScript (`packages/sdk`)
+
+- **Pacote novo, não publicado em registro**: `@cube-track/sdk` gera seus tipos a partir de
+  `docs/openapi.json` (via `openapi-typescript`) e expõe um cliente fino hand-rolled por cima de
+  `fetch` — mesmo espírito de `apps/web/src/lib/api/client.ts`, mas autenticado sempre por
+  `Authorization: Bearer <token ctk_...>` (nunca cookie de sessão), pensado para ser usado FORA do
+  monorepo. Rejeitado o uso de uma biblioteca de geração de cliente em runtime (ex.: `openapi-fetch`
+  como dependência) — convenção do projeto favorece código explícito sobre glue generator.
+- **Único pacote de `packages/*` com `build` de verdade (`tsup`, ESM + `.d.ts`)**: os demais pacotes
+  internos (`shared`, `ui`, `i18n`, `db`, `testing`) não têm `build` porque são consumidos como
+  código-fonte TypeScript dentro do monorepo (`apps/api`/`apps/web` compilam/empacotam esse código-fonte
+  diretamente). O SDK precisa compilar para JS+`.d.ts` porque, por definição, é para ser usado por quem
+  NÃO está dentro deste monorepo (não tem como "consumir TypeScript-fonte via workspace"). `tsup` foi
+  escolhido por já ser a ferramenta de build usada em `apps/api`/`apps/worker` (mesma convenção,
+  `dts: true` a mais para gerar declarações).
+- **Bug de bundling do exportador OpenAPI, contornado sem tocar em `apps/api`**: para os poucos schemas
+  recursivos do produto (condições de filtro de views/saved-filters, `showWhen` de formulário
+  condicional), o exportador emite um `$defs` LOCAL aninhado dentro do schema de cada rota, com
+  `$ref: "#/$defs/__schema0"` — um JSON Pointer absoluto que só resolveria contra um `$defs` na RAIZ do
+  documento. `openapi-typescript`/Redocly falham ao validar isso. As 16 ocorrências no documento atual
+  são byte-a-byte idênticas (mesmo tipo recursivo reaproveitado), então `packages/sdk/scripts/generate.mjs`
+  faz o _hoist_ desse `$defs` para a raiz — conferindo que todas as ocorrências batem antes de unificar,
+  e lançando erro caso não batam — só na cópia em memória usada para gerar `src/generated/schema.ts`.
+  `docs/openapi.json` e `apps/api` (fora do escopo desta entrega) ficam intocados; o bug de origem (no
+  exportador Swagger/zod da API) fica registrado aqui para quem for corrigi-lo na raiz depois.

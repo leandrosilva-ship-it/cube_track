@@ -1,0 +1,36 @@
+{
+  "name": "@cube-track/sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Cliente TypeScript tipado para a API pública do CUBE TRACK (tokens, apps OAuth, webhooks, templates, importadores e integrações).",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "build": "tsup",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@cube-track/config": "workspace:*",
+    "@types/node": "^22.19.0",
+    "eslint": "^9.39.1",
+    "openapi-typescript": "^7.6.1",
+    "tsup": "^8.5.0",
+    "typescript": "5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "sideEffects": false
+}

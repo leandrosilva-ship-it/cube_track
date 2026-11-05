@@ -1,4 +1,5 @@
 pnpm-lock.yaml
 packages/db/migrations/meta/
+packages/sdk/src/generated/
 coverage/
 dist/

@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -41,7 +41,7 @@ jobs:
     container:
       image: semgrep/semgrep:1.99.0
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Escolha: Semgrep CLI com os rulesets públicos p/default + p/owasp-top-ten, em vez de
       # CodeQL. Os dois são gratuitos para rodar aqui, mas o Semgrep não exige nenhuma config
       # adicional do repositório (CodeQL precisa do GitHub Advanced Security habilitado para

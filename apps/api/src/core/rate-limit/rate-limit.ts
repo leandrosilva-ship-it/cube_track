@@ -18,14 +18,29 @@ export interface RateLimitPolicy {
   /** Requisições permitidas por janela. */
   limit: number;
   windowSeconds: number;
-  /** Chave da janela: usuário autenticado, IP, ou IP + campo `email` do corpo (anti força bruta). */
-  by: 'user' | 'ip' | 'ip+email';
+  /** Chave da janela: usuário autenticado, IP, IP + campo `email` do corpo (anti força bruta), ou o
+   * token de API/app OAuth da requisição (ADR 0056). */
+  by: 'user' | 'ip' | 'ip+email' | 'token';
   /** Nome do grupo de limite (padrão: rota). */
   bucket?: string;
 }
 
 export const RATE_LIMIT_METADATA = 'cube:rate-limit';
 export const RateLimit = (policy: RateLimitPolicy) => SetMetadata(RATE_LIMIT_METADATA, policy);
+
+/**
+ * Teto padrão por token de API (ADR 0056), em cima de qualquer limite normal da rota: 300
+ * requisições/minuto — folga confortável para uso automatizado legítimo (um script sincronizando um
+ * board inteiro, por exemplo) e, ainda assim, baixo o bastante para conter um token vazado ou um
+ * integrador com bug de retentativa em loop antes que vire um incidente. Não é configurável por
+ * tenant nesta entrega — um teto global simples, documentado aqui.
+ */
+export const API_TOKEN_RATE_LIMIT: RateLimitPolicy = {
+  limit: 300,
+  windowSeconds: 60,
+  by: 'token',
+  bucket: 'api-token',
+};
 
 // INCR + EXPIRE atômicos; retorna [contador, ttl restante].
 const SCRIPT = `
@@ -57,17 +72,35 @@ export class RateLimitGuard implements CanActivate {
       bucket: 'global',
     };
     const store = requireContext();
-    const principalKey =
-      store.principal === null ? `ip:${store.ip ?? 'unknown'}` : `u:${store.principal.userId}`;
+    const bucket = policy.bucket ?? `${context.getClass().name}.${context.getHandler().name}`;
+    await this.enforce(policy, bucket, store, pair);
+    // Teto adicional por token de API (ADR 0056), por cima do limite normal da rota — nunca o
+    // substitui, só soma mais uma trava quando a requisição veio autenticada por token.
+    if (store.principal?.authKind === 'api_token') {
+      await this.enforce(API_TOKEN_RATE_LIMIT, API_TOKEN_RATE_LIMIT.bucket ?? 'api-token', store, pair);
+    }
+    return true;
+  }
+
+  private async enforce(
+    policy: RateLimitPolicy,
+    bucket: string,
+    store: ReturnType<typeof requireContext>,
+    pair: NonNullable<ReturnType<typeof httpPair>>,
+  ): Promise<void> {
     let identity: string;
-    if (policy.by === 'user') identity = principalKey;
-    else if (policy.by === 'ip') identity = `ip:${store.ip ?? 'unknown'}`;
-    else {
+    if (policy.by === 'token') {
+      identity = `tok:${store.principal?.apiTokenId ?? 'unknown'}`;
+    } else if (policy.by === 'user') {
+      identity =
+        store.principal === null ? `ip:${store.ip ?? 'unknown'}` : `u:${store.principal.userId}`;
+    } else if (policy.by === 'ip') {
+      identity = `ip:${store.ip ?? 'unknown'}`;
+    } else {
       const body = pair.request.body as { email?: unknown } | undefined;
       const email = typeof body?.email === 'string' ? body.email.toLowerCase() : '';
       identity = `ip:${store.ip ?? 'unknown'}:e:${email}`;
     }
-    const bucket = policy.bucket ?? `${context.getClass().name}.${context.getHandler().name}`;
     const window = Math.floor(Date.now() / 1000 / policy.windowSeconds);
     const key = `rl:${bucket}:${identity}:${window}`;
     const [count, ttl] = (await this.redis.eval(SCRIPT, 1, key, String(policy.windowSeconds))) as [
@@ -80,6 +113,5 @@ export class RateLimitGuard implements CanActivate {
     pair.response.setHeader('RateLimit-Remaining', String(remaining));
     pair.response.setHeader('RateLimit-Reset', String(reset));
     if (count > policy.limit) throw new RateLimitError(reset);
-    return true;
   }
 }

@@ -178,12 +178,20 @@ export function buildOpenApiDocument(app: INestApplication): Record<string, unkn
       description:
         'API REST v1 do CUBE TRACK. Erros seguem RFC 7807 (`application/problem+json`). Paginação por cursor (`limit`, `cursor`). ' +
         'Multi-tenant: o tenant é resolvido pelo subdomínio ou pelo header `X-Tenant` e deve coincidir com o do token. ' +
-        'Leituras agregadas também estão disponíveis em GraphQL (`/v1/graphql`, somente leitura).',
+        'Leituras agregadas também estão disponíveis em GraphQL (`/v1/graphql`, somente leitura). ' +
+        '\n\n**Autenticação de integrações (ADR 0056)**: além do access token de sessão (login), a API aceita ' +
+        'um token de API de longa duração no formato `ctk_…` no mesmo cabeçalho `Authorization: Bearer`. ' +
+        'Crie e gerencie o seu em `POST /v1/me/tokens`, ou obtenha um em nome de um app registrado via ' +
+        '`POST /v1/oauth/token` (`grant_type=client_credentials`). Um token de API só alcança o que seus ' +
+        '`scopes` declarados cobrem, além do que o usuário/app já poderia fazer; está sujeito a um teto ' +
+        'adicional de 300 requisições/minuto; e nunca cria outro token (gerencie tokens só com sessão de login).',
     },
     servers: [{ url: '/' }],
     security: [{ bearer: [] }],
     components: {
-      securitySchemes: { bearer: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' } },
+      securitySchemes: {
+        bearer: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT (sessão) ou token ctk_… (API)' },
+      },
       schemas: { Problem: jsonSchema(ProblemSchema, 'output') },
       parameters: {},
     },

@@ -154,6 +154,20 @@ const TEMPLATES: Record<
     lines: [`A proposta do agente de IA "${data.agentName ?? ''}" foi ${data.status ?? ''}.`],
     action: { label: 'Ver histórico do agente', url: data.link ?? '' },
   }),
+  import_job_completed: (data) => ({
+    subject:
+      data.status === 'completed'
+        ? `Importação de "${data.fileName ?? ''}" concluída`
+        : `Importação de "${data.fileName ?? ''}" falhou`,
+    lines:
+      data.status === 'completed'
+        ? [
+            `A importação do arquivo "${data.fileName ?? ''}" (origem: ${data.source ?? ''}) terminou.`,
+            `${data.created ?? '0'} item(ns) criado(s), ${data.skipped ?? '0'} ignorado(s).`,
+          ]
+        : [`A importação do arquivo "${data.fileName ?? ''}" (origem: ${data.source ?? ''}) não pôde ser concluída.`],
+    action: { label: 'Ver importação', url: data.link ?? '' },
+  }),
 };
 
 /** Renderiza o e-mail (texto e HTML com escape de todo conteúdo dinâmico). */

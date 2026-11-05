@@ -9,6 +9,7 @@ import { LoggingModule } from './core/logging/logging.module.js';
 import { HealthController } from './core/observability/health.controller.js';
 import { AccessModule } from './modules/access/access.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
+import { ApiAccessModule } from './modules/api-access/api-access.module.js';
 import { AutomationsModule } from './modules/automations/automations.module.js';
 import { CollaborationModule } from './modules/collaboration/collaboration.module.js';
 import { ContractsModule } from './modules/contracts/contracts.module.js';
@@ -16,8 +17,10 @@ import { DashboardsModule } from './modules/dashboards/dashboards.module.js';
 import { FilesModule } from './modules/files/files.module.js';
 import { FormsModule } from './modules/forms/forms.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
+import { ImportsModule } from './modules/imports/imports.module.js';
 import { PlanningModule } from './modules/planning/planning.module.js';
 import { ProcessesModule } from './modules/processes/processes.module.js';
+import { TemplatesModule } from './modules/templates/templates.module.js';
 import { WebhooksModule } from './modules/webhooks/webhooks.module.js';
 import { PortfolioModule } from './modules/portfolio/portfolio.module.js';
 import { RealtimeModule } from './modules/realtime/realtime.module.js';
@@ -58,6 +61,9 @@ import { WorkModule } from './modules/work/work.module.js';
     ContractsModule,
     AiModule,
     SearchModule,
+    ApiAccessModule,
+    TemplatesModule,
+    ImportsModule,
     // Com REALTIME_MODE=separate o gateway roda só no processo main.realtime (ADR 0027).
     ...(loadConfig().REALTIME_MODE === 'embedded' ? [RealtimeModule] : []),
   ],

@@ -15,5 +15,7 @@ import { PublicFormsController } from './presentation/public-forms.controller.js
   imports: [WorkServicesModule],
   controllers: [FormsController, PublicFormsController],
   providers: [FormsService, FormSubmissionService, CaptchaService],
+  // Reaproveitado pelo módulo de templates (ADR 0056) ao aplicar um FormTemplatePayload.
+  exports: [FormsService],
 })
 export class FormsModule {}

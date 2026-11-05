@@ -605,6 +605,62 @@ export class StructureService {
     };
   }
 
+  /**
+   * Cria um board a partir de um `BoardTemplate` já em mãos (ADR 0056: aplicar um template salvo pela
+   * galeria de templates) — o mesmo caminho de `createBoard`, mas sem resolver o template por chave
+   * embutida ou por board de origem: quem chama já decidiu o blueprint. Reaproveita o mesmo
+   * `BoardBlueprintWriter.fromTemplate`, nunca um segundo criador de board.
+   */
+  async createBoardFromBlueprint(
+    user: AuthPrincipal,
+    workspaceId: string,
+    blueprint: BoardTemplate,
+    overrides: { name?: string | undefined; folderId?: string | null | undefined } = {},
+  ): Promise<{ id: string; workspaceId: string; name: string }> {
+    await this.access.assert(
+      user,
+      'board.create',
+      { type: 'workspace', id: workspaceId },
+      'Workspace',
+    );
+    const tx = this.runner.tx;
+    const folderId = overrides.folderId ?? null;
+    if (folderId !== null) {
+      const all = await this.foldersOf(workspaceId);
+      if (!all.some((folder) => folder.id === folderId)) {
+        throw new ValidationError([{ path: 'body.folderId', message: 'Pasta não encontrada.' }]);
+      }
+    }
+    const siblings = await this.boardsIn(workspaceId, folderId);
+    const boardId = newId();
+    const name = overrides.name ?? blueprint.name;
+    await tx.insert(boards).values({
+      tenantId: user.tenantId,
+      createdBy: user.userId,
+      id: boardId,
+      workspaceId,
+      folderId,
+      name,
+      description: blueprint.description,
+      icon: blueprint.icon,
+      kind: blueprint.kind,
+      visibility: 'main',
+      ownerId: user.userId,
+      position: positionAmong(siblings, {}),
+    });
+    await this.blueprints.fromTemplate(user, boardId, blueprint);
+    await this.grant(user, 'board', boardId, 'board', 'board_owner');
+    this.domainEvents.recordChange({
+      action: 'board.create',
+      entityType: 'board',
+      entityId: boardId,
+      boardId,
+      after: { name, workspaceId, folderId, kind: blueprint.kind, fromTemplate: true },
+    });
+    await this.structureChanged(user, workspaceId);
+    return { id: boardId, workspaceId, name };
+  }
+
   async updateBoard(user: AuthPrincipal, boardId: string, input: UpdateBoardInput) {
     const tx = this.runner.tx;
     const [board] = await tx

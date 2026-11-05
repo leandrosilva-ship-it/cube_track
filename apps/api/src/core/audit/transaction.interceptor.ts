@@ -42,7 +42,13 @@ export class TransactionInterceptor implements NestInterceptor {
     const principal = store.principal;
     return from(
       this.runner.run(
-        { tenantId: principal.tenantId, userId: principal.userId },
+        {
+          tenantId: principal.tenantId,
+          userId: principal.userId,
+          // Token de API/app OAuth (ADR 0056): auditoria/outbox registram `actorKind: 'api'` em vez
+          // de `'user'`, para distinguir ações feitas via API pública das feitas por sessão de login.
+          actorKind: principal.authKind === 'api_token' ? 'api' : 'user',
+        },
         () => lastValueFrom(next.handle(), { defaultValue: undefined }),
         readOnly
           ? { readOnly: true }

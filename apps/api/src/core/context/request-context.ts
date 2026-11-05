@@ -1,14 +1,26 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 
 import type { RealtimeTransportMessage } from '@cube-track/shared';
+import type { ApiScope } from '@cube-track/shared/api-access';
 import type { Transaction } from '@cube-track/db';
 
-/** Usuário autenticado na requisição (derivado do access token). */
+/**
+ * Usuário autenticado na requisição (derivado do access token de sessão OU de um token de API,
+ * ADR 0056). `authKind` distingue as duas origens: ausente ou `'session'` é o access token de login
+ * de sempre; `'api_token'` veio de `Authorization: Bearer ctk_…` (pessoal ou emitido para um app
+ * OAuth por `client_credentials`) e carrega os `scopes` declarados no token — um teto adicional sobre
+ * a requisição, verificado por `AccessService` além do RBAC normal (nunca um substituto dele).
+ */
 export interface AuthPrincipal {
   userId: string;
   tenantId: string;
   sessionId: string;
   kind: 'member' | 'guest';
+  authKind?: 'session' | 'api_token';
+  /** Só quando `authKind === 'api_token'`: id da linha de `api_tokens` usada nesta requisição. */
+  apiTokenId?: string;
+  /** Só quando `authKind === 'api_token'`: escopos declarados no token. */
+  scopes?: readonly ApiScope[];
 }
 
 export interface ResolvedTenant {

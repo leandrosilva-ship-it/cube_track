@@ -14,5 +14,7 @@ import { DashboardsController } from './presentation/dashboards.controller.js';
   imports: [WorkServicesModule, ResourcesModule, ContractsModule],
   controllers: [DashboardsController],
   providers: [DashboardsService, WidgetsService, WidgetDataService, ProjectHealthService],
+  // Reaproveitado pelo módulo de templates (ADR 0056) ao aplicar um DashboardTemplatePayload.
+  exports: [DashboardsService, WidgetsService],
 })
 export class DashboardsModule {}

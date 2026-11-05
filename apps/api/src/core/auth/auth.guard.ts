@@ -1,5 +1,6 @@
 import { Injectable, type CanActivate, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { looksLikeApiToken } from '@cube-track/shared/api-access';
 
 import { requireContext } from '../context/request-context.js';
 import { ForbiddenError, UnauthorizedError } from '../errors/problems.js';
@@ -39,7 +40,9 @@ export class AuthGuard implements CanActivate {
       if (isPublic) return true;
       throw new UnauthorizedError();
     }
-    const verified = await this.tokens.verifyAccessToken(token);
+    const verified = looksLikeApiToken(token)
+      ? await this.tokens.verifyApiToken(token, store.ip)
+      : await this.tokens.verifyAccessToken(token);
     if (store.tenant !== null && store.tenant.tenantId !== verified.principal.tenantId) {
       throw new ForbiddenError('O token pertence a outra organização.', 'tenant_mismatch');
     }

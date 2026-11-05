@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createDatabase, runMigrations, seedDemo, seedDemoCredentials } from '@cube-track/db';
+import { createDatabase, runMigrations, seedDemo, seedDemoCredentials, seedPublicTemplates } from '@cube-track/db';
 import { createTestDatabase } from '@cube-track/testing';
 import { Redis } from 'ioredis';
 import S3rver from 's3rver';
@@ -32,6 +32,7 @@ export default async function setup(project: TestProject): Promise<() => Promise
   const admin = createDatabase(database.adminUrl, { max: 1 });
   await seedDemo(admin.db);
   await seedDemoCredentials(admin.db);
+  await seedPublicTemplates(admin.db);
   await admin.close();
 
   const redisUrl = process.env.TEST_REDIS_URL ?? 'redis://localhost:6379/13';

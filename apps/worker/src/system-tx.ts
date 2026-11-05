@@ -15,7 +15,8 @@ import {
 import type { Redis } from 'ioredis';
 
 export interface SystemActor {
-  kind: 'automation' | 'system';
+  /** `'import'` (ADR 0056): job de importação em background (Monday/Trello/Jira/Pipefy/CSV). */
+  kind: 'automation' | 'system' | 'import';
   /** Evento que causou esta execução (cadeia de causalidade). */
   causationId: string | null;
   /** Profundidade da cadeia de automações (proteção contra loops). */

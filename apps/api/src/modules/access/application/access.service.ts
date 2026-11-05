@@ -11,11 +11,14 @@ import {
 import type { Transaction } from '@cube-track/db';
 import type { Redis } from 'ioredis';
 
+import { hasScope } from '@cube-track/shared/api-access';
+
 import { currentContext, type AuthPrincipal } from '../../../core/context/request-context.js';
 import { TransactionRunner } from '../../../core/database/transaction-runner.js';
 import { ForbiddenError, NotFoundError, UnauthorizedError } from '../../../core/errors/problems.js';
 import { appMetrics } from '../../../core/observability/metrics.js';
 import { REDIS } from '../../../core/redis/redis.module.js';
+import { scopeForAction } from './api-scope-map.js';
 import {
   buildRoleCatalog,
   computeBoardAccess,
@@ -62,6 +65,12 @@ export class AccessService {
   // ----------------------------------------------------------------------------------- API ---
 
   async can(user: AuthPrincipal, action: Action, resource: ResourceLocator): Promise<boolean> {
+    if (user.authKind === 'api_token') {
+      // Teto de escopo do token (ADR 0056): verificado ANTES do RBAC normal, nunca no lugar dele — um
+      // token só pode o que (a) seu escopo cobre E (b) o dono/app poderia fazer de qualquer forma.
+      const scope = scopeForAction(action);
+      if (scope === null || !hasScope(user.scopes ?? [], scope)) return false;
+    }
     const principal = await this.principal(user);
     switch (resource.type) {
       case 'tenant':

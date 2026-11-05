@@ -27,5 +27,8 @@ import { StructureController } from './presentation/structure.controller.js';
     PublicShareService,
     ShareSessionService,
   ],
+  // Reaproveitado pelo módulo de templates (ADR 0056): aplicar um `BoardTemplatePayload` salvo usa o
+  // mesmo escritor de blueprint dos 4 templates embutidos, nunca um segundo caminho de criação de board.
+  exports: [StructureService, BoardBlueprintWriter],
 })
 export class StructureModule {}

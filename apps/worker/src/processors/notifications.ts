@@ -29,6 +29,7 @@ const {
   projectHealth,
   aiAgents,
   aiAgentRuns,
+  importJobs,
 } = schema;
 
 export interface NotificationsDeps {
@@ -83,6 +84,9 @@ export function notificationsProcessor(deps: NotificationsDeps) {
     }
     if (event.type === 'ai_agent_run.changed') {
       return notifyAiAgentRun(deps, event);
+    }
+    if (event.type === 'import_job.changed') {
+      return notifyImportJob(deps, event);
     }
     return { notified: 0 };
   };
@@ -972,5 +976,80 @@ async function notifyAiAgentRun(deps: NotificationsDeps, event: ReturnType<typeo
   );
   for (const email of emailJobs)
     await deps.emails.add(email.template, email, { jobId: `ai_agent_run.${runId}.${status}.${email.to}` });
+  return { notified };
+}
+
+/**
+ * Job de importação em background (Monday/Trello/Jira/Pipefy/CSV, ADR 0056) terminou (sucesso ou
+ * falha): avisa só quem iniciou a importação (`import_jobs.userId` — o evento não carrega `userId`
+ * no payload, mesmo padrão de `ai_agent_run.changed`: um único destinatário resolvido por consulta,
+ * não embutido no evento). Só notifica em `completed`/`failed` — `processing` é estado transitório.
+ */
+async function notifyImportJob(deps: NotificationsDeps, event: ReturnType<typeof DomainEventJobSchema.parse>) {
+  const jobId = typeof event.payload.jobId === 'string' ? event.payload.jobId : '';
+  const status = typeof event.payload.status === 'string' ? event.payload.status : '';
+  const boardId = typeof event.payload.boardId === 'string' ? event.payload.boardId : null;
+  if (jobId === '' || (status !== 'completed' && status !== 'failed')) return { notified: 0 };
+  const emailJobs: EmailJob[] = [];
+
+  const notified = await runAsSystem(
+    deps.database,
+    deps.redis,
+    event.tenantId,
+    { kind: 'system', causationId: event.eventId, depth: event.depth, correlationId: event.eventId },
+    async (unit) => {
+      const [job] = await unit.tx
+        .select({
+          userId: importJobs.userId,
+          fileName: importJobs.fileName,
+          source: importJobs.source,
+          createdCount: importJobs.createdCount,
+          skippedCount: importJobs.skippedCount,
+        })
+        .from(importJobs)
+        .where(eq(importJobs.id, jobId));
+      if (job === undefined) return 0;
+      const [board] = boardId === null ? [undefined] : await unit.tx.select({ name: boards.name }).from(boards).where(eq(boards.id, boardId));
+      const title =
+        status === 'completed'
+          ? `Importação de "${job.fileName}" concluída (${String(job.createdCount ?? 0)} itens criados)`
+          : `Importação de "${job.fileName}" falhou`;
+      const email = await notifyUser(unit.tx, event.tenantId, null, {
+        userId: job.userId,
+        type: 'import_job',
+        title,
+        boardId,
+        itemId: null,
+        entityType: 'import_job',
+        entityId: jobId,
+      });
+      await unit.emit({
+        type: 'notification.created',
+        aggregateType: 'notification',
+        aggregateId: jobId,
+        userId: job.userId,
+        payload: { notificationId: jobId, type: 'import_job', title, itemId: null, boardId },
+      });
+      if (email !== null) {
+        emailJobs.push({
+          to: email,
+          template: 'import_job_completed',
+          locale: 'pt-BR',
+          data: {
+            fileName: job.fileName,
+            source: job.source,
+            status,
+            created: String(job.createdCount ?? 0),
+            skipped: String(job.skippedCount ?? 0),
+            link: boardId === null ? deps.appUrl : `${deps.appUrl}/boards/${boardId}`,
+            boardName: board?.name ?? '',
+          },
+        });
+      }
+      return 1;
+    },
+  );
+  for (const email of emailJobs)
+    await deps.emails.add(email.template, email, { jobId: `import_job.${jobId}.${status}` });
   return { notified };
 }

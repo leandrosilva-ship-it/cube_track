@@ -17,6 +17,7 @@ import { computedProcessor } from './processors/computed.js';
 import { createContractAlertsDaily } from './processors/contracts.js';
 import { createMailer, emailProcessor } from './processors/email.js';
 import { fileScanProcessor } from './processors/file-scan.js';
+import { importsProcessor } from './processors/imports.js';
 import { maintenanceProcessor, scheduleMaintenance } from './processors/maintenance.js';
 import { createNotificationDigest } from './processors/notification-digest.js';
 import { notificationsProcessor } from './processors/notifications.js';
@@ -152,6 +153,7 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
       webhookDeliveryProcessor({ database: appDb, encryptionKey: config.ENCRYPTION_KEY, logger }),
       common,
     ),
+    createWorker(QUEUES.imports, importsProcessor({ database: appDb, redis, logger }), common),
   ] as Worker[];
 
   const relay = new OutboxRelay(relayDb, redis, queues, logger, {

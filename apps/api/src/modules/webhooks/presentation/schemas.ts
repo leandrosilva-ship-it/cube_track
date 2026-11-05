@@ -31,6 +31,22 @@ export const CreateWebhookBody = z
   })
   .strict();
 
+export const WebhookDeliverySchema = z.object({
+  id: z.uuid(),
+  webhookId: z.uuid(),
+  eventId: z.uuid(),
+  eventType: z.string(),
+  status: z.enum(['pending', 'succeeded', 'failed', 'dead']),
+  attempt: z.number().int(),
+  responseStatus: z.number().int().nullable(),
+  responseBody: z.string().nullable(),
+  error: z.string().nullable(),
+  durationMs: z.number().int().nullable(),
+  deliveredAt: z.string().nullable(),
+  createdAt: z.string(),
+  resentFromId: z.uuid().nullable(),
+});
+
 export const UpdateWebhookBody = z
   .object({
     name: z.string().trim().min(1).max(200).optional(),

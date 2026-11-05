@@ -7,5 +7,7 @@ import { AutomationsController } from './presentation/automations.controller.js'
 @Module({
   controllers: [AutomationsController],
   providers: [AutomationsService],
+  // Reaproveitado pelo módulo de templates (ADR 0056) ao aplicar um AutomationTemplatePayload.
+  exports: [AutomationsService],
 })
 export class AutomationsModule {}

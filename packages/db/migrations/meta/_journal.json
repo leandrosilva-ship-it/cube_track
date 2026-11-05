@@ -204,6 +204,13 @@
       "when": 1793829144806,
       "tag": "0028_api_access_integrations_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1793829888240,
+      "tag": "0029_api_token_auth_role",
+      "breakpoints": true
     }
   ]
 }

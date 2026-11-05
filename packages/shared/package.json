@@ -10,7 +10,8 @@
     "./fractional-index": "./src/fractional-index.ts",
     "./csv": "./src/csv.ts",
     "./api-access": "./src/api-access.ts",
-    "./integrations": "./src/integrations.ts"
+    "./integrations": "./src/integrations.ts",
+    "./billing-webhook": "./src/billing-webhook.ts"
   },
   "scripts": {
     "lint": "eslint .",

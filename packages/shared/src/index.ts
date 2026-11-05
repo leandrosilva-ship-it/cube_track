@@ -2,6 +2,9 @@ export * from './ai.js';
 // api-access.js (generateApiToken/hashApiToken) usa node:crypto: de propósito fora do barrel, mesmo
 // motivo do crypto.js abaixo — importar de '@cube-track/shared/api-access'.
 export * from './automations.js';
+export * from './billing.js';
+// billing-webhook.js (verifyStripeSignature) usa node:crypto: de propósito fora do barrel, mesmo
+// motivo do crypto.js acima — importar de '@cube-track/shared/billing-webhook'.
 export * from './board-templates.js';
 export * from './business-days.js';
 export * from './capacity.js';

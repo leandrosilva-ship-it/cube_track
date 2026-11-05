@@ -85,12 +85,14 @@ export class AccessService {
           type: 'board',
           board: await this.board(user, resource.id),
         });
-      case 'item':
+      case 'item': {
+        const board = await this.board(user, resource.item.boardId);
         return decide(principal, action, {
           type: 'item',
-          board: await this.board(user, resource.item.boardId),
-          item: await this.itemRef(user, resource.item),
+          board,
+          item: await this.itemRef(user, resource.item, board),
         });
+      }
       case 'column': {
         const board = await this.board(user, resource.boardId);
         const column = (await this.columns(user.tenantId, resource.boardId)).find(
@@ -100,7 +102,7 @@ export class AccessService {
         const item =
           resource.item === undefined
             ? undefined
-            : await this.itemRef(user, { ...resource.item, boardId: resource.boardId });
+            : await this.itemRef(user, { ...resource.item, boardId: resource.boardId }, board);
         return decide(principal, action, {
           type: 'column',
           board,
@@ -169,6 +171,7 @@ export class AccessService {
         tenantRoleKey: row.roleKey,
         tenantPermissions: row.permissions,
         teamIds: row.teamIds,
+        orgUnit: row.orgUnit,
       } satisfies PrincipalAccess;
     }).then((value) => {
       if (value === null)
@@ -209,7 +212,19 @@ export class AccessService {
       const peopleKeys = columns
         .filter((column) => column.type === 'people')
         .map((column) => column.key);
-      return computeBoardAccess(principal, catalog, workspace, board, grants, peopleKeys);
+      const guestOrgColumn =
+        board.guestOrgColumnId === null
+          ? null
+          : (columns.find((column) => column.id === board.guestOrgColumnId) ?? null);
+      return computeBoardAccess(
+        principal,
+        catalog,
+        workspace,
+        board,
+        grants,
+        peopleKeys,
+        guestOrgColumn === null ? null : { key: guestOrgColumn.key, type: guestOrgColumn.type },
+      );
     });
   }
 
@@ -274,6 +289,7 @@ export class AccessService {
   private async itemRef(
     user: AuthPrincipal,
     item: { id: string; boardId: string; values: Readonly<Record<string, unknown>> },
+    board: BoardAccess | null = null,
   ): Promise<ItemRef> {
     const grantPermissions = await this.cached(
       user.tenantId,
@@ -287,7 +303,25 @@ export class AccessService {
         return explicitPermissions(principal, catalog, grants);
       },
     );
-    return { id: item.id, values: item.values, grantPermissions };
+    // Visibilidade por órgão (ADR 0057): resolvida aqui (acesso ao banco), nunca dentro de `decide`
+    // (função pura) — reusa o MESMO comparador da listagem em massa (`org-match.ts`).
+    let matchesGuestOrg: boolean | undefined;
+    const guestOrgUnit = board?.guestOrgUnit;
+    if (board?.itemScope === 'org' && board.guestOrgColumnKey !== null && guestOrgUnit !== null && guestOrgUnit !== undefined) {
+      const columns = await this.columns(user.tenantId, item.boardId);
+      const column = columns.find((entry) => entry.key === board.guestOrgColumnKey);
+      matchesGuestOrg =
+        column !== undefined &&
+        (await this.read(user, (tx) =>
+          this.repository.itemMatchesOrgUnit(tx, item.id, column, guestOrgUnit),
+        ));
+    }
+    return {
+      id: item.id,
+      values: item.values,
+      grantPermissions,
+      ...(matchesGuestOrg === undefined ? {} : { matchesGuestOrg }),
+    };
   }
 
   private async catalog(user: AuthPrincipal): Promise<RoleCatalog> {

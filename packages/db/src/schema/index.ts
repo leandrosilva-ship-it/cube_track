@@ -18,5 +18,6 @@ export * from './planning.js';
 export * from './portfolio.js';
 export * from './process.js';
 export * from './resources.js';
+export * from './security.js';
 export * from './structure.js';
 export * from './views.js';

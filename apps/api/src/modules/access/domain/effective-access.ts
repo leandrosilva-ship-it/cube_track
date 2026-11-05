@@ -1,5 +1,6 @@
 import {
   BOARD_PERMISSIONS,
+  GUEST_ORG_COLUMN_TYPES,
   WORKSPACE_PERMISSIONS,
   type BoardAccess,
   type PrincipalAccess,
@@ -107,7 +108,9 @@ export interface BoardInput {
   workspaceId: string;
   visibility: 'main' | 'private' | 'shareable';
   ownerId: string | null;
-  guestItemVisibility: 'assigned' | 'all';
+  guestItemVisibility: 'assigned' | 'all' | 'org';
+  /** Id (não a chave) da coluna de órgão/departamento, quando `guestItemVisibility === 'org'`. */
+  guestOrgColumnId: string | null;
 }
 
 /** Papel de board herdado das permissões do workspace (boards `main`). */
@@ -126,6 +129,9 @@ export function computeBoardAccess(
   board: BoardInput,
   grants: readonly GrantRow[],
   peopleColumnKeys: readonly string[],
+  /** Coluna apontada por `board.guestOrgColumnId`, já resolvida pelo chamador (ou `null` se o id não
+   * corresponder a nenhuma coluna existente do board — coluna excluída após configurada). */
+  guestOrgColumn: { key: string; type: string } | null = null,
 ): BoardAccess | null {
   const permissions = new Set<string>();
   const roleIds = new Set<string>([principal.tenantRoleId]);
@@ -146,14 +152,41 @@ export function computeBoardAccess(
     }
   }
   if (!permissions.has('board.read')) return null;
+
+  // Visibilidade de item para convidado (ADR 0057). Fail-safe: qualquer configuração incompleta ou
+  // inválida cai no escopo mais restrito já existente (`assigned`), NUNCA em `all`.
+  let itemScope: BoardAccess['itemScope'] = 'all';
+  let guestOrgColumnKey: string | null = null;
+  let guestOrgUnit: string | null = null;
+  if (principal.kind === 'guest') {
+    if (board.guestItemVisibility === 'org') {
+      const orgUnit = principal.orgUnit?.trim() ?? '';
+      if (
+        board.guestOrgColumnId !== null &&
+        guestOrgColumn !== null &&
+        (GUEST_ORG_COLUMN_TYPES as readonly string[]).includes(guestOrgColumn.type) &&
+        orgUnit !== ''
+      ) {
+        itemScope = 'org';
+        guestOrgColumnKey = guestOrgColumn.key;
+        guestOrgUnit = orgUnit;
+      } else {
+        itemScope = 'assigned';
+      }
+    } else if (board.guestItemVisibility !== 'all') {
+      itemScope = 'assigned';
+    }
+  }
+
   return {
     boardId: board.id,
     workspaceId: board.workspaceId,
     permissions: [...permissions].sort(),
     roleIds: [...roleIds].sort(),
-    itemScope:
-      principal.kind === 'guest' && board.guestItemVisibility !== 'all' ? 'assigned' : 'all',
+    itemScope,
     peopleColumnKeys: [...peopleColumnKeys],
+    guestOrgColumnKey,
+    guestOrgUnit,
   };
 }
 

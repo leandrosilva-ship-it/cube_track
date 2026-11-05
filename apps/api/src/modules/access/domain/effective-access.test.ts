@@ -66,6 +66,7 @@ const board = (overrides: Partial<BoardInput> = {}): BoardInput => ({
   visibility: 'main',
   ownerId: null,
   guestItemVisibility: 'assigned',
+  guestOrgColumnId: null,
   ...overrides,
 });
 
@@ -189,6 +190,65 @@ describe('herança de acesso', () => {
       [],
     );
     expect(all?.itemScope).toBe('all');
+  });
+
+  it('convidado com guestItemVisibility "org": escopo "org" só com coluna e orgUnit válidos', () => {
+    const guest = principal('guest', 'guest', { orgUnit: 'Secretaria de Obras' });
+    const workspace = { workspaceId: 'w1', permissions: ['workspace.read', 'board.create'] };
+    const grants = [{ roleId: 'b-contrib', principalType: 'user' as const, principalId: 'u1' }];
+    const orgBoard = board({ guestItemVisibility: 'org', guestOrgColumnId: 'col-org' });
+
+    const access = computeBoardAccess(
+      guest,
+      catalog,
+      workspace,
+      orgBoard,
+      grants,
+      [],
+      { key: 'org', type: 'dropdown' },
+    );
+    expect(access?.itemScope).toBe('org');
+    expect(access?.guestOrgColumnKey).toBe('org');
+    expect(access?.guestOrgUnit).toBe('Secretaria de Obras');
+  });
+
+  it('convidado "org": cai em "assigned" (nunca "all") sem coluna, sem orgUnit ou tipo inválido', () => {
+    const guest = principal('guest', 'guest', { orgUnit: 'Secretaria de Obras' });
+    const guestSemOrgUnit = principal('guest', 'guest', { orgUnit: null });
+    const workspace = { workspaceId: 'w1', permissions: ['workspace.read', 'board.create'] };
+    const grants = [{ roleId: 'b-contrib', principalType: 'user' as const, principalId: 'u1' }];
+    const orgBoard = board({ guestItemVisibility: 'org', guestOrgColumnId: 'col-org' });
+
+    // guestOrgColumnId configurado mas coluna não resolvida (excluída, por exemplo).
+    expect(
+      computeBoardAccess(guest, catalog, workspace, orgBoard, grants, [], null)?.itemScope,
+    ).toBe('assigned');
+    // coluna resolvida, mas de tipo não suportado (ex.: people).
+    expect(
+      computeBoardAccess(guest, catalog, workspace, orgBoard, grants, [], {
+        key: 'org',
+        type: 'people',
+      })?.itemScope,
+    ).toBe('assigned');
+    // orgUnit do convidado ausente.
+    expect(
+      computeBoardAccess(guestSemOrgUnit, catalog, workspace, orgBoard, grants, [], {
+        key: 'org',
+        type: 'text',
+      })?.itemScope,
+    ).toBe('assigned');
+    // guestOrgColumnId nunca configurado (null) — comportamento padrão de "org" inválido.
+    expect(
+      computeBoardAccess(
+        guest,
+        catalog,
+        workspace,
+        board({ guestItemVisibility: 'org', guestOrgColumnId: null }),
+        grants,
+        [],
+        null,
+      )?.itemScope,
+    ).toBe('assigned');
   });
 
   it('concessões de outros usuários não se aplicam', () => {

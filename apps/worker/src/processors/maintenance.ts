@@ -1,7 +1,7 @@
-import { appendAuditLog, withTenant, type DatabaseHandle } from '@cube-track/db';
+import { appendAuditLog, schema, withTenant, type DatabaseHandle } from '@cube-track/db';
 import { TRASH_RETENTION_DAYS, type MaintenanceJob } from '@cube-track/shared';
 import type { Job, Queue } from 'bullmq';
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 import type { Logger } from '../logger.js';
 import { scheduleVolatile } from './computed.js';
@@ -18,6 +18,7 @@ export const MAINTENANCE_SCHEDULE: Record<MaintenanceJob, string> = {
   'contract-alerts-daily': '45 5 * * *',
   'ai-agents-date-check': '20 6 * * *',
   'calendar-sync-periodic': '*/15 * * * *',
+  'audit-retention-purge': '30 3 * * *',
 };
 const TIMEZONE = 'America/Sao_Paulo';
 
@@ -75,6 +76,53 @@ export async function purgeTrash(
     );
   }
   return totals;
+}
+
+/**
+ * Aplica a política de retenção de auditoria (ADR 0057, LGPD: minimização). `audit_logs` é
+ * particionada por MÊS e append-only (trigger bloqueia UPDATE/DELETE de linha — ver
+ * `0002_rls_and_triggers.sql`): a única forma de expurgo real é `DROP TABLE` de partições inteiras
+ * (DDL, não disparam o trigger de linha), então a granularidade é mensal, não por dia exato.
+ *
+ * Com retenção configurada por TENANT mas partições compartilhadas por todos os tenants, usamos o
+ * maior `retentionDays` dentre as políticas habilitadas (`entity_type = 'audit_log'`) como corte —
+ * nunca apaga dado de um tenant antes do prazo que ele configurou (fail-safe: mantém por mais tempo
+ * que o necessário para outros, nunca por menos que o configurado). Lacuna conhecida, documentada em
+ * `docs/lgpd.md`: tenants com retenção bem mais curta que a de outros não têm o expurgo exato por dia.
+ * Sem nenhuma política habilitada, não expurga nada (mantém tudo — nunca apaga por omissão).
+ */
+export async function purgeAuditLogs(
+  database: DatabaseHandle,
+  now: Date = new Date(),
+): Promise<{ droppedPartitions: string[]; tenantsApplied: number }> {
+  const policies = await database.db.execute<{ tenant_id: string; retention_days: number }>(
+    sql`select * from app.audit_retention_policies()`,
+  );
+  if (policies.rows.length === 0) return { droppedPartitions: [], tenantsApplied: 0 };
+  const maxDays = Math.max(...policies.rows.map((row) => row.retention_days));
+  const before = new Date(now.getTime() - maxDays * 86_400_000);
+  const result = await database.db.execute<{ purge_audit_log_partitions: string[] }>(
+    sql`select app.purge_audit_log_partitions(${before.toISOString()}::timestamptz)`,
+  );
+  const droppedPartitions = result.rows[0]?.purge_audit_log_partitions ?? [];
+  for (const { tenant_id: tenantId } of policies.rows) {
+    await withTenant(database.db, { tenantId, userId: null }, async (tx) => {
+      await tx
+        .update(schema.dataRetentionPolicies)
+        .set({ lastAppliedAt: now })
+        .where(eq(schema.dataRetentionPolicies.entityType, 'audit_log'));
+      await appendAuditLog(tx, {
+        tenantId,
+        actorId: null,
+        actorKind: 'system',
+        action: 'audit_log.retention_applied',
+        entityType: 'tenant',
+        entityId: tenantId,
+        after: { droppedPartitions, cutoff: before.toISOString() },
+      });
+    });
+  }
+  return { droppedPartitions, tenantsApplied: policies.rows.length };
 }
 
 export function maintenanceProcessor(deps: MaintenanceDeps) {
@@ -154,6 +202,14 @@ export function maintenanceProcessor(deps: MaintenanceDeps) {
             reconciled: outcomes.reduce((sum, o) => sum + o.reconciled, 0),
           },
           'Sincronização periódica de calendário (Google/Microsoft) concluída',
+        );
+        return;
+      }
+      case 'audit-retention-purge': {
+        const { droppedPartitions, tenantsApplied } = await purgeAuditLogs(deps.database);
+        deps.logger.info(
+          { tenantsApplied, droppedPartitions: droppedPartitions.length },
+          'Expurgo de retenção de auditoria concluído',
         );
         return;
       }

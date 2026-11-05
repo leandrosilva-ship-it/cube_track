@@ -43,6 +43,11 @@ const ACTION_SCOPES: Partial<Record<Action, ApiScope>> = {
   'webhook.manage': 'webhooks:manage',
   'templates.manage': 'templates:manage',
   'file.upload': 'files:write',
+  // SCIM 2.0 (ADR 0057): um token com escopo `scim:manage` pode provisionar/atualizar membros — só
+  // vale se o usuário/app dono do token já tiver `members.invite`/`members.manage` via RBAC normal
+  // (ceiling, ver cabeçalho do arquivo). Nenhum outro escopo cobre estas duas ações.
+  'members.invite': 'scim:manage',
+  'members.manage': 'scim:manage',
 };
 
 /** `null` = ação fora do catálogo de API — nunca permitida para um principal de token, qualquer que

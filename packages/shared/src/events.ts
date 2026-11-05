@@ -374,6 +374,14 @@ export const EVENT_PAYLOADS = {
     kind: z.enum(['board', 'workspace', 'dashboard', 'automation', 'form']),
     change: z.enum(['created', 'updated', 'deleted']),
   }),
+  /** Configuração de SSO SAML 2.0 do tenant mudou (ADR 0057) — entrega na room do tenant (sem
+   * `boardId`/`itemId`), para a tela de administração de segurança refletir sem recarregar. Nunca
+   * inclui segredo/certificado, só o fato de ter mudado. */
+  'sso_config.changed': z.object({ isEnabled: z.boolean() }),
+  /** Política de segurança do tenant (senha/sessão/allowlist de IP ou domínio) mudou (ADR 0057). */
+  'security_policy.changed': z.object({
+    changed: z.array(z.enum(['password', 'session', 'accessRestriction'])),
+  }),
   'notification.created': z.object({
     notificationId: z.uuid(),
     type: z.string(),

@@ -111,6 +111,15 @@ export const CreateBoardBody = z.object({
     ])
     .optional(),
 });
+/** Chaves conhecidas de `boards.settings` validadas na borda; demais chaves passam livres (o bag
+ * continua um `Record<string, unknown>` genérico — ver `UpdateBoardInput`). */
+const BoardSettingsPatch = z
+  .object({
+    guestItemVisibility: z.enum(['all', 'assigned', 'org']).optional(),
+    guestOrgColumnId: z.uuid().nullable().optional(),
+  })
+  .catchall(z.unknown());
+
 export const UpdateBoardBody = z.object({
   name: name.optional(),
   description: z.string().max(2_000).nullable().optional(),
@@ -118,6 +127,7 @@ export const UpdateBoardBody = z.object({
   visibility: z.enum(['main', 'private', 'shareable']).optional(),
   isTemplate: z.boolean().optional(),
   folderId: z.uuid().nullable().optional(),
+  settings: BoardSettingsPatch.optional(),
   ...neighbors,
 });
 export const BoardTemplatesResponse = z.object({

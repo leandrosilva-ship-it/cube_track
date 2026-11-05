@@ -19,6 +19,8 @@ const board = (itemScope: 'all' | 'assigned'): BoardAccess => ({
   roleIds: [],
   itemScope,
   peopleColumnKeys: ['c_people'],
+  guestOrgColumnKey: null,
+  guestOrgUnit: null,
 });
 
 const message = (

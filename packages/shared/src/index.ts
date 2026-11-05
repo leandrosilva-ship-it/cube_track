@@ -32,6 +32,7 @@ export * from './query.js';
 export * from './richtext.js';
 export * from './scheduling.js';
 export * from './search.js';
+export * from './security.js';
 export * from './templates.js';
 export * from './timeline.js';
 export * from './views.js';

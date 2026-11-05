@@ -38,6 +38,8 @@ const board = (permissions: string[], overrides: Partial<BoardAccess> = {}): Boa
   roleIds: [TENANT_ROLE, BOARD_ROLE],
   itemScope: 'all',
   peopleColumnKeys: ['c_people'],
+  guestOrgColumnKey: null,
+  guestOrgUnit: null,
   ...overrides,
 });
 

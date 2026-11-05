@@ -229,3 +229,17 @@ export const templateKind = pgEnum('template_kind', [
   'dashboard',
   'form',
 ]);
+
+// Segurança avançada (Prompt 16, ADR 0057) — valores vindos de `@cube-track/shared/security`.
+export const dataSubjectRequestKind = pgEnum('data_subject_request_kind', ['export', 'erasure']);
+export const dataSubjectRequestStatus = pgEnum('data_subject_request_status', [
+  'requested',
+  'approved',
+  'executed',
+  'rejected',
+]);
+export const consentPurpose = pgEnum('consent_purpose', [
+  'marketing_email',
+  'product_analytics',
+  'ai_processing',
+]);

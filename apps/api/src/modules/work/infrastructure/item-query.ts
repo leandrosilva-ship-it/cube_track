@@ -20,6 +20,7 @@ import {
   ValidationError,
 } from '../../../core/errors/problems.js';
 import type { BoardColumn } from '../../access/infrastructure/access.repository.js';
+import { orgUnitMatchCondition } from '../../access/infrastructure/org-match.js';
 
 /**
  * Tradução da AST de filtros/ordenação (packages/shared/query.ts) para SQL sobre `items` (alias `i`).
@@ -98,6 +99,12 @@ export interface ItemQueryInput {
     userId: string;
     teamIds: readonly string[];
     peopleKeys: readonly string[];
+  } | null;
+  /** Escopo de convidado "órgão" (ADR 0057): só itens cuja coluna `columnKey` tenha um valor igual a
+   * `orgUnit`. Mutuamente exclusivo com `assignedScope` (um board resolve um único `itemScope`). */
+  orgScope: {
+    columnKey: string;
+    orgUnit: string;
   } | null;
 }
 
@@ -236,6 +243,7 @@ export class ItemQueryBuilder {
       conditions.push(sql`i.group_id = ${this.input.groupId}::uuid`);
     if (this.input.assignedScope !== null)
       conditions.push(this.assignedCondition(this.input.assignedScope));
+    if (this.input.orgScope !== null) conditions.push(this.orgCondition(this.input.orgScope));
     if (this.input.filter !== null) conditions.push(this.compileGroup(this.input.filter));
 
     const terms: SortTerm[] = this.input.sort.length > 0 ? this.input.sort : [];
@@ -463,6 +471,20 @@ export class ItemQueryBuilder {
           })
         and (ag.expires_at is null or ag.expires_at > now()))`);
     return sql`(${sql.join(parts, sql` or `)})`;
+  }
+
+  /** Escopo "órgão" (ADR 0057) — mesmo comparador usado para um item isolado
+   * (`AccessRepository.itemMatchesOrgUnit`), nunca uma segunda implementação. Coluna removida depois
+   * de configurada (não encontrada em `columnsByKey`) nega tudo: fail-safe, nunca fail-open. */
+  private orgCondition(scope: NonNullable<ItemQueryInput['orgScope']>): SQL {
+    const column = this.columnsByKey.get(scope.columnKey);
+    if (column === undefined) return sql`false`;
+    return orgUnitMatchCondition({
+      itemId: sql`i.id`,
+      values: sql`i.values`,
+      column,
+      orgUnit: scope.orgUnit,
+    });
   }
 
   // ------------------------------------------------------------------------------- ordenação ---

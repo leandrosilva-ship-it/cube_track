@@ -75,11 +75,14 @@ const MemberSchema = z.object({
   status: z.enum(['active', 'invited', 'suspended']),
   roleId: z.uuid(),
   jobTitle: z.string().nullable(),
+  orgUnit: z.string().nullable(),
 });
 const UserParams = z.object({ userId: z.uuid() });
 const UpdateMemberBody = z.object({
   roleId: z.uuid().optional(),
   status: z.enum(['active', 'suspended']).optional(),
+  /** Órgão/departamento do convidado (ADR 0057) — ver `docs/permissions.md` §visibilidade por órgão. */
+  orgUnit: z.string().max(200).trim().nullable().optional(),
 });
 
 const CheckBody = z.object({

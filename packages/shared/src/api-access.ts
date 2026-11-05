@@ -20,6 +20,10 @@ export const API_SCOPES = [
   'templates:manage',
   'files:read',
   'files:write',
+  /** Provisionamento SCIM 2.0 (ADR 0057) — cobre `members.invite`/`members.manage` SÓ para o token,
+   * nunca substitui o RBAC normal: o usuário/app dono do token precisa já ter essas permissões
+   * (ceiling, ver `api-scope-map.ts`). Não dá acesso a papéis/times além do que SCIM provisiona. */
+  'scim:manage',
 ] as const;
 export type ApiScope = (typeof API_SCOPES)[number];
 

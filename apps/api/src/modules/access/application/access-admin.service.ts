@@ -259,6 +259,7 @@ export class AccessAdminService {
         status: memberships.status,
         roleId: memberships.roleId,
         jobTitle: memberships.jobTitle,
+        orgUnit: memberships.orgUnit,
       })
       .from(memberships)
       .innerJoin(users, eq(users.id, memberships.userId))
@@ -269,7 +270,13 @@ export class AccessAdminService {
   async updateMember(
     user: AuthPrincipal,
     userId: string,
-    input: { roleId?: string | undefined; status?: 'active' | 'suspended' | undefined },
+    input: {
+      roleId?: string | undefined;
+      status?: 'active' | 'suspended' | undefined;
+      /** Órgão/departamento declarado do convidado (ADR 0057) — ver `memberships.org_unit`. `null`
+       * limpa o valor. Aceito para membros também, mas só é usado pela visibilidade de convidado. */
+      orgUnit?: string | null | undefined;
+    },
   ) {
     await this.access.assert(user, 'members.manage', { type: 'tenant' });
     const [member] = await this.runner.tx
@@ -298,6 +305,7 @@ export class AccessAdminService {
       .set({
         ...(input.roleId === undefined ? {} : { roleId: input.roleId }),
         ...(input.status === undefined ? {} : { status: input.status }),
+        ...(input.orgUnit === undefined ? {} : { orgUnit: input.orgUnit }),
       })
       .where(eq(memberships.userId, userId));
     this.events.recordChange({
@@ -307,6 +315,7 @@ export class AccessAdminService {
       before: member,
       after: input,
     });
+    if (input.orgUnit !== undefined) await this.access.invalidate(user.tenantId);
     await this.changed(user, 'tenant', null);
     return { userId, ...input };
   }

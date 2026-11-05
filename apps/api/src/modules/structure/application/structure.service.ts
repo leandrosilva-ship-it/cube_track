@@ -3,6 +3,7 @@ import { schema } from '@cube-track/db';
 import {
   boardTemplates,
   FilterGroupSchema,
+  GUEST_ORG_COLUMN_TYPES,
   newId,
   parseViewConfig,
   ViewGroupBySchema,
@@ -14,6 +15,7 @@ import {
 } from '@cube-track/shared';
 import { and, asc, eq, inArray, isNull, ne } from 'drizzle-orm';
 
+import { BoardCacheService } from '../../../core/cache/board-cache.service.js';
 import type { AuthPrincipal } from '../../../core/context/request-context.js';
 import { TransactionRunner } from '../../../core/database/transaction-runner.js';
 import { NotFoundError, ValidationError } from '../../../core/errors/problems.js';
@@ -84,6 +86,9 @@ export interface UpdateBoardInput extends Neighbors {
   visibility?: 'main' | 'private' | 'shareable' | undefined;
   isTemplate?: boolean | undefined;
   folderId?: string | null | undefined;
+  /** Mesclado (não substitui) em `boards.settings` — inclui `guestItemVisibility`/`guestOrgColumnId`
+   * (ADR 0057, visibilidade de item por órgão para convidados). */
+  settings?: Record<string, unknown> | undefined;
 }
 
 export type ViewType = (typeof views.$inferSelect)['type'];
@@ -189,6 +194,7 @@ export class StructureService {
     private readonly access: AccessService,
     private readonly domainEvents: DomainEvents,
     private readonly blueprints: BoardBlueprintWriter,
+    private readonly boardCache: BoardCacheService,
   ) {}
 
   // ------------------------------------------------------------------------ Templates ---
@@ -689,6 +695,47 @@ export class StructureService {
         details[key] = value;
       }
     }
+    if (input.settings !== undefined) {
+      await this.access.assert(user, 'board.manage', { type: 'board', id: boardId }, 'Board');
+      const [row] = await tx
+        .select({ settings: boards.settings })
+        .from(boards)
+        .where(eq(boards.id, boardId));
+      const current = row?.settings ?? {};
+      const merged = { ...current, ...input.settings };
+      if (merged.guestItemVisibility === 'org') {
+        const columnId = merged.guestOrgColumnId;
+        if (typeof columnId !== 'string') {
+          throw new ValidationError([
+            {
+              path: 'body.settings.guestOrgColumnId',
+              message: 'Obrigatório quando guestItemVisibility é "org".',
+            },
+          ]);
+        }
+        const columns = await this.access.columns(user.tenantId, boardId);
+        const column = columns.find((entry) => entry.id === columnId);
+        if (
+          column === undefined ||
+          !(GUEST_ORG_COLUMN_TYPES as readonly string[]).includes(column.type)
+        ) {
+          throw new ValidationError([
+            {
+              path: 'body.settings.guestOrgColumnId',
+              message:
+                'Coluna inexistente ou de tipo não suportado (use texto, e-mail, status ou dropdown).',
+            },
+          ]);
+        }
+      } else if (merged.guestOrgColumnId !== undefined && merged.guestOrgColumnId !== null) {
+        // Fora do modo "org" o campo não é usado — limpa para não deixar configuração órfã/confusa.
+        delete merged.guestOrgColumnId;
+      }
+      before.settings = current;
+      set.settings = merged;
+      details.settings = merged;
+      await this.access.invalidate(user.tenantId);
+    }
     if (input.name !== undefined || input.description !== undefined) {
       await this.access.assert(user, 'board.manage', { type: 'board', id: boardId }, 'Board');
       if (input.name !== undefined && input.name !== board.name) {
@@ -736,6 +783,9 @@ export class StructureService {
       before,
       after: set,
     });
+    // Qualquer campo (inclusive mover de pasta/posição, que não entra em `details`/`board.updated`)
+    // pode afetar a forma cacheada do board (`BoardsService.getBoard`) — invalida sempre.
+    await this.boardCache.invalidate(boardId);
     if (Object.keys(details).length > 0) {
       await this.domainEvents.emit({
         tenantId: user.tenantId,

@@ -153,6 +153,10 @@ export class ItemsService {
         board?.itemScope === 'assigned'
           ? { userId: user.userId, teamIds: principal.teamIds, peopleKeys: board.peopleColumnKeys }
           : null,
+      orgScope:
+        board?.itemScope === 'org' && board.guestOrgColumnKey !== null && board.guestOrgUnit !== null
+          ? { columnKey: board.guestOrgColumnKey, orgUnit: board.guestOrgUnit }
+          : null,
     }).build();
     const rows = await this.repository.runList(this.runner.tx, compiled.query);
     const page = rows.slice(0, compiled.limit);

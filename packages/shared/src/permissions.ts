@@ -16,6 +16,15 @@ export const TENANT_PERMISSIONS = [
   'teams.manage',
   'roles.manage',
   'audit.read',
+  /** Exporta entradas de auditoria (CSV/NDJSON) — mais sensível que só ler na tela (ADR 0057). */
+  'audit.export',
+  /** Configura SSO SAML 2.0/SCIM do tenant (ADR 0057). */
+  'sso.manage',
+  /** Configura política de senha/sessão e allowlist de IP/domínio do tenant (ADR 0057). */
+  'security_policy.manage',
+  /** Administra solicitações de titular LGPD (exportação/exclusão) e a política de retenção
+   * (ADR 0057) — o PRÓPRIO consentimento/solicitação de um usuário é autosserviço (`me/lgpd/*`). */
+  'lgpd.manage',
   /** Gerencia (lista/revoga) os tokens de QUALQUER usuário e os apps OAuth do tenant (ADR 0056) — não
    * é preciso para criar/revogar o PRÓPRIO token pessoal, autosserviço como trocar a própria senha. */
   'api_tokens.manage',
@@ -129,12 +138,21 @@ export interface PrincipalAccess {
   tenantRoleKey: string;
   tenantPermissions: readonly string[];
   teamIds: readonly string[];
+  /** Órgão/departamento declarado do convidado (`memberships.org_unit`) — usado pela visibilidade de
+   * item por órgão (`itemScope: 'org'`). `null`/ausente para membros ou convidados sem valor definido. */
+  orgUnit?: string | null;
 }
 
 export interface WorkspaceAccess {
   workspaceId: string;
   permissions: readonly string[];
 }
+
+/** Tipos de coluna aceitos como "coluna de órgão" (`guestOrgColumnId`, ADR 0057) — texto livre,
+ * e-mail ou escolha única (status/dropdown, comparados pelo rótulo). Fonte única: usado na validação
+ * de escrita (`structure.service.ts`), no cálculo de acesso (`effective-access.ts`) e no comparador de
+ * consulta (`org-match.ts`). */
+export const GUEST_ORG_COLUMN_TYPES = ['text', 'email', 'status', 'dropdown'] as const;
 
 export interface BoardAccess {
   boardId: string;
@@ -143,10 +161,16 @@ export interface BoardAccess {
   permissions: readonly string[];
   /** Ids dos papéis que se aplicam ao usuário no board (inclui o papel de tenant). */
   roleIds: readonly string[];
-  /** Convidados veem apenas itens em que são responsáveis (padrão). */
-  itemScope: 'all' | 'assigned';
+  /** Convidados veem apenas itens em que são responsáveis (`assigned`, padrão), itens do seu órgão
+   * (`org`, ADR 0057 — exige `guestOrgColumnKey` e o `orgUnit` do convidado) ou tudo (`all`). */
+  itemScope: 'all' | 'assigned' | 'org';
   /** Colunas do tipo `people` usadas para determinar "responsável". */
   peopleColumnKeys: readonly string[];
+  /** Chave da coluna que representa o órgão/departamento do item (`itemScope: 'org'`). `null` quando
+   * não aplicável (inclui o caso de fallback seguro para `'assigned'` — ver `computeBoardAccess`). */
+  guestOrgColumnKey: string | null;
+  /** Valor de órgão do convidado corrente, já resolvido (`itemScope: 'org'`). */
+  guestOrgUnit: string | null;
 }
 
 export interface ColumnRef {
@@ -160,6 +184,10 @@ export interface ItemRef {
   values: Readonly<Record<string, unknown>>;
   /** Permissões concedidas explicitamente neste item (access_grants resource_type = item). */
   grantPermissions?: readonly string[];
+  /** Pré-calculado pelo chamador (tem acesso ao banco; `decide` continua pura): o item pertence ao
+   * órgão do convidado corrente. Só relevante quando `board.itemScope === 'org'`; ignorado nos demais
+   * escopos. Fail-safe: `undefined`/`false` nega a leitura, nunca concede por omissão. */
+  matchesGuestOrg?: boolean;
 }
 
 export interface ViewRef {
@@ -226,7 +254,9 @@ function canReadItem(
 ): boolean {
   if (has(item.grantPermissions, 'board.read')) return true;
   if (board === null || !has(board.permissions, 'board.read')) return false;
-  return board.itemScope === 'all' || isAssigned(principal, board, item);
+  if (board.itemScope === 'all') return true;
+  if (board.itemScope === 'org') return item.matchesGuestOrg === true;
+  return isAssigned(principal, board, item);
 }
 
 function canUpdateItem(

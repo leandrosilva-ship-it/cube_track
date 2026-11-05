@@ -9,6 +9,7 @@ import type {
   RoleDefinition,
   WorkspaceInput,
 } from '../domain/effective-access.js';
+import { orgUnitMatchCondition, type OrgMatchColumn } from './org-match.js';
 
 export interface PrincipalRow {
   roleId: string;
@@ -16,6 +17,7 @@ export interface PrincipalRow {
   kind: 'member' | 'guest';
   permissions: string[];
   teamIds: string[];
+  orgUnit: string | null;
 }
 
 export interface BoardColumn {
@@ -45,7 +47,12 @@ const {
 export class AccessRepository {
   async loadPrincipal(tx: Transaction, userId: string): Promise<PrincipalRow | null> {
     const [membership] = await tx
-      .select({ roleId: memberships.roleId, roleKey: roles.key, kind: memberships.kind })
+      .select({
+        roleId: memberships.roleId,
+        roleKey: roles.key,
+        kind: memberships.kind,
+        orgUnit: memberships.orgUnit,
+      })
       .from(memberships)
       .innerJoin(roles, eq(roles.id, memberships.roleId))
       .where(
@@ -70,6 +77,7 @@ export class AccessRepository {
       kind: membership.kind,
       permissions: permissions.map((row) => row.key),
       teamIds: teams.map((row) => row.teamId),
+      orgUnit: membership.orgUnit,
     };
   }
 
@@ -131,12 +139,18 @@ export class AccessRepository {
       .from(boards)
       .where(and(eq(boards.id, boardId), isNull(boards.deletedAt)));
     if (row === undefined) return null;
+    const settings = row.settings;
+    const rawVisibility = settings.guestItemVisibility;
+    const guestItemVisibility =
+      rawVisibility === 'all' || rawVisibility === 'org' ? rawVisibility : 'assigned';
+    const rawOrgColumnId = settings.guestOrgColumnId;
     return {
       id: row.id,
       workspaceId: row.workspaceId,
       visibility: row.visibility,
       ownerId: row.ownerId,
-      guestItemVisibility: row.settings.guestItemVisibility === 'all' ? 'all' : 'assigned',
+      guestItemVisibility,
+      guestOrgColumnId: typeof rawOrgColumnId === 'string' ? rawOrgColumnId : null,
     };
   }
 
@@ -197,5 +211,23 @@ export class AccessRepository {
       .select({ id: schema.items.id, boardId: schema.items.boardId, values: schema.items.values })
       .from(schema.items)
       .where(and(inArray(schema.items.id, itemIds), isNull(schema.items.deletedAt)));
+  }
+
+  /** Item isolado pertence ao órgão `orgUnit` pela coluna `column` (ADR 0057)? Reusa o mesmo
+   * comparador da listagem (`org-match.ts`) — nunca uma segunda implementação. */
+  async itemMatchesOrgUnit(
+    tx: Transaction,
+    itemId: string,
+    column: OrgMatchColumn,
+    orgUnit: string,
+  ): Promise<boolean> {
+    const condition = orgUnitMatchCondition({
+      itemId: sql`${itemId}::uuid`,
+      values: sql`(select values from items where id = ${itemId}::uuid)`,
+      column,
+      orgUnit,
+    });
+    const result = await tx.execute<{ matches: boolean }>(sql`select (${condition}) as matches`);
+    return result.rows[0]?.matches === true;
   }
 }

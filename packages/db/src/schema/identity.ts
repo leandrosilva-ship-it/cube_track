@@ -125,6 +125,10 @@ export const memberships = tenantTable(
     kind: membershipKind('kind').notNull().default('member'),
     status: membershipStatus('status').notNull().default('active'),
     jobTitle: text('job_title'),
+    /** Órgão/departamento declarado do convidado (ADR 0057) — usado pela visibilidade de item por
+     * órgão (`boards.settings.guestItemVisibility === 'org'`). Livre (texto), comparado por igualdade
+     * exata (case-insensitive) com o rótulo/texto da coluna de órgão do board. */
+    orgUnit: text('org_unit'),
     joinedAt: timestamp('joined_at', { withTimezone: true }),
     lastActiveAt: timestamp('last_active_at', { withTimezone: true }),
     deletedAt: deletedAt(),

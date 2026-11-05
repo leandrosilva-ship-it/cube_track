@@ -137,6 +137,9 @@ export const MAINTENANCE_JOBS = [
    * Calendar/Outlook com `calendar_sync_links` e também faz o polling de e-mail-para-item (Gmail/
    * Outlook) das conexões com essa opção ativada — ver `apps/worker/src/processors/calendar-sync.ts`. */
   'calendar-sync-periodic',
+  /** Aplica a política de retenção de auditoria de cada tenant (ADR 0057, LGPD): arquiva/expurga
+   * entradas de `audit_logs` mais antigas que `data_retention_policies.entity_type = 'audit_log'`. */
+  'audit-retention-purge',
 ] as const;
 export type MaintenanceJob = (typeof MAINTENANCE_JOBS)[number];
 

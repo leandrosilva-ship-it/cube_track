@@ -1,0 +1,129 @@
+{
+  "title": "CUBE TRACK — API health",
+  "uid": "cube-track-api-health",
+  "description": "Taxa de requisições, latência e taxa de erro da api. Métricas confirmadas rodando a api localmente (METRICS_PORT=9464) e lendo /metrics de verdade — ver docs/deploy.md. Nomes reais: http_server_duration_count/_bucket (histograma em MILISSEGUNDOS, não segundos), labels http_method/http_status_code/net_host_port.",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["cube-track", "api"],
+  "templating": {
+    "list": [
+      {
+        "name": "job",
+        "type": "constant",
+        "query": "cube-track-api",
+        "current": { "text": "cube-track-api", "value": "cube-track-api" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Taxa de requisições (req/s) por status",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "sum by (http_status_code) (rate(http_server_duration_count{job=\"$job\"}[5m]))",
+          "legendFormat": "{{http_status_code}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Taxa de erro 5xx (%)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.05 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(http_server_duration_count{job=\"$job\", http_status_code=~\"5..\"}[5m])) / sum(rate(http_server_duration_count{job=\"$job\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Latência p50 / p95 / p99 (ms) — meta p95 < 200ms",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "fieldConfig": {
+        "defaults": { "unit": "ms" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(http_server_duration_bucket{job=\"$job\"}[5m])) by (le))",
+          "legendFormat": "p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_duration_bucket{job=\"$job\"}[5m])) by (le))",
+          "legendFormat": "p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(http_server_duration_bucket{job=\"$job\"}[5m])) by (le))",
+          "legendFormat": "p99"
+        }
+      ],
+      "thresholds": [{ "value": 200, "colorMode": "critical", "op": "gt", "line": true }]
+    },
+    {
+      "id": 4,
+      "title": "Latência por rota (p95, ms) — top 10",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "topk(10, histogram_quantile(0.95, sum(rate(http_server_duration_bucket{job=\"$job\"}[5m])) by (le, http_route)))",
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Duração de operações no PostgreSQL (p95, s)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "description": "db_client_operation_duration — auto-instrumentação @opentelemetry/instrumentation-pg, em SEGUNDOS (diferente de http_server_duration, que é em ms).",
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(db_client_operation_duration_bucket{job=\"$job\"}[5m])) by (le, db_operation_name))",
+          "legendFormat": "{{db_operation_name}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Pods up",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 24 },
+      "targets": [{ "expr": "sum(up{job=\"$job\"})" }]
+    },
+    {
+      "id": 7,
+      "title": "Conexões no pool do PostgreSQL (em uso)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 24 },
+      "targets": [
+        { "expr": "sum(db_client_connection_count{job=\"$job\", db_client_connection_state=\"used\"})" }
+      ]
+    }
+  ]
+}

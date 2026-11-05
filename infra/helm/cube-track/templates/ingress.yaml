@@ -1,0 +1,57 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "cube-track.fullname" . }}-web
+  labels:
+    {{- include "cube-track.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts: [{{ .Values.ingress.web.host }}]
+      secretName: {{ .Values.ingress.tls.webSecretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.web.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "cube-track.fullname" . }}-web
+                port: { number: 3000 }
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "cube-track.fullname" . }}-api
+  labels:
+    {{- include "cube-track.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml .Values.ingress.annotations | nindent 4 }}
+    # WebSocket (Socket.IO, ADR 0027) precisa de timeouts de upgrade mais longos que o padrão do
+    # ingress-nginx; ajuste conforme o controller usado no cluster.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '3600'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '3600'
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts: [{{ .Values.ingress.api.host }}]
+      secretName: {{ .Values.ingress.tls.apiSecretName }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.api.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "cube-track.fullname" . }}-api
+                port: { number: 3001 }
+{{- end }}

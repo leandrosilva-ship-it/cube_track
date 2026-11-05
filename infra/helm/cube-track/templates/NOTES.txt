@@ -1,0 +1,29 @@
+CUBE TRACK — {{ .Release.Name }} implantado em {{ .Release.Namespace }}.
+
+Serviços habilitados:
+{{- if .Values.api.enabled }}
+  - api: http://{{ include "cube-track.fullname" . }}-api.{{ .Release.Namespace }}.svc.cluster.local:3001
+{{- end }}
+{{- if .Values.realtime.enabled }}
+  - realtime (ADR 0027, REALTIME_MODE=separate): {{ include "cube-track.fullname" . }}-realtime:3002
+{{- end }}
+{{- if .Values.worker.enabled }}
+  - worker (Bull Board, acesse com port-forward):
+    kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "cube-track.fullname" . }}-worker {{ .Values.worker.boardPort }}:{{ .Values.worker.boardPort }}
+{{- end }}
+{{- if .Values.web.enabled }}
+  - web: https://{{ .Values.ingress.web.host }}
+{{- end }}
+
+Acompanhe o rollout:
+  kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "cube-track.fullname" . }}-api
+  kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "cube-track.fullname" . }}-web
+{{- if .Values.worker.enabled }}
+  kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "cube-track.fullname" . }}-worker
+{{- end }}
+
+Migração do schema: rodou como hook pre-install/pre-upgrade antes destes pods subirem
+(job {{ include "cube-track.fullname" . }}-migrate-{{ .Release.Revision }}). Se falhou, o Helm já
+abortou o release — veja docs/runbooks/migracao-falhou.md antes de tentar de novo.
+
+Documentação completa: docs/deploy.md · README.md deste chart · docs/runbooks/.

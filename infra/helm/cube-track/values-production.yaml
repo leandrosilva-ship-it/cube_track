@@ -1,0 +1,78 @@
+# Overlay "production". Mesma premissa de staging: Postgres/Redis/S3/Meilisearch são serviços
+# gerenciados externos, nunca pods deste chart. Ajuste hosts/endpoints reais antes de usar.
+#
+#   helm upgrade --install cube-track infra/helm/cube-track -f values-production.yaml -n cube-track --create-namespace
+
+global:
+  domain: cubetrack.com.br
+  secretName: cube-track-production-secrets
+  realtimeMode: separate
+
+image:
+  tag: '' # definido pelo pipeline (.github/workflows/deploy.yml), sempre uma tag de git, nunca "latest"
+
+config:
+  NODE_ENV: production
+  LOG_LEVEL: info
+  BASE_DOMAIN: cubetrack.com.br
+  APP_URL: https://app.cubetrack.com.br
+  API_URL: https://api.cubetrack.com.br
+  CORS_ORIGINS: https://app.cubetrack.com.br
+  API_INTERNAL_URL: http://cube-track-api:3001
+  NEXT_PUBLIC_REALTIME_URL: https://api.cubetrack.com.br
+  NEXT_PUBLIC_API_URL: https://api.cubetrack.com.br
+  COOKIE_SECURE: 'true'
+  COOKIE_DOMAIN: cubetrack.com.br
+  S3_ENDPOINT: https://s3.sa-east-1.amazonaws.com
+  S3_REGION: sa-east-1
+  S3_BUCKET: cubetrack-production-files
+  S3_FORCE_PATH_STYLE: 'false'
+  MEILI_URL: https://meili.cubetrack.internal
+  RATE_LIMIT_PER_MINUTE: '1200'
+
+api:
+  replicaCount: 3
+  autoscaling: { enabled: true, minReplicas: 3, maxReplicas: 12 }
+  resources:
+    requests: { cpu: 250m, memory: 384Mi }
+    limits: { cpu: '1', memory: 1Gi }
+
+worker:
+  replicaCount: 3
+  resources:
+    requests: { cpu: 250m, memory: 384Mi }
+    limits: { cpu: '1', memory: 1Gi }
+
+web:
+  replicaCount: 3
+  autoscaling: { enabled: true, minReplicas: 3, maxReplicas: 10 }
+
+realtime:
+  enabled: true
+  replicaCount: 3
+
+ingress:
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    nginx.ingress.kubernetes.io/proxy-body-size: 100m
+  tls:
+    enabled: true
+    webSecretName: cube-track-production-web-tls
+    apiSecretName: cube-track-production-api-tls
+  web:
+    host: app.cubetrack.com.br
+  api:
+    host: api.cubetrack.com.br
+
+backup:
+  enabled: true
+  schedule: '0 6 * * *' # 06:00 UTC ~ 03:00 America/Sao_Paulo
+  s3Bucket: cubetrack-production-backups
+  retentionDays: 90
+
+serviceMonitor:
+  enabled: true
+
+networkPolicy:
+  enabled: true

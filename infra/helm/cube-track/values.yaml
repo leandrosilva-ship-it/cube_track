@@ -1,0 +1,189 @@
+# Valores padrão do chart cube-track. Use um overlay (values-dev.yaml / values-staging.yaml /
+# values-production.yaml) por ambiente — veja README.md deste diretório.
+#
+# Nada de segredo real aqui. `secretName` referencia um Secret já existente no cluster
+# (Sealed Secrets, External Secrets Operator, ou `kubectl create secret` manual) com as chaves
+# documentadas no README.
+
+global:
+  # Domínio base dos hosts de ingress deste ambiente (ex.: cubetrack.example.com).
+  domain: cubetrack.example.com
+  # Nome do Secret externo (não gerenciado por este chart) com as credenciais de runtime.
+  # Chaves exatas esperadas: ver README.md "Secrets esperados".
+  secretName: cube-track-secrets
+  imagePullSecrets: []
+  # REALTIME_MODE: "embedded" (api também serve o gateway Socket.IO) ou "separate"
+  # (deployment "realtime" próprio, ADR 0027). Em "embedded" o deployment realtime fica com
+  # replicas: 0 (não implantado).
+  realtimeMode: embedded
+
+image:
+  registry: ghcr.io
+  repository: cube-track/cube-track # sufixos -api / -worker / -web / -migrate
+  tag: '' # default: .Chart.AppVersion; defina por ambiente/CI (git sha ou tag)
+  pullPolicy: IfNotPresent
+
+# ─── ConfigMap (variáveis não sensíveis, compartilhadas pelos três serviços) ──────────────────
+# Qualquer chave aqui vira env var nos três deployments. É também o mecanismo de feature flags
+# "via deploy" (item 3 do prompt 16): uma flag nova é só uma chave nova aqui, com um valor
+# diferente por overlay de ambiente — sem precisar de admin UI ou tabela no banco. Hoje nenhuma
+# flag de produto lê uma destas chaves; é a convenção pronta para a próxima que precisar.
+config:
+  NODE_ENV: production
+  LOG_LEVEL: info
+  BASE_DOMAIN: cubetrack.example.com
+  CORS_ORIGINS: https://cubetrack.example.com
+  APP_URL: https://cubetrack.example.com
+  API_URL: https://api.cubetrack.example.com
+  API_INTERNAL_URL: http://cube-track-api:3001
+  NEXT_PUBLIC_REALTIME_URL: https://api.cubetrack.example.com
+  NEXT_PUBLIC_API_URL: https://api.cubetrack.example.com
+  REALTIME_PORT: '3002'
+  JWT_ISSUER: cube-track
+  ACCESS_TOKEN_TTL_SECONDS: '600'
+  REFRESH_TOKEN_TTL_DAYS: '30'
+  REFRESH_REUSE_GRACE_SECONDS: '30'
+  COOKIE_SECURE: 'true'
+  COOKIE_DOMAIN: cubetrack.example.com
+  RATE_LIMIT_PER_MINUTE: '600'
+  UPLOAD_MAX_BYTES: '104857600'
+  UPLOAD_URL_TTL_SECONDS: '900'
+  MAIL_REPLY_DOMAIN: reply.cubetrack.example.com
+  EMAIL_FROM: 'CUBE TRACK <nao-responda@cubetrack.example.com>'
+  S3_ENDPOINT: https://s3.example.com
+  S3_REGION: us-east-1
+  S3_BUCKET: cubetrack-files
+  S3_FORCE_PATH_STYLE: 'false'
+  MEILI_URL: http://cube-track-meilisearch:7700
+  ANTIVIRUS_MODE: disabled
+  CLAMD_HOST: cube-track-clamav
+  CLAMD_PORT: '3310'
+  OUTBOX_POLL_MS: '500'
+  OUTBOX_BATCH_SIZE: '200'
+  OUTBOX_RETENTION_DAYS: '7'
+  WORKER_CONCURRENCY: '8'
+  BOARD_PORT: '3010'
+  OTEL_SDK_DISABLED: 'false'
+  OTEL_EXPORTER_OTLP_ENDPOINT: ''
+  METRICS_PORT: '9464'
+  OAUTH_MICROSOFT_TENANT: organizations
+  # Exemplos de feature flags via deploy (desligadas por padrão; ligue por overlay de ambiente):
+  # FEATURE_EXAMPLE_FLAG: 'false'
+
+api:
+  enabled: true
+  replicaCount: 2
+  port: 3001
+  metricsPort: 9464
+  resources:
+    requests: { cpu: 150m, memory: 256Mi }
+    limits: { cpu: '1', memory: 768Mi }
+  podAnnotations: {}
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  terminationGracePeriodSeconds: 30
+
+worker:
+  enabled: true
+  replicaCount: 2
+  boardPort: 3010
+  metricsPort: 9464
+  resources:
+    requests: { cpu: 150m, memory: 256Mi }
+    limits: { cpu: '1', memory: 768Mi }
+  podAnnotations: {}
+  # Sem HPA por padrão: profundidade de fila (BullMQ) é melhor sinal que CPU, mas exige um
+  # adaptador de métricas externo (ver README "Autoscaling"). Ajuste replicaCount manualmente,
+  # ou habilite autoscaling.enabled com KEDA/Prometheus Adapter instalado no cluster.
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 75
+  terminationGracePeriodSeconds: 60
+
+web:
+  enabled: true
+  replicaCount: 2
+  port: 3000
+  resources:
+    requests: { cpu: 100m, memory: 192Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+  podAnnotations: {}
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+  terminationGracePeriodSeconds: 15
+
+# Gateway realtime em deployment próprio (ADR 0027, REALTIME_MODE=separate). Mesma imagem da
+# api, comando `dist/main.realtime.js`. Ignorado (replicas 0) quando global.realtimeMode=embedded.
+realtime:
+  enabled: false
+  replicaCount: 2
+  port: 3002
+  metricsPort: 9465
+  resources:
+    requests: { cpu: 150m, memory: 256Mi }
+    limits: { cpu: '1', memory: 512Mi }
+  podAnnotations: {}
+  terminationGracePeriodSeconds: 30
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-production
+    nginx.ingress.kubernetes.io/proxy-body-size: 100m
+  tls:
+    enabled: true
+    webSecretName: cube-track-web-tls
+    apiSecretName: cube-track-api-tls
+  web:
+    host: cubetrack.example.com
+  api:
+    host: api.cubetrack.example.com
+
+migration:
+  # Job Helm hook (pre-install,pre-upgrade) que roda `pnpm --filter @cube-track/db db:migrate`
+  # ANTES de qualquer pod da nova versão subir. Ver README "Migrações seguras" e
+  # docs/runbooks/migracao-falhou.md. Imagem própria (packages/db/Dockerfile): packages/db não
+  # tem dist, roda via tsx — não dá para reaproveitar a imagem da api/worker aqui.
+  enabled: true
+  image:
+    suffix: db-migrate
+    tag: ''
+  backoffLimit: 2
+  activeDeadlineSeconds: 600
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+
+backup:
+  # CronJob de pg_dump para armazenamento S3-compatível (infra/scripts/backup-postgres.sh,
+  # imagem infra/docker/backup/Dockerfile — pg_dump + mc).
+  enabled: false
+  schedule: '0 7 * * *' # 07:00 UTC ~ 04:00 America/Sao_Paulo, diário
+  image:
+    registry: ghcr.io
+    repository: cube-track/cube-track-backup
+    tag: ''
+  s3Bucket: cubetrack-backups
+  retentionDays: 30
+  resources:
+    requests: { cpu: 100m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 512Mi }
+
+serviceMonitor:
+  # Requer o Prometheus Operator instalado no cluster (CRD ServiceMonitor). Ver
+  # infra/observability/prometheus/README e values "serviceMonitor.enabled" por ambiente.
+  enabled: false
+  interval: 15s
+  labels: {}
+
+networkPolicy:
+  enabled: false

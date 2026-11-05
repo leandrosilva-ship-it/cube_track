@@ -1,0 +1,80 @@
+{
+  "title": "CUBE TRACK — Permission cache hit rate",
+  "uid": "cube-track-permission-cache",
+  "description": "cube_permission_cache_hits_total / cube_permission_cache_misses_total (apps/api/src/core/observability/metrics.ts). Uma queda brusca na taxa de acerto costuma indicar cache quebrado (Redis flushado, mudança de formato de chave) — correlacione com a latência da api (dashboard 'API health').",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "timezone": "browser",
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "tags": ["cube-track", "permissions", "cache"],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Taxa de acerto do cache de permissões",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "green", "value": 0.8 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(cube_permission_cache_hits_total[10m])) / (sum(rate(cube_permission_cache_hits_total[10m])) + sum(rate(cube_permission_cache_misses_total[10m])))",
+          "legendFormat": "taxa de acerto"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Taxa de acerto agora",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 0.5 },
+              { "color": "green", "value": 0.8 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(cube_permission_cache_hits_total[10m])) / (sum(rate(cube_permission_cache_hits_total[10m])) + sum(rate(cube_permission_cache_misses_total[10m])))"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Hits vs. misses por minuto",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "fieldConfig": { "defaults": { "unit": "ops" }, "overrides": [] },
+      "targets": [
+        { "expr": "sum(rate(cube_permission_cache_hits_total[1m])) * 60", "legendFormat": "hits/min" },
+        { "expr": "sum(rate(cube_permission_cache_misses_total[1m])) * 60", "legendFormat": "misses/min" }
+      ]
+    }
+  ]
+}

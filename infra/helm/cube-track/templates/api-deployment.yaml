@@ -1,0 +1,160 @@
+{{- if .Values.api.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cube-track.fullname" . }}-api
+  labels:
+    {{- include "cube-track.labels" . | nindent 4 }}
+    {{- include "cube-track.selectorLabels" (dict "component" "api" "context" $) | nindent 4 }}
+spec:
+  replicas: {{ .Values.api.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cube-track.selectorLabels" (dict "component" "api" "context" $) | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        {{- include "cube-track.selectorLabels" (dict "component" "api" "context" $) | nindent 8 }}
+      annotations:
+        {{- with .Values.api.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: {{ .Values.api.metricsPort | quote }}
+        prometheus.io/path: /metrics
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.api.terminationGracePeriodSeconds }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+      containers:
+        - name: api
+          image: {{ include "cube-track.image" (dict "suffix" "api" "context" $) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ['node', '--enable-source-maps', '--import', './apps/api/dist/instrumentation.js', 'apps/api/dist/main.js']
+          ports:
+            - name: http
+              containerPort: {{ .Values.api.port }}
+            - name: metrics
+              containerPort: {{ .Values.api.metricsPort }}
+          {{- include "cube-track.envFrom" . | nindent 10 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ['ALL']
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          livenessProbe:
+            httpGet: { path: /health/live, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 5
+          readinessProbe:
+            httpGet: { path: /health/ready, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
+---
+{{- if .Values.realtime.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cube-track.fullname" . }}-realtime
+  labels:
+    {{- include "cube-track.labels" . | nindent 4 }}
+    {{- include "cube-track.selectorLabels" (dict "component" "realtime" "context" $) | nindent 4 }}
+  annotations:
+    cube-track.io/adr: '0027' # gateway realtime em deployment próprio, REALTIME_MODE=separate
+spec:
+  replicas: {{ .Values.realtime.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cube-track.selectorLabels" (dict "component" "realtime" "context" $) | nindent 6 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        {{- include "cube-track.selectorLabels" (dict "component" "realtime" "context" $) | nindent 8 }}
+      annotations:
+        {{- with .Values.realtime.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: {{ .Values.realtime.metricsPort | quote }}
+        prometheus.io/path: /metrics
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ .Values.realtime.terminationGracePeriodSeconds }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        fsGroup: 10001
+      containers:
+        - name: realtime
+          image: {{ include "cube-track.image" (dict "suffix" "api" "context" $) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ['node', '--enable-source-maps', '--import', './apps/api/dist/instrumentation.js', 'apps/api/dist/main.realtime.js']
+          ports:
+            - name: ws
+              containerPort: {{ .Values.realtime.port }}
+            - name: metrics
+              containerPort: {{ .Values.realtime.metricsPort }}
+          env:
+            - name: REALTIME_MODE
+              value: separate
+            - name: METRICS_PORT
+              value: {{ .Values.realtime.metricsPort | quote }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "cube-track.fullname" . }}-config
+            - secretRef:
+                name: {{ .Values.global.secretName }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ['ALL']
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          readinessProbe:
+            tcpSocket: { port: ws }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: { port: ws }
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.realtime.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}

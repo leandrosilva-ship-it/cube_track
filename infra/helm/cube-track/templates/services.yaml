@@ -1,0 +1,79 @@
+{{- if .Values.api.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cube-track.fullname" . }}-api
+  labels:
+    {{- include "cube-track.labels" . | nindent 4 }}
+    {{- include "cube-track.selectorLabels" (dict "component" "api" "context" $) | nindent 4 }}
+spec:
+  selector:
+    {{- include "cube-track.selectorLabels" (dict "component" "api" "context" $) | nindent 4 }}
+  ports:
+    - name: http
+      port: 3001
+      targetPort: http
+    - name: metrics
+      port: {{ .Values.api.metricsPort }}
+      targetPort: metrics
+{{- end }}
+---
+{{- if .Values.realtime.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cube-track.fullname" . }}-realtime
+  labels:
+    {{- include "cube-track.labels" . | nindent 4 }}
+    {{- include "cube-track.selectorLabels" (dict "component" "realtime" "context" $) | nindent 4 }}
+spec:
+  selector:
+    {{- include "cube-track.selectorLabels" (dict "component" "realtime" "context" $) | nindent 4 }}
+  ports:
+    - name: ws
+      port: 3002
+      targetPort: ws
+    - name: metrics
+      port: {{ .Values.realtime.metricsPort }}
+      targetPort: metrics
+{{- end }}
+---
+{{- if .Values.worker.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cube-track.fullname" . }}-worker
+  labels:
+    {{- include "cube-track.labels" . | nindent 4 }}
+    {{- include "cube-track.selectorLabels" (dict "component" "worker" "context" $) | nindent 4 }}
+spec:
+  # ClusterIP só para o Bull Board (infra.observability + troubleshooting manual, ADR de
+  # autenticação básica já exigida por BULL_BOARD_USER/PASSWORD). Não exposto via Ingress por
+  # padrão — acesse com `kubectl port-forward`.
+  selector:
+    {{- include "cube-track.selectorLabels" (dict "component" "worker" "context" $) | nindent 4 }}
+  ports:
+    - name: board
+      port: {{ .Values.worker.boardPort }}
+      targetPort: board
+    - name: metrics
+      port: {{ .Values.worker.metricsPort }}
+      targetPort: metrics
+{{- end }}
+---
+{{- if .Values.web.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cube-track.fullname" . }}-web
+  labels:
+    {{- include "cube-track.labels" . | nindent 4 }}
+    {{- include "cube-track.selectorLabels" (dict "component" "web" "context" $) | nindent 4 }}
+spec:
+  selector:
+    {{- include "cube-track.selectorLabels" (dict "component" "web" "context" $) | nindent 4 }}
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+{{- end }}

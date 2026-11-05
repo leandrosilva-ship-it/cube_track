@@ -1,0 +1,87 @@
+name: Deploy (staging / produção)
+
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+# ESTADO ATUAL: este workflow está correto na forma, mas NÃO FUNCIONA hoje neste repositório —
+# e é importante não fingir o contrário. Ele faz `helm upgrade` contra um cluster Kubernetes real,
+# e este ambiente/sandbox não tem nenhum cluster real nem credenciais de cluster configuradas.
+#
+# TODO(ops): antes deste workflow conseguir rodar de verdade, um humano com acesso à infra precisa:
+#   1. Provisionar (ou apontar para) um cluster Kubernetes de staging e um de produção.
+#   2. Gerar um kubeconfig com permissão de `helm upgrade`/`kubectl` no namespace do cube-track
+#      (idealmente uma conta de serviço com RBAC restrito ao namespace, não cluster-admin).
+#   3. Cadastrar esse kubeconfig em Settings → Secrets and variables → Actions, como
+#      `STAGING_KUBECONFIG` e `PRODUCTION_KUBECONFIG` (conteúdo do arquivo, base64 ou plano —
+#      este workflow espera base64, ajuste o `base64 -d` abaixo se mudar o formato).
+#   4. Criar os "Environments" do GitHub (Settings → Environments) "staging" e "production" e,
+#      em produção, adicionar reviewers obrigatórios (approval gate antes do job rodar).
+#   5. Garantir que o Secret de runtime do cluster (DATABASE_URL, ENCRYPTION_KEY, etc. — ver
+#      infra/helm/cube-track/README.md "Secrets esperados") já existe no namespace ANTES do
+#      primeiro deploy — este workflow não cria esse Secret.
+#   6. Se o cluster não conseguir puxar de ghcr.io/<org> publicamente, criar um
+#      `imagePullSecret` e referenciá-lo em `global.imagePullSecrets` no values do ambiente.
+# Sem isso, `helm upgrade` falha na etapa "Configurar kubeconfig" (secret vazio) e o job termina
+# em erro — comportamento esperado e intencional até a infra acima existir.
+# ─────────────────────────────────────────────────────────────────────────────────────────────
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Ambiente de destino
+        type: choice
+        options: [staging, production]
+        required: true
+      image_tag:
+        description: Tag da imagem a implantar (geralmente o sha do commit publicado por build-and-push.yml)
+        type: string
+        required: true
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false # nunca cancela um `helm upgrade` em andamento
+
+jobs:
+  deploy:
+    name: helm upgrade (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: ${{ inputs.environment }} # usa gates/reviewers do Environment do GitHub, se configurados
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - name: Configurar kubeconfig
+        env:
+          STAGING_KUBECONFIG: ${{ secrets.STAGING_KUBECONFIG }}
+          PRODUCTION_KUBECONFIG: ${{ secrets.PRODUCTION_KUBECONFIG }}
+        run: |
+          case "${{ inputs.environment }}" in
+            staging) KUBECONFIG_B64="$STAGING_KUBECONFIG"; SECRET_NAME=STAGING_KUBECONFIG ;;
+            production) KUBECONFIG_B64="$PRODUCTION_KUBECONFIG"; SECRET_NAME=PRODUCTION_KUBECONFIG ;;
+          esac
+          if [ -z "${KUBECONFIG_B64:-}" ]; then
+            echo "::error::Secret ${SECRET_NAME} não está configurado — ver TODO(ops) no topo deste arquivo."
+            exit 1
+          fi
+          mkdir -p "$HOME/.kube"
+          echo "${KUBECONFIG_B64}" | base64 -d > "$HOME/.kube/config"
+          chmod 600 "$HOME/.kube/config"
+
+      - name: helm upgrade --install
+        run: |
+          helm upgrade --install cube-track infra/helm/cube-track \
+            -f "infra/helm/cube-track/values-${{ inputs.environment }}.yaml" \
+            --namespace "cube-track-${{ inputs.environment }}" --create-namespace \
+            --set image.tag="${{ inputs.image_tag }}" \
+            --wait --timeout 10m
+
+      - name: Status do rollout
+        if: always()
+        run: |
+          kubectl -n "cube-track-${{ inputs.environment }}" get pods
+          kubectl -n "cube-track-${{ inputs.environment }}" rollout status deployment/cube-track-api --timeout=60s || true
+          kubectl -n "cube-track-${{ inputs.environment }}" rollout status deployment/cube-track-web --timeout=60s || true

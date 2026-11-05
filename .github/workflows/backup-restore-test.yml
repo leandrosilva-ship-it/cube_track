@@ -1,0 +1,78 @@
+name: Teste de restauração de backup
+
+# Prova, periodicamente, que um dump gerado pelo backup diário (infra/scripts/backup-postgres.sh)
+# volta a ser um banco coerente e no schema atual — não só "o pg_dump não deu erro".
+#
+# ESTADO ATUAL: o passo 1 (gerar um dump de um banco real de staging/produção) depende de
+# credenciais de um bucket S3 real e de uma DATABASE_URL de um ambiente real, que não existem
+# neste repositório/sandbox. Por isso este workflow roda em duas partes:
+#   - sempre: cria um banco local (serviço `postgres` do próprio job), aplica as migrações atuais
+#     nele, faz um pg_dump SEU, restaura num banco "descartável" e valida — isto já prova que o
+#     mecanismo de dump→restauração→checagem funciona de ponta a ponta, sem precisar de S3.
+#   - condicional (`if: env.S3_ACCESS_KEY != ''`): se os secrets abaixo existirem, baixa o dump
+#     mais recente do bucket real e repete a validação nele.
+#
+# TODO(ops): para a parte condicional rodar de verdade, cadastre em Settings → Secrets and
+# variables → Actions: `BACKUP_S3_ENDPOINT`, `BACKUP_S3_ACCESS_KEY`, `BACKUP_S3_SECRET_KEY`,
+# `BACKUP_S3_BUCKET` (os mesmos valores do Secret `S3_*` do ambiente cujo backup quer testar).
+# Sem eles, o job de validação local ainda roda e ainda é um sinal útil — só a validação do dump
+# real de produção/staging fica pulada (com um aviso claro no log, não um erro silencioso).
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 9 * * 1' # segundas, 09:00 UTC (~06:00 America/Sao_Paulo)
+
+concurrency:
+  group: backup-restore-test
+  cancel-in-progress: false
+
+jobs:
+  restore-test:
+    name: Dump → restaura → valida
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      BACKUP_S3_ENDPOINT: ${{ secrets.BACKUP_S3_ENDPOINT }}
+      BACKUP_S3_ACCESS_KEY: ${{ secrets.BACKUP_S3_ACCESS_KEY }}
+      BACKUP_S3_SECRET_KEY: ${{ secrets.BACKUP_S3_SECRET_KEY }}
+      BACKUP_S3_BUCKET: ${{ secrets.BACKUP_S3_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Banco de origem com o schema atual (simula "produção" para este teste)
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+        run: |
+          psql "$DATABASE_URL" -c "create database cubetrack_source"
+          DATABASE_URL=postgres://postgres:postgres@localhost:5432/cubetrack_source pnpm db:migrate
+
+      - name: infra/scripts/test-restore.sh (dump local → container descartável → checagem)
+        env:
+          SOURCE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/cubetrack_source
+        run: ./infra/scripts/test-restore.sh
+
+      - name: Validar o dump mais recente do bucket real (se configurado)
+        if: env.BACKUP_S3_ACCESS_KEY != ''
+        run: ./infra/scripts/test-restore.sh --from-s3
+
+      - name: Sem credenciais de S3 configuradas
+        if: env.BACKUP_S3_ACCESS_KEY == ''
+        run: |
+          echo "::warning::BACKUP_S3_ACCESS_KEY não configurado — pulando a validação do dump real de staging/produção. Ver TODO(ops) no topo deste arquivo. A validação local (dump→restauração→migrate check) já rodou acima."

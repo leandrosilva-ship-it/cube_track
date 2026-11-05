@@ -1,0 +1,16 @@
+apiVersion: v2
+name: cube-track
+description: >-
+  CUBE TRACK — plataforma de gestão de projetos, processos e portfólio.
+  Chart guarda-chuva que implanta api, worker, web e (opcionalmente) o gateway
+  realtime separado (ADR 0027) em Kubernetes.
+type: application
+version: 0.1.0
+appVersion: '0.1.0'
+keywords:
+  - cube-track
+  - pm
+  - ppm
+home: https://github.com/cube-track/cube-track
+maintainers:
+  - name: CUBE TRACK

@@ -1,0 +1,71 @@
+# Overlay "staging". Datastores (PostgreSQL, Redis, S3, Meilisearch) são EXTERNOS e gerenciados
+# (RDS/Cloud SQL, ElastiCache/Memorystore, S3/R2, Meilisearch Cloud ou uma VM dedicada) — este
+# chart só implanta api/worker/web/realtime e aponta para eles via o Secret externo
+# `cube-track-staging-secrets` (ver README.md "Secrets esperados"). Ajuste os hosts/endpoints
+# abaixo para os valores reais do ambiente.
+#
+#   helm upgrade --install cube-track infra/helm/cube-track -f values-staging.yaml -n cube-track-staging --create-namespace
+
+global:
+  domain: staging.cubetrack.com.br
+  secretName: cube-track-staging-secrets
+  realtimeMode: separate
+
+image:
+  tag: '' # definido pelo pipeline (.github/workflows/deploy.yml), git sha ou tag
+
+config:
+  NODE_ENV: production
+  LOG_LEVEL: debug
+  BASE_DOMAIN: staging.cubetrack.com.br
+  APP_URL: https://staging.cubetrack.com.br
+  API_URL: https://api-staging.cubetrack.com.br
+  CORS_ORIGINS: https://staging.cubetrack.com.br
+  API_INTERNAL_URL: http://cube-track-api:3001
+  NEXT_PUBLIC_REALTIME_URL: https://api-staging.cubetrack.com.br
+  NEXT_PUBLIC_API_URL: https://api-staging.cubetrack.com.br
+  COOKIE_SECURE: 'true'
+  COOKIE_DOMAIN: staging.cubetrack.com.br
+  S3_ENDPOINT: https://s3.sa-east-1.amazonaws.com
+  S3_REGION: sa-east-1
+  S3_BUCKET: cubetrack-staging-files
+  S3_FORCE_PATH_STYLE: 'false'
+  MEILI_URL: https://meili-staging.cubetrack.internal
+  # Exemplo de feature flag ligada só em staging para validação antes de produção:
+  # FEATURE_EXAMPLE_FLAG: 'true'
+
+api:
+  replicaCount: 2
+  autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 4 }
+
+worker:
+  replicaCount: 2
+
+web:
+  replicaCount: 2
+  autoscaling: { enabled: true, minReplicas: 2, maxReplicas: 4 }
+
+realtime:
+  enabled: true
+  replicaCount: 2
+
+ingress:
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+    nginx.ingress.kubernetes.io/proxy-body-size: 100m
+  tls:
+    enabled: true
+    webSecretName: cube-track-staging-web-tls
+    apiSecretName: cube-track-staging-api-tls
+  web:
+    host: staging.cubetrack.com.br
+  api:
+    host: api-staging.cubetrack.com.br
+
+backup:
+  enabled: true
+  s3Bucket: cubetrack-staging-backups
+
+serviceMonitor:
+  enabled: true

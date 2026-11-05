@@ -1,0 +1,80 @@
+name: Build e push das imagens
+
+# Registro: GHCR (ghcr.io). Escolhido porque usa o GITHUB_TOKEN padrão do próprio Actions — sem
+# criar conta nova, sem segredo adicional — e já concede `packages: write` ao workflow. Funciona
+# de verdade neste repositório hoje (ao contrário de .github/workflows/deploy.yml, que depende de
+# credenciais de cluster que não existem neste ambiente).
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  workflow_dispatch:
+
+concurrency:
+  group: build-and-push-${{ github.ref }}
+  cancel-in-progress: false # nunca cancela um push de imagem em andamento
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BASE: ${{ github.repository }} # ex.: cube-track/cube-track
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: api
+            dockerfile: apps/api/Dockerfile
+            image: cube-track-api
+          - name: worker
+            dockerfile: apps/worker/Dockerfile
+            image: cube-track-worker
+          - name: web
+            dockerfile: apps/web/Dockerfile
+            image: cube-track-web
+          - name: db-migrate
+            dockerfile: packages/db/Dockerfile
+            image: cube-track-db-migrate
+          - name: backup
+            dockerfile: infra/docker/backup/Dockerfile
+            image: cube-track-backup
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Login no GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Metadados (tags/labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_BASE }}-${{ matrix.image }}
+          tags: |
+            type=sha,prefix=,format=long
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build e push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.name }}

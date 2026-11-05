@@ -1,0 +1,154 @@
+# CUBE TRACK — regras de alerta do Prometheus.
+#
+# Nomes de métrica confirmados rodando a api localmente (METRICS_PORT=9464) e lendo
+# `curl localhost:9464/metrics` de verdade (não adivinhados) — ver docs/deploy.md
+# "Observabilidade" para o procedimento exato e a lista completa do que foi confirmado.
+# Métricas de negócio (`cube_realtime_*`, `cube_permission_cache_*`) vêm de
+# apps/api/src/core/observability/metrics.ts. Métricas HTTP/PG/Redis vêm da auto-instrumentação
+# OpenTelemetry já configurada em apps/api/src/instrumentation.ts.
+#
+# Carregue este arquivo num Prometheus real com `rule_files: ['alerts.yml']` — este repositório
+# não roda um Prometheus de verdade (ver docs/deploy.md para o que isso implica).
+groups:
+  - name: cube-track-api
+    rules:
+      - alert: CubeTrackApiDown
+        expr: up{job="cube-track-api"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations:
+          summary: 'API do CUBE TRACK fora do ar ({{ $labels.instance }})'
+          description: >-
+            O alvo de scrape {{ $labels.instance }} está down há mais de 2 minutos.
+            Runbook: docs/runbooks/api-down.md
+          runbook: docs/runbooks/api-down.md
+
+      - alert: CubeTrackApiErrorRateHigh
+        # http_server_duration_count é o nome REAL emitido pela auto-instrumentação OpenTelemetry
+        # HTTP desta versão (@opentelemetry/instrumentation-http via o exporter Prometheus
+        # @opentelemetry/exporter-prometheus) — confirmado rodando a api local com
+        # METRICS_PORT=9464 e lendo `curl localhost:9464/metrics` (não é
+        # http_server_request_duration_seconds, que é o nome de uma versão/convenção mais nova
+        # da instrumentação; esta usa a convenção antiga: histograma em MILISSEGUNDOS, unidade
+        # "ms", com o label `http_status_code`, não `http_response_status_code`).
+        expr: >-
+          sum(rate(http_server_duration_count{job="cube-track-api", http_status_code=~"5.."}[5m]))
+          /
+          sum(rate(http_server_duration_count{job="cube-track-api"}[5m]))
+          > 0.05
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: 'Taxa de erro 5xx da API acima de 5% nos últimos 5 minutos'
+          description: 'Confirme com `/health/ready` e os logs da api. Runbook: docs/runbooks/api-down.md'
+          runbook: docs/runbooks/api-down.md
+
+      - alert: CubeTrackApiLatencyP95High
+        # Meta do prompt 16: p95 < 200 ms. http_server_duration já vem em milissegundos (ver nota
+        # acima) — comparar direto com 200, sem converter para segundos.
+        expr: >-
+          histogram_quantile(0.95,
+            sum(rate(http_server_duration_bucket{job="cube-track-api"}[5m])) by (le)
+          ) > 200
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'p95 de latência da API acima de 200 ms (meta do prompt 16) por 10 minutos'
+          description: 'Ver dashboard "API health" (infra/observability/grafana/) para isolar a rota afetada.'
+
+      - alert: CubeTrackPostgresConnectionsHigh
+        # pg_pool_size / pg_pool_pending (nomes exatos conforme emitidos por
+        # @opentelemetry/instrumentation-pg — confirme no `/metrics` do ambiente antes de ativar
+        # esta regra num Prometheus real; usamos aqui o sinal equivalente do lado do servidor,
+        # que não depende da instrumentação do cliente e é mais confiável para esgotamento real.)
+        expr: >-
+          sum(pg_stat_activity_count{datname="cubetrack"}) / scalar(pg_settings_max_connections) > 0.8
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Conexões do PostgreSQL acima de 80% de max_connections'
+          description: >-
+            Requer o postgres_exporter (não incluso neste chart) ou a métrica equivalente do
+            Postgres gerenciado. Runbook: docs/runbooks/postgres-pool-exhausted.md
+          runbook: docs/runbooks/postgres-pool-exhausted.md
+
+  - name: cube-track-realtime
+    rules:
+      - alert: CubeTrackRealtimePropagationP95High
+        # Meta ADR 0027 / docs/realtime-events.md: p95 < 300 ms (medido ~64 ms em teste automatizado).
+        expr: >-
+          histogram_quantile(0.95,
+            sum(rate(cube_realtime_propagation_ms_bucket[5m])) by (le)
+          ) > 300
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'p95 de propagação de eventos em tempo real acima de 300 ms (ADR 0027) por 10 minutos'
+          description: >-
+            Verifique o Redis (canal `cube:realtime:events`) e o OutboxRelay do worker
+            (OUTBOX_POLL_MS/OUTBOX_BATCH_SIZE). Dashboard: "Realtime propagation".
+
+      - alert: CubeTrackRealtimeConnectionsDropped
+        expr: delta(cube_realtime_connections[5m]) < -200
+        for: 2m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Queda abrupta de conexões realtime (> 200 em 5 minutos)'
+          description: >-
+            Pode indicar reinício do deployment `realtime` (REALTIME_MODE=separate, ADR 0027) ou
+            um problema de rede/ingress com WebSocket. Confira o rollout do deployment realtime.
+
+  - name: cube-track-permission-cache
+    rules:
+      - alert: CubeTrackPermissionCacheHitRateLow
+        # Queda brusca na taxa de acerto do cache de permissões é sinal de cache quebrado
+        # (ex.: Redis flushado, chave de cache mudou de formato) — toda checagem de permissão
+        # cai para o caminho lento (consulta ao banco), o que também eleva a latência da api.
+        expr: >-
+          sum(rate(cube_permission_cache_hits_total[10m]))
+          /
+          (sum(rate(cube_permission_cache_hits_total[10m])) + sum(rate(cube_permission_cache_misses_total[10m])))
+          < 0.5
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Taxa de acerto do cache de permissões abaixo de 50% por 10 minutos'
+          description: >-
+            Possível cache quebrado ou Redis reiniciado. Ver dashboard "Permission cache hit rate".
+            Correlacione com CubeTrackApiLatencyP95High — costumam disparar juntos.
+
+  - name: cube-track-queues
+    rules:
+      - alert: CubeTrackQueueBacklogGrowing
+        # Requer um exporter de filas BullMQ/Redis (ex.: bullmq-exporter-prometheus ou um script
+        # que publique `bullmq_queue_waiting_count` lendo `bull:<fila>:wait` do Redis) — não
+        # incluso neste chart por padrão. Documentado como meta-alerta até esse exporter existir.
+        expr: bullmq_queue_waiting_count > 1000
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Fila {{ $labels.queue }} do BullMQ com mais de 1000 jobs esperando há 15 minutos'
+          description: 'Runbook: docs/runbooks/fila-com-atraso.md'
+          runbook: docs/runbooks/fila-com-atraso.md
+
+  - name: cube-track-kubernetes
+    rules:
+      - alert: CubeTrackPodCrashLooping
+        # Métrica padrão do kube-state-metrics (não específica da aplicação) — requer
+        # kube-state-metrics instalado no cluster, comum em qualquer instalação do Prometheus
+        # Operator (kube-prometheus-stack).
+        expr: >-
+          increase(kube_pod_container_status_restarts_total{namespace=~"cube-track.*"}[15m]) > 3
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: 'Pod {{ $labels.pod }} reiniciando repetidamente (> 3 vezes em 15 min)'
+          description: 'Runbook: docs/runbooks/api-down.md (ou o componente correspondente).'
+          runbook: docs/runbooks/api-down.md
+
+      - alert: CubeTrackPodNotReady
+        expr: kube_pod_status_ready{namespace=~"cube-track.*", condition="true"} == 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Pod {{ $labels.pod }} não está Ready há mais de 10 minutos'

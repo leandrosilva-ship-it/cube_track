@@ -1,0 +1,27 @@
+{{/*
+Requer o Prometheus Operator instalado no cluster (CRD monitoring.coreos.com/v1 ServiceMonitor).
+Assumimos isso só quando serviceMonitor.enabled=true é ligado explicitamente por ambiente — ver
+infra/observability/prometheus/scrape-config-example.yml para o caminho sem o Operator
+(scrape_config estático apontando para os three Services por DNS do cluster).
+*/}}
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "cube-track.fullname" . }}
+  labels:
+    {{- include "cube-track.labels" . | nindent 4 }}
+    {{- with .Values.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: ['cube-track']
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+{{- end }}

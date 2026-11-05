@@ -1,0 +1,52 @@
+name: Segurança (SCA + SAST)
+
+# Não substitui ci.yml (lint/typecheck/test) nem é um gate de deploy — roda em paralelo, em todo
+# push/PR, e falhas aqui aparecem como check separado no PR.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Pega vulnerabilidades novas publicadas depois do último push/PR (o pnpm audit só vê o que
+    # existe no momento em que roda).
+    - cron: '0 6 * * 1' # segundas, 06:00 UTC
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sca:
+    name: SCA — pnpm audit (dependências)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # `pnpm audit` sozinho falha o job em qualquer severidade >= high. Não travamos o merge em
+      # "moderate"/"low" (ruído demais para um monorepo deste tamanho) — ajuste
+      # --audit-level conforme a política de segurança amadurecer.
+      - name: pnpm audit (high/critical falha o job)
+        run: pnpm audit --audit-level=high
+
+  sast:
+    name: SAST — Semgrep (regras livres, sem conta/token)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container:
+      image: semgrep/semgrep:1.99.0
+    steps:
+      - uses: actions/checkout@v4
+      # Escolha: Semgrep CLI com os rulesets públicos p/default + p/owasp-top-ten, em vez de
+      # CodeQL. Os dois são gratuitos para rodar aqui, mas o Semgrep não exige nenhuma config
+      # adicional do repositório (CodeQL precisa do GitHub Advanced Security habilitado para
+      # repositórios privados — não sabemos se este repo é público ou privado neste ambiente).
+      # Nenhum SEMGREP_APP_TOKEN é necessário para rodar com rulesets públicos — não há
+      # dependência de segredo inexistente aqui.
+      - name: semgrep ci (p/default + p/owasp-top-ten)
+        run: semgrep scan --config p/default --config p/owasp-top-ten --error --metrics=off .

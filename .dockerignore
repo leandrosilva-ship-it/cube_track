@@ -1,0 +1,35 @@
+# Dependências e saídas de build (reconstruídas dentro da imagem)
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+**/storybook-static
+**/playwright-report
+**/test-results
+**/.vitest-cache
+
+# VCS e ferramentas locais
+.git
+.github
+.vscode
+.idea
+
+# Ambiente local / segredos (nunca entram na imagem)
+.env
+.env.*
+!.env.example
+
+# Infra local (não usada dentro do container)
+infra/docker/postgres/init
+infra/helm
+infra/observability
+infra/scripts
+docker-compose.yml
+
+# Documentação (não necessária em runtime, reduz contexto de build)
+docs
+
+# Diversos
+*.log
+.DS_Store

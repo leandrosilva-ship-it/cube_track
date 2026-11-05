@@ -1,0 +1,72 @@
+{{/*
+Migração "segura" (zero downtime): este Job roda como hook pre-install,pre-upgrade — o Helm
+espera ele terminar com sucesso ANTES de tocar nos Deployments da nova versão (api/worker/web).
+Isso garante que nenhum pod novo (com código que pode esperar uma coluna/tabela nova) chegue a
+rodar contra um schema ainda não migrado.
+
+A contrapartida, que o chart sozinho não garante — é regra de processo para quem escreve as
+migrações e o código da aplicação (ver docs/runbooks/migracao-falhou.md "Regra de migração
+aditiva-primeiro"):
+  1. Uma coluna/tabela nova entra NULLABLE ou com DEFAULT, numa migração própria, ANTES de
+     qualquer código em apps/api ou apps/worker passar a referenciá-la.
+  2. O código é então implantado (este hook roda a migração, que já é no-op se já aplicada).
+  3. Uma coluna só pode ser removida (ou um NOT NULL endurecido) depois que NENHUM pod da versão
+     anterior, que ainda lê/escreve nela, está mais no ar.
+Pular essa ordem é o que causa um rollout quebrar pods antigos e novos ao mesmo tempo.
+*/}}
+{{- if .Values.migration.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "cube-track.fullname" . }}-migrate-{{ .Release.Revision }}
+  labels:
+    {{- include "cube-track.labels" . | nindent 4 }}
+    {{- include "cube-track.selectorLabels" (dict "component" "migrate" "context" $) | nindent 4 }}
+  annotations:
+    'helm.sh/hook': pre-install,pre-upgrade
+    'helm.sh/hook-weight': '0'
+    'helm.sh/hook-delete-policy': before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.migration.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migration.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "cube-track.selectorLabels" (dict "component" "migrate" "context" $) | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: migrate
+          image: {{ include "cube-track.image" (dict "suffix" .Values.migration.image.suffix "context" $) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ['db:migrate']
+          env:
+            # Papel dono do schema (ADR 0028) — não o DATABASE_APP_URL usado pela api/worker.
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.global.secretName }}
+                  key: DATABASE_URL
+            - name: HOME
+              value: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ['ALL']
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.migration.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}

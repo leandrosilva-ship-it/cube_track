@@ -1,0 +1,89 @@
+{{/*
+HPA por CPU, concreto e funcional com o metrics-server padrão de qualquer cluster.
+
+O ideal para a api/realtime seria também autoescalar pela métrica de negócio
+`cube_realtime_connections` (conexões WebSocket ativas), que já é exportada via Prometheus
+(apps/api/src/core/observability/metrics.ts). Isso exige um adaptador de métricas externas
+instalado no cluster — Prometheus Adapter (external.metrics.k8s.io) ou KEDA com o scaler
+"prometheus" — que não faz parte deste chart. Com um desses instalados, o HPA do `api` ganharia
+uma segunda entrada em `metrics`, por exemplo:
+
+  - type: External
+    external:
+      metric:
+        name: cube_realtime_connections
+      target:
+        type: AverageValue
+        averageValue: '500'
+
+Deixado como comentário/documentação (ver README "Autoscaling"): habilitá-lo de verdade depende
+de infraestrutura fora do escopo deste chart.
+*/}}
+{{- if and .Values.api.enabled .Values.api.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "cube-track.fullname" . }}-api
+  labels:
+    {{- include "cube-track.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "cube-track.fullname" . }}-api
+  minReplicas: {{ .Values.api.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.api.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.api.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+---
+{{- if and .Values.web.enabled .Values.web.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "cube-track.fullname" . }}-web
+  labels:
+    {{- include "cube-track.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "cube-track.fullname" . }}-web
+  minReplicas: {{ .Values.web.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.web.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.web.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}
+---
+{{- if and .Values.worker.enabled .Values.worker.autoscaling.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "cube-track.fullname" . }}-worker
+  labels:
+    {{- include "cube-track.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "cube-track.fullname" . }}-worker
+  minReplicas: {{ .Values.worker.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.worker.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.worker.autoscaling.targetCPUUtilizationPercentage }}
+{{- end }}

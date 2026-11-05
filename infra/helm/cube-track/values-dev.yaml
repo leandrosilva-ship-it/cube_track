@@ -1,0 +1,69 @@
+# Overlay "dev" (cluster k8s local — kind/minikube/k3d). Réplica única, sem autoscaling, sem
+# TLS, hosts .localhost. Não é o fluxo recomendado para o dia a dia (isso é `pnpm infra:up` +
+# `pnpm --filter ... dev`, ver CLAUDE.md) — serve para validar o chart/manifests antes de
+# staging, ou para quem quer mesmo rodar a stack dentro de um cluster local.
+#
+#   helm upgrade --install cube-track infra/helm/cube-track -f values-dev.yaml -n cube-track-dev --create-namespace
+
+global:
+  domain: cubetrack.localhost
+  realtimeMode: embedded
+
+image:
+  tag: dev
+
+config:
+  NODE_ENV: development
+  BASE_DOMAIN: cubetrack.localhost
+  APP_URL: http://cubetrack.localhost
+  API_URL: http://api.cubetrack.localhost
+  CORS_ORIGINS: http://cubetrack.localhost
+  NEXT_PUBLIC_REALTIME_URL: http://api.cubetrack.localhost
+  NEXT_PUBLIC_API_URL: http://api.cubetrack.localhost
+  COOKIE_SECURE: 'false'
+  COOKIE_DOMAIN: ''
+  S3_ENDPOINT: http://cube-track-minio:9000
+  S3_FORCE_PATH_STYLE: 'true'
+  MEILI_URL: http://cube-track-meilisearch:7700
+
+api:
+  replicaCount: 1
+  autoscaling: { enabled: false }
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 384Mi }
+
+worker:
+  replicaCount: 1
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 500m, memory: 384Mi }
+
+web:
+  replicaCount: 1
+  autoscaling: { enabled: false }
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { cpu: 300m, memory: 256Mi }
+
+realtime:
+  enabled: false
+
+ingress:
+  className: nginx
+  annotations: {}
+  tls:
+    enabled: false
+  web:
+    host: cubetrack.localhost
+  api:
+    host: api.cubetrack.localhost
+
+migration:
+  enabled: true
+
+backup:
+  enabled: false
+
+serviceMonitor:
+  enabled: false

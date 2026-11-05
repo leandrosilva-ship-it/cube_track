@@ -16,6 +16,10 @@ const securityHeaders = [
 const config: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  // Build de produção do Docker (apps/web/Dockerfile): gera .next/standalone com um
+  // node_modules já podado, suficiente para rodar `node apps/web/server.js` sem o monorepo
+  // inteiro na imagem final (infra/helm/cube-track consome essa imagem).
+  output: 'standalone',
   transpilePackages: ['@cube-track/ui', '@cube-track/i18n', '@cube-track/shared'],
   experimental: { optimizePackageImports: ['lucide-react', '@cube-track/ui', '@cube-track/i18n'] },
   // Pacotes internos usam imports `./x.js` (NodeNext, exigido pela API): o webpack resolve para `.ts`.

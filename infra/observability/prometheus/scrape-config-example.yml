@@ -1,0 +1,28 @@
+# CUBE TRACK — exemplo de scrape_config estático do Prometheus para os 3 serviços.
+#
+# Use isto se o cluster NÃO tiver o Prometheus Operator instalado (sem CRD ServiceMonitor). Se
+# tiver, prefira `serviceMonitor.enabled=true` no Helm chart (infra/helm/cube-track) — ele cobre
+# o mesmo scrape via o CRD padrão em vez de um Prometheus auto-hospedado com config estática.
+#
+# Os três serviços expõem `/metrics` na porta `METRICS_PORT` (padrão 9464) — ver
+# apps/api/src/instrumentation.ts e apps/worker/src/instrumentation.ts (exporter
+# @opentelemetry/exporter-prometheus). O `job_name` aqui precisa bater com o `job="..."` usado em
+# infra/observability/prometheus/alerts.yml e nos dashboards de infra/observability/grafana/.
+scrape_configs:
+  - job_name: cube-track-api
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['cube-track-api.cube-track.svc.cluster.local:9464']
+        labels: { service: api }
+
+  - job_name: cube-track-realtime
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['cube-track-realtime.cube-track.svc.cluster.local:9465']
+        labels: { service: realtime }
+
+  - job_name: cube-track-worker
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['cube-track-worker.cube-track.svc.cluster.local:9464']
+        labels: { service: worker }

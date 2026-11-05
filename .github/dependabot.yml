@@ -1,0 +1,49 @@
+version: 2
+updates:
+  # pnpm workspace (raiz monora monorepo: apps/* e packages/* compartilham um único lockfile)
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    groups:
+      # Evita uma PR por pacote @opentelemetry/* ou @nestjs/* — agrupa famílias que sobem juntas.
+      opentelemetry:
+        patterns: ['@opentelemetry/*']
+      nestjs:
+        patterns: ['@nestjs/*']
+      tiptap:
+        patterns: ['@tiptap/*']
+      dnd-kit:
+        patterns: ['@dnd-kit/*']
+    commit-message:
+      prefix: 'chore(deps)'
+
+  # As 5 imagens Docker do projeto (apps/api, apps/worker, apps/web, packages/db, infra/docker/backup)
+  - package-ecosystem: 'docker'
+    directory: '/apps/api'
+    schedule: { interval: weekly }
+    commit-message: { prefix: 'chore(deps)' }
+  - package-ecosystem: 'docker'
+    directory: '/apps/worker'
+    schedule: { interval: weekly }
+    commit-message: { prefix: 'chore(deps)' }
+  - package-ecosystem: 'docker'
+    directory: '/apps/web'
+    schedule: { interval: weekly }
+    commit-message: { prefix: 'chore(deps)' }
+  - package-ecosystem: 'docker'
+    directory: '/packages/db'
+    schedule: { interval: weekly }
+    commit-message: { prefix: 'chore(deps)' }
+  - package-ecosystem: 'docker'
+    directory: '/infra/docker/backup'
+    schedule: { interval: weekly }
+    commit-message: { prefix: 'chore(deps)' }
+
+  # Workflows do GitHub Actions
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule: { interval: weekly }
+    commit-message: { prefix: 'ci' }

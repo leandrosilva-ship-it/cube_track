@@ -982,3 +982,75 @@ pnpm lint && pnpm typecheck && pnpm --filter @cube-track/api test && pnpm --filt
 pnpm load:items       # k6 precisa estar instalado — ver tools/load/README.md
 pnpm load:realtime
 ```
+
+### Segurança (SSO SAML 2.0, SCIM, políticas, visibilidade por órgão, auditoria avançada, LGPD) — ADR 0057
+
+**Feito**
+
+- **SSO SAML 2.0** (`apps/api/src/modules/sso/`): Service Provider completo — metadados
+  (`GET /v1/sso/:tenantSlug/metadata`), login (`GET .../login`, redireciona ao IdP) e ACS
+  (`POST .../acs`, valida a asserção com `@node-saml/node-saml` — verificação de assinatura XML-DSig
+  REAL, nunca mockada), mapeamento de atributos configurável, provisionamento no primeiro login ou
+  vínculo por e-mail, mesma sessão/cookie de qualquer outro método de login. Configuração por tenant
+  (`GET/PUT /v1/sso/config`, `sso.manage`) com certificado do IdP cifrado (BYOK).
+- **SCIM 2.0** (`/scim/v2/Users` e `/scim/v2/Groups`, fora do prefixo `/v1`): provisionamento/
+  desprovisionamento de usuários autenticado pelo token de API da plataforma (escopo `scim:manage`),
+  Groups somente leitura (espelha `teams`).
+- **RBAC avançado**: clonar um papel (de sistema ou customizado) como ponto de partida para um novo
+  (`POST /v1/roles/:id/clone`) — o CRUD de papel já existia completo desde um prompt anterior.
+- **Visibilidade de item por órgão para convidados** (`guestItemVisibility: 'org'` +
+  `guestOrgColumnId` no board, `orgUnit` no convidado): fail-safe sempre cai em `'assigned'`, nunca em
+  `'all'`, quando a configuração está incompleta. Comparador único (texto/e-mail/status/dropdown)
+  compartilhado entre a listagem em massa e a checagem de item isolado.
+- **Políticas de senha, sessão e allowlist de IP/domínio** por tenant (`GET/PATCH
+  /v1/security/policy`, `security_policy.manage`): aplicadas de verdade (não só armazenadas) em
+  login, troca de senha (histórico via nova tabela `password_history`) e refresh de sessão
+  (timeout de inatividade, vida útil absoluta, expulsão da sessão mais antiga ao exceder o máximo
+  concorrente).
+- **Auditoria avançada**: busca paginada por cursor com filtros (`GET /v1/audit/entries`,
+  `audit.read`) e exportação CSV/NDJSON em stream real (`audit.export`) — escreve direto na resposta
+  HTTP linha a linha, nunca materializa o resultado inteiro em memória. Job de retenção
+  (`audit-retention-purge`) expurga partições mensais de `audit_logs` conforme a política configurada.
+- **LGPD**: consentimento (append-only), exportação própria imediata de dados pessoais (com as
+  lacunas documentadas no próprio corpo da resposta) e solicitação de exclusão com fluxo
+  `requested → approved → executed` (`lgpd.manage`), executada por anonimização (nunca exclusão de
+  verdade — integridade referencial com auditoria/outbox/itens).
+- **Cabeçalhos de segurança**: `helmet` com CSP restrita a `'self'`, HSTS, `X-Content-Type-Options`,
+  `frame-ancestors 'none'` em `apps/api/src/bootstrap.ts` e `main.realtime.ts`.
+- **Revisão OWASP Top 10**: confirmada ausência de SQL cru alcançável por endpoint, rate limiting já
+  cobria toda rota (default global + specific), CSRF já mitigado por design (cookie só para refresh,
+  Bearer para tudo o mais) — nenhuma mudança necessária nesses três pontos, só a confirmação
+  documentada em `docs/security.md`. SCA (`pnpm audit`) e SAST (Semgrep) em CI já entregues pela
+  frente de infraestrutura (`.github/workflows/security.yml`).
+- `docs/security.md` (mapeamento ISO/IEC 27001:2022 Anexo A, com lacunas honestas) e `docs/lgpd.md`
+  novos; `docs/permissions.md` e `docs/realtime-events.md` atualizados.
+- Dois bugs reais encontrados e corrigidos durante a própria verificação: exportação de auditoria
+  sempre vazia (a transação da requisição fechava antes da geradora rodar — corrigido escrevendo
+  direto na resposta HTTP dentro da mesma chamada) e `updateRole` com `.set({})` vazio ao atualizar só
+  `permissions` (500 do Postgres/drizzle — corrigido).
+
+**Pendências / lacunas conhecidas (documentadas em `docs/security.md` §6 e `docs/lgpd.md`)**
+
+- Sem SLO SAML nem assinatura de `AuthnRequest` pelo SP.
+- Allowlist de IP/domínio aplicada só no login, não a cada requisição subsequente.
+- Exportação LGPD não cobre comentários/itens responsável/apontamentos de horas.
+- SCIM Groups somente leitura (CRUD de time já era fora de escopo desde o Prompt 11).
+- Retenção de auditoria com granularidade mensal (partição), não por dia exato por tenant.
+- SSRF em URLs de webhook de saída (Prompts 10/15, pré-existente) — achado de revisão, não corrigido
+  nesta frente.
+
+**Como rodar e testar**
+
+```bash
+pnpm infra:up && pnpm db:migrate && pnpm db:seed
+pnpm --filter @cube-track/api dev
+pnpm --filter @cube-track/api lint && pnpm --filter @cube-track/api typecheck
+pnpm --filter @cube-track/api test   # inclui sso.e2e, scim.e2e, governance.e2e, security-policy.e2e
+```
+
+Manualmente: `PUT /v1/sso/config` com o certificado do IdP para habilitar SSO de um tenant; o botão
+"Entrar com SSO" do app aponta para `GET /v1/sso/:tenantSlug/login`. Um token de API com escopo
+`scim:manage` (`POST /v1/me/tokens`) autentica um provedor SCIM corporativo contra `/scim/v2/Users`.
+`GET/PATCH /v1/security/policy` configura a política de segurança do tenant corrente.
+`GET /v1/audit/entries` busca auditoria; `GET /v1/audit/entries/export?format=csv|ndjson` exporta.
+`/v1/me/lgpd/*` é autosserviço; `/v1/lgpd/requests/*` é administração (`lgpd.manage`).

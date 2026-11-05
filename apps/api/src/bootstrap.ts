@@ -6,6 +6,7 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { json, urlencoded, type Request } from 'express';
+import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module.js';
@@ -26,6 +27,31 @@ export async function createApp(
   if (options.logger !== false) app.useLogger(app.get(Logger));
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
+  // Cabeçalhos de segurança (ADR 0057, OWASP): a API não serve HTML de produto algum (só o Swagger
+  // UI embutido em /v1/docs, servido localmente pelo @nestjs/swagger — sem CDN), daí a CSP restrita
+  // a 'self'. `style-src 'unsafe-inline'` é necessário para o Swagger UI (estilos inline do próprio
+  // pacote); nunca liberado para script. HSTS, X-Content-Type-Options e frame-ancestors 'none' vêm
+  // dos padrões do helmet (nunca enquadrável em outro site — não há por que ser).
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:'],
+          connectSrc: ["'self'"],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          frameAncestors: ["'none'"],
+        },
+      },
+      crossOriginResourcePolicy: { policy: 'same-site' },
+      referrerPolicy: { policy: 'no-referrer' },
+    }),
+  );
   app.use(cookieParser());
   // Guarda o corpo BRUTO (antes do parse) em `req.rawBody`: webhooks de entrada (GitHub, Slack, ADR
   // 0056) assinam/validam sobre os bytes exatos recebidos (JSON ou form-encoded, caso do comando de

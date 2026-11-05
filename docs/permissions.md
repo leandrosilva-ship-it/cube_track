@@ -47,7 +47,7 @@ Os papéis de sistema são criados em todo tenant (`packages/db/src/provisioning
    - `workspace_viewer` → `board_viewer`.
      Boards **privados** e **compartilháveis** exigem concessão explícita.
 4. **Concessões explícitas** (`access_grants`) ao usuário ou a um de seus **times** são unidas às anteriores. Concessões expiradas (`expires_at`) são ignoradas.
-5. **Convidado**: `itemScope = 'assigned'`, a menos que o board defina `guest_item_visibility = 'all'`. Ele lê e edita só itens em que ele, ou um time dele, aparece numa coluna `people`. Uma concessão `item` abre um item específico.
+5. **Convidado**: `itemScope = 'assigned'`, a menos que o board defina `guest_item_visibility = 'all'` ou `'org'` (ADR 0057). Com `'assigned'` (padrão), lê/edita só itens em que ele, ou um time dele, aparece numa coluna `people`. Com `'org'`, lê/edita só itens cujo valor na coluna `guestOrgColumnId` do board (texto, e-mail, status ou dropdown — comparação exata, case-insensitive) seja IGUAL ao `orgUnit` declarado do próprio convidado (`memberships.org_unit`, definido pela administração do tenant/workspace). **Fail-safe**: `'org'` sem `guestOrgColumnId` configurado, com a coluna excluída depois, de tipo não suportado, ou com o convidado sem `orgUnit`, cai em `'assigned'` — nunca em `'all'`. Uma concessão `item` abre um item específico em qualquer um dos três modos.
 
 ## 4. Regras por ação (`decide`)
 
@@ -331,3 +331,30 @@ que ele emite (`client_credentials`) age com as permissões de quem **criou** o 
 raciocínio usado para "quem age" por trás de um webhook de integração sem sessão (comando de barra do
 Slack, auto-avanço de status ao mesclar PR): sempre `integration_connections.createdBy`, nunca uma
 identidade de serviço separada. Ver `docs/integrations.md` para o funcionamento completo.
+
+### Segurança avançada: SSO/SCIM, políticas, auditoria e LGPD (Prompt 16, ADR 0057)
+
+Quatro permissões de tenant novas: `audit.export`, `sso.manage`, `security_policy.manage` e
+`lgpd.manage` — adicionadas aos papéis `owner`/`admin` em `provisioning.ts` (tenants já existentes
+antes desta entrega não as ganham retroativamente, mesmo precedente de `audit.read`/`ai.manage` nos
+Prompts 2/14). `audit.read` (já existia) cobre busca; `audit.export`, exportação (mais sensível).
+
+| Operação                                                                              | Permissão exigida       |
+| -------------------------------------------------------------------------------------- | ------------------------ |
+| Ler a política de segurança do tenant (senha/sessão/allowlist)                         | sessão autenticada       |
+| Configurar a política de segurança do tenant                                           | `security_policy.manage` |
+| Ler/configurar o SSO SAML 2.0 do tenant                                                 | `sso.manage`             |
+| Login/metadados/ACS SAML (`/v1/sso/:tenantSlug/...`)                                    | público (pré-sessão)     |
+| SCIM 2.0 (`/scim/v2/Users`, `/scim/v2/Groups`)                                          | token de API com escopo `scim:manage`, cujo dono tenha `members.invite` (leitura) ou `members.manage` (escrita) |
+| Clonar um papel como ponto de partida para um novo (`POST /v1/roles/:id/clone`)         | `roles.manage` (já existia) |
+| Buscar entradas de auditoria (`GET /v1/audit/entries`)                                  | `audit.read`             |
+| Exportar auditoria em CSV/NDJSON (`GET /v1/audit/entries/export`)                       | `audit.export`           |
+| Registrar o próprio consentimento, exportar os próprios dados, solicitar a própria exclusão (LGPD) | sessão autenticada (autosserviço, `/v1/me/lgpd/*`) |
+| Listar todas as solicitações de titular, decidir e executar uma exclusão (LGPD)        | `lgpd.manage`            |
+| Definir `guestItemVisibility`/`guestOrgColumnId` de um board                            | `board.manage` (já existia) |
+| Definir o `orgUnit` de um convidado                                                     | `members.manage` (já existia, endpoint estendido) |
+
+Visibilidade de item por órgão (`guestItemVisibility: 'org'`): ver §3 item 5, acima. SSO/SCIM
+reaproveitam o RBAC normal (nunca um RBAC paralelo): SSO provisiona com o papel `defaultRoleKey`
+configurado; SCIM provisiona sempre com o papel `member`. Detalhes de design completos na ADR 0057 e
+em `docs/security.md`/`docs/lgpd.md`.

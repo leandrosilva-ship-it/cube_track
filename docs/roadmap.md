@@ -898,3 +898,87 @@ pnpm --filter @cube-track/sdk build        # dist/ (ESM + .d.ts)
 ```
 
 **Próximos passos:** Prompt 16 — segurança, performance, testes e deploy.
+
+## Prompt 16 — Resumo
+
+> Entregue por três frentes em paralelo (segurança, performance, deploy/infra) — cada uma documenta
+> sua fatia nesta seção; ver ADRs 0057 (segurança) e 0058 (performance) para o detalhe técnico.
+
+### Performance (testes de carga, cache, bundle-splitting) — ADR 0058
+
+**Feito**
+
+- `tools/load/` (k6, local em `docs/architecture.md` §5): `items-list.js` (rampa de 0 a
+  `LOAD_VUS_MAX` VUs contra `GET /v1/boards/:id/items` do board "Carga — 50 mil itens", um token de
+  API por VU — um único token compartilhado estoura o teto de 300 req/min por token do ADR 0056) e
+  `realtime.js` (Engine.IO/Socket.IO v4 falado diretamente sobre `k6/ws`, sem cliente — VUs
+  assinantes na room do board enquanto VUs mutadores mudam itens via REST, cruzando o p95 medido no
+  cliente com o histograma Prometheus real `cube_realtime_propagation_ms` via
+  `scrape-metrics.sh`). `pnpm load:items` / `pnpm load:realtime`; README com todos os números.
+- **`BoardCacheService`** (`apps/api/src/core/cache`): cache versionado no Redis para a forma
+  tenant-wide de `BoardsService.getBoard` (board, grupos, colunas, rótulos, opções — nunca dados
+  dependentes do usuário como `canEdit`/permissões/colunas ocultas, calculados a cada requisição
+  sobre a forma cacheada), mesmo padrão do cache de permissões já existente (`AccessService`).
+  Invalidação explícita em `ColumnsService`/`GroupsService`/`ImportExportService`/`StructureService`/
+  `ProcessesService`. Métricas `cube_board_cache_hits/misses_total`.
+- **Bundle-splitting por view** (`apps/web/src/features/board/view-body.tsx`): Tabela, Kanban,
+  Calendário, Timeline, Gantt, Formulário, Dashboard e Workload (as views mais pesadas — nenhuma
+  usava `next/dynamic` antes) agora são um bundle por tipo, carregado só quando a view está ativa.
+- **Prefetch de board** (`usePrefetchBoard`, `features/board/hooks.ts`): board + views pré-buscados
+  (TanStack Query) em `onMouseEnter`/`onFocus` do link do board, na árvore do workspace e na lista
+  de boards — a navegação mais comum já encontra os dois no cache.
+
+**Resultados medidos (sandbox de 4 vCPU/16 GB desta sessão — números completos e comandos
+`EXPLAIN ANALYZE` em `tools/load/README.md`)**
+
+- ❌ **p95 < 200 ms não alcançado**: 50 VUs → p95 ≈ 4,3 s; 300 VUs → p95 ≈ 22,3 s (0% de erro —
+  não é limite de taxa nem autenticação, ambos isolados e descartados). Causa raiz confirmada com
+  `EXPLAIN (ANALYZE, BUFFERS)` no board de 50 mil itens: ordenar/filtrar por **qualquer coluna
+  customizada** faz o Postgres preterir os índices compostos já existentes
+  (`item_field_index_num_idx`/`_date_idx`/`_text_idx`/`_bool_idx`) por um `Parallel Hash Right
+  Join` sobre dois `Seq Scan` (~85–95 ms só de execução) — o `LEFT JOIN` entre `items` e
+  `item_field_index` (necessário porque nem todo item tem linha em `item_field_index` para toda
+  coluna) impede o planner de aproveitar o índice para o `ORDER BY ... LIMIT`. Mesmo o caminho sem
+  ordenação faz `Seq Scan` de todo o board nesse volume. Corrigir exige reestruturar a estratégia de
+  paginação/ordenação de `item-query.ts` (topo-N em duas etapas com UNION para itens sem valor,
+  preservando cursor e filtros combinados) — não feito nesta sessão por ser uma mudança de alto
+  risco num arquivo de 655 linhas sem suíte de teste unitário dedicada; diagnóstico completo e
+  critério de correção documentados em `tools/load/README.md` e na ADR 0058 para um follow-up.
+- ⚠️ **Propagação realtime < 300 ms — não medida nesta sessão**: o protocolo foi implementado e
+  validado ponta a ponta (conexão, autenticação, evento `ready`), mas a chamada `subscribe` do
+  gateway retorna erro interno por um bug isolado e confirmado em código de permissões sob
+  desenvolvimento concorrente nesta mesma janela (ADR 0057, `AccessService.can()` → `decide()` para
+  `'board.read'` — os mesmos caminhos usados por `GET /v1/boards/:id`/`GET /v1/boards/:id/items`
+  continuam funcionando normalmente). Fora do escopo e dos arquivos desta frente.
+- ✅ Cache de permissões (já existente) confirmado efetivo sob as chamadas manuais desta sessão
+  (483 acertos / 18 faltas nas métricas); `BoardCacheService` novo também confirmado efetivo (1
+  falta só, nas dezenas de `GET /v1/boards/:id` repetidas no mesmo board).
+
+**Pendências**
+
+- Reescrever a estratégia de ordenação/filtro por coluna customizada em `item-query.ts` para
+  aproveitar os índices já existentes em boards grandes (ver ADR 0058 e `tools/load/README.md`).
+- Avaliar índice para o caminho "ordenar por nome"/sem ordenação em boards de dezenas de milhares
+  de itens (também faz table scan nesse volume, mais barato que o caso de coluna customizada mas
+  ainda caro).
+- Resolver o bug de `AccessService.can()` para `'board.read'` (fora desta frente) e então rodar
+  `pnpm load:realtime` para números reais de propagação.
+- `pnpm --filter @cube-track/web build` falhou nesta sessão por um problema pré-existente e não
+  relacionado (`packages/shared/src/integrations.ts` importa `node:crypto` no topo do arquivo e o
+  barril `@cube-track/shared` o expõe a um componente cliente de formulários — webpack tenta
+  empacotar `node:crypto` para o navegador e quebra o build de produção inteiro). Bloqueou medir
+  tamanho de chunk antes/depois do bundle-splitting por build de produção; o comportamento foi
+  verificado via protocolo/leitura de código em vez disso. Registrado para correção dedicada
+  (mover as funções de HMAC para um módulo só-servidor fora do `index.ts` do barril).
+
+**Como rodar e testar**
+
+```bash
+pnpm infra:up && pnpm db:migrate && pnpm db:seed && pnpm db:seed:large
+pnpm build   # apps/web falha por bug pré-existente não relacionado — ver pendências
+pnpm --filter @cube-track/api start      # suba com OTEL_SDK_DISABLED=false para ver /metrics
+pnpm --filter @cube-track/worker start
+pnpm lint && pnpm typecheck && pnpm --filter @cube-track/api test && pnpm --filter @cube-track/web test
+pnpm load:items       # k6 precisa estar instalado — ver tools/load/README.md
+pnpm load:realtime
+```

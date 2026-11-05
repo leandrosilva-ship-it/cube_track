@@ -18,6 +18,10 @@ export const WorkerConfigSchema = z.object({
   DATABASE_RELAY_URL: z.string().min(1),
   REDIS_URL: z.string().default('redis://localhost:6379'),
   APP_URL: z.url().default('http://localhost:3000'),
+  /** API (ADR 0056): o polling de e-mail-para-item (Gmail/Outlook) alimenta o mesmo webhook de e-mail
+   * recebido que um provedor de "inbound parse" chamaria — nunca reimplementa o parser aqui. */
+  API_URL: z.url().default('http://localhost:3001'),
+  INBOUND_EMAIL_WEBHOOK_SECRET: z.string().min(16).default('dev-inbound-email-secret-change-me'),
   SMTP_URL: z.string().default('smtp://localhost:1025'),
   EMAIL_FROM: z.string().default('CUBE TRACK <nao-responda@cubetrack.com.br>'),
   /** Mesmo segredo da API — assina/confere o endereço de resposta por e-mail (ADR 0048). */

@@ -18,6 +18,7 @@ import { FilesModule } from './modules/files/files.module.js';
 import { FormsModule } from './modules/forms/forms.module.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
 import { ImportsModule } from './modules/imports/imports.module.js';
+import { IntegrationsModule } from './modules/integrations/integrations.module.js';
 import { PlanningModule } from './modules/planning/planning.module.js';
 import { ProcessesModule } from './modules/processes/processes.module.js';
 import { TemplatesModule } from './modules/templates/templates.module.js';
@@ -64,6 +65,7 @@ import { WorkModule } from './modules/work/work.module.js';
     ApiAccessModule,
     TemplatesModule,
     ImportsModule,
+    IntegrationsModule,
     // Com REALTIME_MODE=separate o gateway roda só no processo main.realtime (ADR 0027).
     ...(loadConfig().REALTIME_MODE === 'embedded' ? [RealtimeModule] : []),
   ],

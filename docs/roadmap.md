@@ -18,7 +18,7 @@ Legenda: ✅ concluído · 🟡 aguardando validação · ⏳ pendente · 🔄 e
 | 12  | Portfólio                                          | ⏳           | Programas, portfólios, scoring, rollups, visão executiva                                                                                                                                                                      | —         |
 | 13  | Contratos/OS/UST                                   | ✅ Concluído | Contrato, catálogo de serviços (Código Edital), OS com ciclo de vida completo, saldo de UST ao vivo, medição mensal reconciliada, faturamento, alertas diários, 3 widgets de UST                                              | 0054      |
 | 14  | IA                                                 | ✅ Concluído | Configuração por tenant, assistente lateral, criação de item por texto, resumos, descrição sugerida, previsões, agentes configuráveis com aprovação humana                                                                   | 0055      |
-| 15  | API pública, Integrações, Importadores e Templates | ⏳           | API v1, webhooks, SDK, importador Monday/Jira/Trello/CSV, templates                                                                                                                                                           | —         |
+| 15  | API pública, Integrações, Importadores e Templates | ✅ Concluído | Tokens pessoais/apps OAuth `client_credentials`, webhooks de saída (log/reenvio), galeria de templates, importação em background (Monday/Trello/Jira/Pipefy/CSV), integrações Google/Microsoft (OAuth, calendário, Drive/OneDrive, e-mail-para-item), Slack/Teams (notificação, comando de barra, link preview) e GitHub/GitLab/Azure DevOps (webhook → vínculo de item, auto-avanço de status) | 0056      |
 | 16  | Segurança, Performance, Testes e Deploy            | ⏳           | Hardening, testes de carga, CI/CD, Helm, observabilidade, runbooks                                                                                                                                                            | —         |
 
 ## Prompt 1 — Resumo
@@ -784,3 +784,45 @@ item, previsões, agentes e aprovações; no painel de um item, teste "Gerar des
 "Resumir atualizações com IA" (aba Atualizações).
 
 **Próximos passos:** Prompt 15 — API pública, integrações, importadores e templates.
+
+## Prompt 15 — Resumo
+
+**Feito** (três partes, ADR 0056): (1) API pública — tokens pessoais (`/v1/me/tokens`), apps OAuth
+`client_credentials` com escopos (`/v1/oauth-apps`, `/v1/oauth/token`), rate limit por token; (2)
+webhooks de saída com log/reenvio, galeria de templates (pública + interna do tenant) e importação em
+background (Monday/Trello/Jira/Pipefy/CSV) com relatório de erros; (3) integrações de terceiros —
+**Google Workspace/Microsoft 365**: app OAuth do tenant (`integration_apps`), fluxo de autorização com
+estado no Redis, tokens cifrados com refresh automático, sincronização de calendário nas duas direções
+(item → evento via fila `calendar-sync`; evento → item via rotina periódica `calendar-sync-periodic`,
+15/15 min), arquivo do Drive/OneDrive vinculado por referência (`external_file_links`); **Slack/Teams**:
+notificação de saída por preferência de canal (`notification_preferences.channel`), comando de barra
+`/cubetrack create` (com `enforceRequired: false` deliberado), link preview (payload de unfurl pronto);
+**GitHub/GitLab/Azure DevOps**: webhook de entrada com verificação própria por provedor (HMAC/token
+simples/Basic Auth), vínculo de commit/PR a item por `#token`/UUID (`dev_event_links`), auto-avanço de
+status ao mesclar PR com heurística conservadora (`pickStatusAdvance`, exige ≥ 3 categorias na coluna +
+exatamente um rótulo "concluído").
+
+**Pendências**: e-mail-para-item (Gmail/Outlook) tem a plumbing de polling pronta mas encaminha pelo
+mesmo webhook `/v1/email/inbound` sem teste automatizado dedicado; link preview do Slack monta o payload
+de unfurl mas não chama `chat.unfurl` de volta (exigiria bot token, fora do escopo BYOK desta entrega);
+Teams sem slash command/interação (exigiria Bot Framework); reconciliação de exclusão de evento no
+Microsoft Graph é best-effort (sem delta query); sem frontend para as novas telas de integrações (fora
+do pedido desta entrega, que foi só backend). Detalhes completos em `docs/adr/0056-*.md`.
+
+**Como rodar e testar**
+
+```bash
+pnpm infra:up && pnpm db:reset && pnpm db:seed
+pnpm build
+pnpm --filter @cube-track/api start      # API :3001
+pnpm --filter @cube-track/worker start   # inclui o processor de calendar-sync e a rotina periódica
+pnpm --filter @cube-track/api test       # test/integrations.e2e.test.ts
+pnpm --filter @cube-track/worker test    # test/calendar-sync.e2e.test.ts
+```
+
+Manualmente (requer `integrations.manage` no workspace): `POST /v1/workspaces/:id/integrations/<provider>/connect`
+para cada provedor (ver `docs/openapi.json`), depois `GET /v1/workspaces/:id/integrations` para listar e
+`DELETE /v1/integrations/:connectionId` para desconectar. Webhooks de entrada (GitHub/GitLab/Azure
+DevOps/Slack) são públicos e exigem a assinatura/credencial configurada em `connect`.
+
+**Próximos passos:** Prompt 16 — segurança, performance, testes e deploy.

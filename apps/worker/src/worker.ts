@@ -13,6 +13,7 @@ import type { Logger } from './logger.js';
 import { OutboxRelay } from './outbox-relay.js';
 import { aiAgentsProcessor } from './processors/ai-agents.js';
 import { automationsProcessor } from './processors/automations.js';
+import { calendarSyncPushProcessor, createCalendarSyncPeriodic } from './processors/calendar-sync.js';
 import { computedProcessor } from './processors/computed.js';
 import { createContractAlertsDaily } from './processors/contracts.js';
 import { createMailer, emailProcessor } from './processors/email.js';
@@ -83,6 +84,14 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
     appUrl: config.APP_URL,
     logger,
   });
+  const calendarSyncDeps = {
+    database: appDb,
+    redis,
+    encryptionKey: config.ENCRYPTION_KEY,
+    appUrl: config.APP_URL,
+    logger,
+  };
+  const runCalendarSyncPeriodic = createCalendarSyncPeriodic(calendarSyncDeps);
 
   const workers: Worker[] = [
     createWorker(
@@ -99,6 +108,7 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
         appUrl: config.APP_URL,
         jwtSecret: config.JWT_SECRET,
         mailReplyDomain: config.MAIL_REPLY_DOMAIN,
+        encryptionKey: config.ENCRYPTION_KEY,
       }),
       common,
     ),
@@ -127,9 +137,11 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
         recomputePortfolioHealth,
         checkContractAlerts,
         checkAiAgentDateArrives: aiAgents.checkDateArrives,
+        runCalendarSyncPeriodic,
       }),
       { ...common, concurrency: 1 },
     ),
+    createWorker(QUEUES.calendarSync, calendarSyncPushProcessor(calendarSyncDeps), common),
     createWorker(QUEUES.portfolio, portfolioProcessor({ database: appDb, redis, logger }), common),
     createWorker(
       QUEUES.fileScan,

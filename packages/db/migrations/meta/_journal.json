@@ -211,6 +211,27 @@
       "when": 1793829888240,
       "tag": "0029_api_token_auth_role",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1793842268260,
+      "tag": "0030_stormy_pet_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1793842285276,
+      "tag": "0031_integration_apps_rls_and_resolver",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1793845506301,
+      "tag": "0032_active_oauth_calendar_connections",
+      "breakpoints": true
     }
   ]
 }

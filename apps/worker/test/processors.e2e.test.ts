@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { once } from 'node:events';
 import { createServer, type AddressInfo, type Server } from 'node:net';
 
@@ -62,6 +63,7 @@ const {
 
 const JWT_SECRET = 'test-jwt-secret-at-least-32-characters-long';
 const MAIL_REPLY_DOMAIN = 'reply.test.local';
+const ENCRYPTION_KEY = randomBytes(32).toString('base64');
 
 let admin: DatabaseHandle;
 let app: DatabaseHandle;
@@ -545,6 +547,7 @@ describe('notificações de menção', () => {
       appUrl: 'http://app.test',
       jwtSecret: JWT_SECRET,
       mailReplyDomain: MAIL_REPLY_DOMAIN,
+      encryptionKey: ENCRYPTION_KEY,
     });
     const result = await process(
       fakeJob(
@@ -634,6 +637,7 @@ describe('notificações de menção', () => {
       appUrl: 'http://app.test',
       jwtSecret: JWT_SECRET,
       mailReplyDomain: MAIL_REPLY_DOMAIN,
+      encryptionKey: ENCRYPTION_KEY,
     });
     const result = await process(
       fakeJob(
@@ -692,6 +696,7 @@ describe('notificações de aprovação', () => {
       appUrl: 'http://app.test',
       jwtSecret: JWT_SECRET,
       mailReplyDomain: MAIL_REPLY_DOMAIN,
+      encryptionKey: ENCRYPTION_KEY,
     });
     const result = await process(
       fakeJob(
@@ -744,6 +749,7 @@ describe('notificações de aprovação', () => {
       appUrl: 'http://app.test',
       jwtSecret: JWT_SECRET,
       mailReplyDomain: MAIL_REPLY_DOMAIN,
+      encryptionKey: ENCRYPTION_KEY,
     });
     const result = await process(
       fakeJob(
@@ -807,6 +813,7 @@ describe('notificações de aprovação', () => {
       appUrl: 'http://app.test',
       jwtSecret: JWT_SECRET,
       mailReplyDomain: MAIL_REPLY_DOMAIN,
+      encryptionKey: ENCRYPTION_KEY,
     });
     const result = await process(
       fakeJob(
@@ -865,6 +872,7 @@ describe('notificações de capacidade e timesheet (ADR 0052)', () => {
       appUrl: 'http://app.test',
       jwtSecret: JWT_SECRET,
       mailReplyDomain: MAIL_REPLY_DOMAIN,
+      encryptionKey: ENCRYPTION_KEY,
     });
     const created = await process(
       fakeJob(
@@ -945,6 +953,7 @@ describe('notificações de capacidade e timesheet (ADR 0052)', () => {
       appUrl: 'http://app.test',
       jwtSecret: JWT_SECRET,
       mailReplyDomain: MAIL_REPLY_DOMAIN,
+      encryptionKey: ENCRYPTION_KEY,
     });
     const created = await process(
       fakeJob(
@@ -1030,6 +1039,7 @@ describe('notificações de capacidade e timesheet (ADR 0052)', () => {
       appUrl: 'http://app.test',
       jwtSecret: JWT_SECRET,
       mailReplyDomain: MAIL_REPLY_DOMAIN,
+      encryptionKey: ENCRYPTION_KEY,
     });
     const submitted = await process(
       fakeJob(
@@ -1218,6 +1228,7 @@ describe('portfólio: RAG automático, EVM e notificações (ADR 0053)', () => {
       appUrl: 'http://app.test',
       jwtSecret: JWT_SECRET,
       mailReplyDomain: MAIL_REPLY_DOMAIN,
+      encryptionKey: ENCRYPTION_KEY,
     });
     const result = await process(
       fakeJob(
@@ -1271,6 +1282,7 @@ describe('portfólio: RAG automático, EVM e notificações (ADR 0053)', () => {
       appUrl: 'http://app.test',
       jwtSecret: JWT_SECRET,
       mailReplyDomain: MAIL_REPLY_DOMAIN,
+      encryptionKey: ENCRYPTION_KEY,
     });
     const result = await process(
       fakeJob(
@@ -1325,6 +1337,7 @@ describe('portfólio: RAG automático, EVM e notificações (ADR 0053)', () => {
       appUrl: 'http://app.test',
       jwtSecret: JWT_SECRET,
       mailReplyDomain: MAIL_REPLY_DOMAIN,
+      encryptionKey: ENCRYPTION_KEY,
     });
     const alerted = await process(
       fakeJob(

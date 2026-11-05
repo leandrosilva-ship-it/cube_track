@@ -1,5 +1,6 @@
 import { schema, type DatabaseHandle, type Transaction } from '@cube-track/db';
-import { DomainEventJobSchema, type EmailJob } from '@cube-track/shared';
+import { DomainEventJobSchema, slackNotificationBlocks, teamsAdaptiveCard, type EmailJob } from '@cube-track/shared';
+import { decryptSecret } from '@cube-track/shared/crypto';
 import type { Job, Queue } from 'bullmq';
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
@@ -30,6 +31,7 @@ const {
   aiAgents,
   aiAgentRuns,
   importJobs,
+  integrationConnections,
 } = schema;
 
 export interface NotificationsDeps {
@@ -39,6 +41,82 @@ export interface NotificationsDeps {
   appUrl: string;
   jwtSecret: string;
   mailReplyDomain: string;
+  /** Mesma chave da API (ADR 0056) — decifra a URL do Incoming Webhook do Slack/Teams para notificar
+   * por chat quando a preferência do destinatário pedir esse canal. */
+  encryptionKey: string;
+}
+
+/**
+ * Notificação por chat (Slack/Teams, ADR 0056) além de (ou em vez de) e-mail — melhor esforço:
+ * um fetch POST simples, sem fila/retentativa própria (diferente do motor de webhooks do tenant, ADR
+ * 0051, que é para webhooks do PRÓPRIO tenant assinando eventos de domínio, um conceito diferente).
+ * Só se aplica a notificações com `boardId` (a conexão Slack/Teams é por workspace, resolvido a partir
+ * do board) — notificações sem board (ausência, timesheet) não têm como escolher o canal/workspace e
+ * ficam só no e-mail/in-app, limitação documentada.
+ */
+async function dispatchChatNotification(
+  tx: Transaction,
+  deps: Pick<NotificationsDeps, 'appUrl' | 'encryptionKey'>,
+  input: {
+    boardId: string | null | undefined;
+    itemId: string | null | undefined;
+    userId: string;
+    type: string;
+    title: string;
+    body?: string | undefined;
+  },
+): Promise<void> {
+  if (input.boardId === null || input.boardId === undefined) return;
+  const preferences = await tx
+    .select()
+    .from(notificationPreferences)
+    .where(
+      and(
+        eq(notificationPreferences.userId, input.userId),
+        inArray(notificationPreferences.channel, ['slack', 'teams']),
+      ),
+    );
+  if (preferences.length === 0) return;
+  const specific = preferences.find((preference) => preference.eventType === input.type);
+  const fallback = preferences.find((preference) => preference.eventType === '*');
+  const effective = specific ?? fallback;
+  if (effective === undefined || !effective.enabled || effective.frequency !== 'instant') return;
+
+  // `inArray(...['slack','teams'])` acima já restringe o canal em tempo de execução; o tipo da coluna
+  // continua sendo o enum inteiro de notificação (também tem 'email'/'push'/'in_app').
+  const provider: 'slack' | 'teams' = effective.channel === 'slack' ? 'slack' : 'teams';
+  const [board] = await tx.select({ workspaceId: boards.workspaceId }).from(boards).where(eq(boards.id, input.boardId));
+  if (board === undefined) return;
+  const [connection] = await tx
+    .select()
+    .from(integrationConnections)
+    .where(
+      and(
+        eq(integrationConnections.workspaceId, board.workspaceId),
+        eq(integrationConnections.provider, provider),
+        eq(integrationConnections.isActive, true),
+        isNull(integrationConnections.deletedAt),
+      ),
+    );
+  if (connection === undefined || connection.outboundWebhookUrlCiphertext === null) return;
+
+  const url = decryptSecret(connection.outboundWebhookUrlCiphertext, deps.encryptionKey);
+  const notification = {
+    title: input.title,
+    body: input.body ?? '',
+    url: input.itemId === null || input.itemId === undefined ? null : `${deps.appUrl}/items/${input.itemId}`,
+  };
+  const payload = provider === 'slack' ? slackNotificationBlocks(notification) : teamsAdaptiveCard(notification);
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    // Melhor esforço (doc acima): uma falha aqui nunca deve impedir a notificação in-app/e-mail.
+  }
 }
 
 /**
@@ -205,6 +283,14 @@ async function notifyMentions(
           })
           .returning({ id: notifications.id });
         if (created === undefined) continue;
+        await dispatchChatNotification(unit.tx, deps, {
+          boardId,
+          itemId,
+          userId,
+          type: 'mention',
+          title,
+          body: bodyText.slice(0, 280),
+        });
         await unit.emit({
           type: 'notification.created',
           aggregateType: 'notification',
@@ -333,6 +419,9 @@ async function notifyApproval(
           })
           .returning({ id: notifications.id });
         if (created === undefined) continue;
+        if (status === 'pending') {
+          await dispatchChatNotification(unit.tx, deps, { boardId, itemId, userId, type: 'approval', title });
+        }
         await unit.emit({
           type: 'notification.created',
           aggregateType: 'notification',
@@ -452,6 +541,7 @@ export async function notifyUser(
   tenantId: string,
   actorId: string | null,
   input: NotifyInput,
+  chatDeps?: Pick<NotificationsDeps, 'appUrl' | 'encryptionKey'>,
 ): Promise<string | null> {
   const [person] = await tx
     .select({ email: users.email })
@@ -487,6 +577,16 @@ export async function notifyUser(
     })
     .returning({ id: notifications.id });
   if (created === undefined) return null;
+  if (chatDeps !== undefined) {
+    await dispatchChatNotification(tx, chatDeps, {
+      boardId: input.boardId,
+      itemId: input.itemId,
+      userId: input.userId,
+      type: input.type,
+      title: input.title,
+      body: input.body,
+    });
+  }
   return willSendInstant ? email : null;
 }
 
@@ -537,7 +637,7 @@ async function notifyAbsence(
           title,
           entityType: 'absence',
           entityId: absenceId,
-        });
+        }, { appUrl: deps.appUrl, encryptionKey: deps.encryptionKey });
         await unit.emit({
           type: 'notification.created',
           aggregateType: 'notification',
@@ -620,7 +720,7 @@ async function notifyResourceRequest(
           boardId,
           entityType: 'resource_request',
           entityId: requestId,
-        });
+        }, { appUrl: deps.appUrl, encryptionKey: deps.encryptionKey });
         await unit.emit({
           type: 'notification.created',
           aggregateType: 'notification',
@@ -693,7 +793,7 @@ async function notifyTimesheetApproval(
           title,
           entityType: 'timesheet_approval',
           entityId: approvalId,
-        });
+        }, { appUrl: deps.appUrl, encryptionKey: deps.encryptionKey });
         await unit.emit({
           type: 'notification.created',
           aggregateType: 'notification',
@@ -751,7 +851,7 @@ async function notifyRisk(deps: NotificationsDeps, event: ReturnType<typeof Doma
         boardId,
         entityType: 'risk',
         entityId: riskId,
-      });
+      }, { appUrl: deps.appUrl, encryptionKey: deps.encryptionKey });
       await unit.emit({
         type: 'notification.created',
         aggregateType: 'notification',
@@ -800,7 +900,7 @@ async function notifyIssue(deps: NotificationsDeps, event: ReturnType<typeof Dom
         boardId,
         entityType: 'issue',
         entityId: issueId,
-      });
+      }, { appUrl: deps.appUrl, encryptionKey: deps.encryptionKey });
       await unit.emit({
         type: 'notification.created',
         aggregateType: 'notification',
@@ -868,7 +968,7 @@ async function notifyProjectHealthAlert(
         boardId,
         entityType: 'project_health',
         entityId: healthId,
-      });
+      }, { appUrl: deps.appUrl, encryptionKey: deps.encryptionKey });
       await unit.emit({
         type: 'notification.created',
         aggregateType: 'notification',
@@ -948,7 +1048,7 @@ async function notifyAiAgentRun(deps: NotificationsDeps, event: ReturnType<typeo
           itemId,
           entityType: 'ai_agent_run',
           entityId: runId,
-        });
+        }, { appUrl: deps.appUrl, encryptionKey: deps.encryptionKey });
         await unit.emit({
           type: 'notification.created',
           aggregateType: 'notification',
@@ -1022,7 +1122,7 @@ async function notifyImportJob(deps: NotificationsDeps, event: ReturnType<typeof
         itemId: null,
         entityType: 'import_job',
         entityId: jobId,
-      });
+      }, { appUrl: deps.appUrl, encryptionKey: deps.encryptionKey });
       await unit.emit({
         type: 'notification.created',
         aggregateType: 'notification',

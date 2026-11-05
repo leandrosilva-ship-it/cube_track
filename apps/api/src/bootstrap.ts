@@ -5,7 +5,7 @@ import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
-import { json, urlencoded } from 'express';
+import { json, urlencoded, type Request } from 'express';
 import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module.js';
@@ -27,10 +27,16 @@ export async function createApp(
   app.set('trust proxy', 1);
   app.disable('x-powered-by');
   app.use(cookieParser());
+  // Guarda o corpo BRUTO (antes do parse) em `req.rawBody`: webhooks de entrada (GitHub, Slack, ADR
+  // 0056) assinam/validam sobre os bytes exatos recebidos (JSON ou form-encoded, caso do comando de
+  // barra do Slack), não sobre o corpo reserializado.
+  const captureRawBody = (req: Request, _res: unknown, buf: Buffer) => {
+    req.rawBody = buf;
+  };
   // Corpo JSON: 15 MB só para o upload de planilhas (base64); 2 MB no restante (edição em massa).
-  app.use(/^\/v1\/boards\/[^/]+\/imports$/, json({ limit: '15mb' }));
-  app.use(json({ limit: '2mb' }));
-  app.use(urlencoded({ extended: false, limit: '100kb' }));
+  app.use(/^\/v1\/boards\/[^/]+\/imports$/, json({ limit: '15mb', verify: captureRawBody }));
+  app.use(json({ limit: '2mb', verify: captureRawBody }));
+  app.use(urlencoded({ extended: false, limit: '100kb', verify: captureRawBody }));
   app.enableCors({
     origin: config.CORS_ORIGINS.split(',').map((origin) => origin.trim()),
     credentials: true,

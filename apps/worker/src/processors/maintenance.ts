@@ -17,6 +17,7 @@ export const MAINTENANCE_SCHEDULE: Record<MaintenanceJob, string> = {
   'portfolio-health-daily': '30 4 * * *',
   'contract-alerts-daily': '45 5 * * *',
   'ai-agents-date-check': '20 6 * * *',
+  'calendar-sync-periodic': '*/15 * * * *',
 };
 const TIMEZONE = 'America/Sao_Paulo';
 
@@ -39,6 +40,7 @@ interface MaintenanceDeps {
   recomputePortfolioHealth: () => Promise<{ outcomes: { boardId: string; status: string }[] }>;
   checkContractAlerts: () => Promise<{ outcomes: { contractId: string; alerts: number }[] }>;
   checkAiAgentDateArrives: () => Promise<{ outcomes: { agentId: string; status: string }[] }>;
+  runCalendarSyncPeriodic: () => Promise<{ outcomes: { connectionId: string; reconciled: number }[] }>;
 }
 
 /** Expurgo da lixeira (30 dias) com auditoria por tenant. */
@@ -141,6 +143,17 @@ export function maintenanceProcessor(deps: MaintenanceDeps) {
             proposed: outcomes.filter((o) => o.status === 'proposed').length,
           },
           'Varredura diária de agentes de IA por data (date_arrives) concluída',
+        );
+        return;
+      }
+      case 'calendar-sync-periodic': {
+        const { outcomes } = await deps.runCalendarSyncPeriodic();
+        deps.logger.info(
+          {
+            connections: outcomes.length,
+            reconciled: outcomes.reduce((sum, o) => sum + o.reconciled, 0),
+          },
+          'Sincronização periódica de calendário (Google/Microsoft) concluída',
         );
         return;
       }

@@ -15,6 +15,9 @@ export const QUEUES = {
   webhookDeliveries: 'webhook-deliveries',
   aiAgents: 'ai-agents',
   imports: 'imports',
+  /** Sincronização de calendário (Google/Microsoft, ADR 0056) — direção item → evento de calendário
+   * (`calendar-sync-periodic`, na mesma fila, cuida da direção calendário → item). */
+  calendarSync: 'calendar-sync',
   deadLetter: 'dead-letter',
 } as const;
 export type QueueName = (typeof QUEUES)[keyof typeof QUEUES];
@@ -130,6 +133,10 @@ export const MAINTENANCE_JOBS = [
   'portfolio-health-daily',
   'contract-alerts-daily',
   'ai-agents-date-check',
+  /** Direção calendário → item (ADR 0056): reconcilia eventos movidos/excluídos no Google
+   * Calendar/Outlook com `calendar_sync_links` e também faz o polling de e-mail-para-item (Gmail/
+   * Outlook) das conexões com essa opção ativada — ver `apps/worker/src/processors/calendar-sync.ts`. */
+  'calendar-sync-periodic',
 ] as const;
 export type MaintenanceJob = (typeof MAINTENANCE_JOBS)[number];
 
@@ -175,6 +182,7 @@ export const EVENT_CONSUMERS: Record<string, readonly QueueName[]> = {
     QUEUES.computed,
     QUEUES.portfolio,
     QUEUES.aiAgents,
+    QUEUES.calendarSync,
   ],
   'item.updated': [
     QUEUES.searchIndex,
@@ -183,6 +191,7 @@ export const EVENT_CONSUMERS: Record<string, readonly QueueName[]> = {
     QUEUES.computed,
     QUEUES.portfolio,
     QUEUES.aiAgents,
+    QUEUES.calendarSync,
   ],
   'item.deleted': [QUEUES.searchIndex, QUEUES.computed, QUEUES.portfolio],
   'item.button_clicked': [QUEUES.automations, QUEUES.aiAgents],

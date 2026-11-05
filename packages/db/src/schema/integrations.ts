@@ -7,6 +7,36 @@ import { users } from './identity.js';
 import { boards, items, workspaces } from './structure.js';
 
 /**
+ * App OAuth do PRÓPRIO tenant para Google Workspace/Microsoft 365 (Prompt 15, ADR 0056): client
+ * id/secret cadastrados pela organização no Google Cloud Console/Azure AD (BYOK, nunca uma credencial
+ * compartilhada da plataforma). Guardado à parte de `integration_connections` porque o app é cadastrado
+ * UMA VEZ pelo admin do workspace (`integrations.manage`) e cada membro então consente
+ * INDIVIDUALMENTE nesse mesmo app — `integration_connections` (por usuário) referencia implicitamente
+ * este registro (mesmo `tenantId`+`workspaceId`+`provider`) na hora de montar a URL de autorização e
+ * de trocar o código por tokens; não há FK direta porque a conexão sobrevive à troca do app (só a
+ * autorização individual perde validade, exigindo reconexão).
+ */
+export const integrationApps = tenantTable(
+  'integration_apps',
+  {
+    workspaceId: uuid('workspace_id').notNull(),
+    provider: integrationProvider('provider').notNull(),
+    clientId: text('client_id').notNull(),
+    clientSecretCiphertext: text('client_secret_ciphertext').notNull(),
+    /** Normalmente `${API_URL}/v1/integrations/:provider/callback` — guardado para auditoria/depuração,
+     * nunca usado para decidir o redirect_uri de verdade (sempre recalculado a partir da config). */
+    redirectUri: text('redirect_uri'),
+    deletedAt: deletedAt(),
+  },
+  (t) => [
+    tenantFk('integration_apps', t.tenantId, t.workspaceId, workspaces),
+    uniqueIndex('integration_apps_workspace_provider_key')
+      .on(t.tenantId, t.workspaceId, t.provider)
+      .where(sql`${t.deletedAt} is null`),
+  ],
+);
+
+/**
  * Integrações de terceiros (Prompt 15, ADR 0056) — toda credencial é BYOK. Google/Microsoft são OAuth
  * de verdade e a conexão é POR USUÁRIO (cada um consente individualmente no seu próprio
  * calendário/Drive/e-mail); Slack/Teams/GitHub/GitLab/Azure DevOps são só webhook (entrada ou saída)

@@ -21,6 +21,8 @@
  * ver `integration_connections` (packages/db/src/schema/integrations.ts).
  */
 
+import { createHmac, timingSafeEqual } from 'node:crypto';
+
 export const INTEGRATION_PROVIDERS = ['google', 'microsoft', 'slack', 'teams', 'github', 'gitlab', 'azure_devops'] as const;
 export type IntegrationProvider = (typeof INTEGRATION_PROVIDERS)[number];
 
@@ -227,4 +229,122 @@ export function teamsAdaptiveCard(notification: ChatNotification): Record<string
       },
     ],
   };
+}
+
+// --------------------------------------------------------------- Google/Microsoft — OAuth/calendário ---
+
+/** Escopos pedidos no consentimento (ADR 0056): calendário com escrita, Drive/OneDrive só leitura de
+ * metadados (o arquivo nunca é baixado, só referenciado — `external_file_links`), e-mail só leitura
+ * (polling de e-mail-para-item). `offline_access` (Microsoft) é o que garante refresh_token. */
+export const GOOGLE_OAUTH_SCOPES = [
+  'openid',
+  'email',
+  'profile',
+  'https://www.googleapis.com/auth/calendar',
+  'https://www.googleapis.com/auth/drive.readonly',
+  'https://www.googleapis.com/auth/gmail.readonly',
+].join(' ');
+
+export const MICROSOFT_OAUTH_SCOPES = [
+  'openid',
+  'email',
+  'profile',
+  'offline_access',
+  'Calendars.ReadWrite',
+  'Files.Read',
+  'Mail.Read',
+].join(' ');
+
+export interface CalendarEventInput {
+  title: string;
+  description: string | null;
+  /** Datas de negócio (sem fuso) — evento de dia inteiro. */
+  startDate: string;
+  endDate: string;
+  url: string | null;
+}
+
+/** Corpo de `events.insert`/`events.update` do Google Calendar — evento de dia inteiro (`date`, sem
+ * hora). O Google trata `end.date` como EXCLUSIVO; somamos um dia para cobrir `endDate` por inteiro. */
+export function buildGoogleCalendarEventBody(input: CalendarEventInput): Record<string, unknown> {
+  return {
+    summary: input.title,
+    description: [input.description, input.url].filter((part) => part !== null && part !== '').join('\n\n'),
+    start: { date: input.startDate },
+    end: { date: addOneDay(input.endDate) },
+  };
+}
+
+/** Corpo de `POST/PATCH /me/events` do Microsoft Graph — evento de dia inteiro (`isAllDay: true`). O
+ * Graph também trata `end.dateTime` como EXCLUSIVO em eventos de dia inteiro. */
+export function buildMicrosoftCalendarEventBody(input: CalendarEventInput): Record<string, unknown> {
+  return {
+    subject: input.title,
+    body: {
+      contentType: 'text',
+      content: [input.description, input.url].filter((part) => part !== null && part !== '').join('\n\n'),
+    },
+    isAllDay: true,
+    start: { dateTime: input.startDate, timeZone: 'UTC' },
+    end: { dateTime: addOneDay(input.endDate), timeZone: 'UTC' },
+  };
+}
+
+function addOneDay(isoDate: string): string {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+// ------------------------------------------------------------------------ status "concluído" ---
+
+/** Rótulo de status que, por nome, parece significar "concluído" (pt-BR/en/es) — heurística
+ * deliberadamente conservadora para o auto-avanço de status ao mesclar PR (ADR 0056): na dúvida, não
+ * avança (o `dev_event_links` ainda é gravado, só o status não muda). */
+const DONE_LABEL_PATTERN =
+  /\b(conclu[ií]d[oa]s?|complet[oa]s?|completed|done|finaliz[ao]d[oa]s?|finish(ed)?|terminad[oa]s?)\b/i;
+
+export function isDoneLikeStatusLabel(label: string): boolean {
+  return DONE_LABEL_PATTERN.test(label);
+}
+
+// -------------------------------------------------------------------------- verificação de webhook ---
+
+function safeEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a, 'utf8');
+  const right = Buffer.from(b, 'utf8');
+  return left.length === right.length && timingSafeEqual(left, right);
+}
+
+/** GitHub: HMAC-SHA256 do corpo BRUTO da requisição, cabeçalho `X-Hub-Signature-256: sha256=<hex>`. */
+export function verifyGithubSignature(
+  secret: string,
+  rawBody: string,
+  signatureHeader: string | undefined,
+): boolean {
+  if (!signatureHeader?.startsWith('sha256=')) return false;
+  const expected = `sha256=${createHmac('sha256', secret).update(rawBody).digest('hex')}`;
+  return safeEqual(expected, signatureHeader);
+}
+
+/**
+ * Slack: `X-Slack-Signature: v0=<hmac>` sobre `v0:{timestamp}:{corpo bruto}`, cabeçalho
+ * `X-Slack-Request-Timestamp` — rejeita requisições com mais de 5 minutos (reprodução/replay).
+ */
+export function verifySlackSignature(input: {
+  signingSecret: string;
+  timestamp: string | undefined;
+  rawBody: string;
+  signatureHeader: string | undefined;
+  now?: number;
+}): boolean {
+  if (input.timestamp === undefined || input.signatureHeader === undefined) return false;
+  const timestampSeconds = Number(input.timestamp);
+  if (!Number.isFinite(timestampSeconds)) return false;
+  const nowSeconds = (input.now ?? Date.now()) / 1_000;
+  if (Math.abs(nowSeconds - timestampSeconds) > 300) return false;
+  if (!input.signatureHeader.startsWith('v0=')) return false;
+  const base = `v0:${input.timestamp}:${input.rawBody}`;
+  const expected = `v0=${createHmac('sha256', input.signingSecret).update(base).digest('hex')}`;
+  return safeEqual(expected, input.signatureHeader);
 }

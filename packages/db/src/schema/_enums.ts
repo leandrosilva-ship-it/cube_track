@@ -3,6 +3,10 @@ import {
   AI_FEATURES,
   IMPORT_JOB_STATUSES,
   IMPORT_SOURCES,
+  PAYMENT_METHODS,
+  PAYMENT_RECORD_STATUSES,
+  PLAN_TIERS,
+  SUBSCRIPTION_STATUSES,
 } from '@cube-track/shared';
 import { INTEGRATION_AUTH_KINDS, INTEGRATION_PROVIDERS } from '@cube-track/shared/integrations';
 import { pgEnum } from 'drizzle-orm/pg-core';
@@ -242,3 +246,9 @@ export const consentPurpose = pgEnum('consent_purpose', [
   'product_analytics',
   'ai_processing',
 ]);
+
+// Billing (Prompt 16, ADR 0059) — valores vindos de `@cube-track/shared` (packages/shared/src/billing.ts).
+export const planTier = pgEnum('plan_tier', [...PLAN_TIERS]);
+export const subscriptionStatus = pgEnum('subscription_status', [...SUBSCRIPTION_STATUSES]);
+export const paymentMethodKind = pgEnum('payment_method_kind', [...PAYMENT_METHODS]);
+export const paymentRecordStatus = pgEnum('payment_record_status', [...PAYMENT_RECORD_STATUSES]);

@@ -1,4 +1,4 @@
-import { defaultHealthRules, newId, positionBetween } from '@cube-track/shared';
+import { defaultHealthRules, newId, positionBetween, type PlanTier } from '@cube-track/shared';
 
 import type { Transaction } from './client.js';
 import {
@@ -6,6 +6,7 @@ import {
   healthRuleSets,
   rolePermissions,
   roles,
+  subscriptions,
   tenants,
   workCalendars,
 } from './schema/index.js';
@@ -201,6 +202,9 @@ export interface ProvisionTenantInput {
   timezone?: string;
   createdBy?: string;
   calendar?: { name: string; stateCode?: string; cityIbgeCode?: string };
+  /** Plano de billing inicial (ADR 0059). Padrão `'free'` — o tenant de demonstração passa
+   * `'enterprise'` explicitamente (`seed/demo.ts`) para não ficar sujeito aos limites do Free. */
+  plan?: PlanTier;
 }
 
 export interface ProvisionedTenant {
@@ -219,6 +223,7 @@ export async function provisionTenant(
 ): Promise<ProvisionedTenant> {
   const tenantId = input.id ?? newId();
   const createdBy = input.createdBy ?? null;
+  const plan = input.plan ?? 'free';
   await tx.insert(tenants).values({
     id: tenantId,
     name: input.name,
@@ -226,8 +231,13 @@ export async function provisionTenant(
     legalName: input.legalName ?? null,
     document: input.document ?? null,
     timezone: input.timezone ?? 'America/Sao_Paulo',
+    plan,
     createdBy,
   });
+  // Toda organização nasce com uma linha de assinatura (ADR 0059): o plano Free não tem cobrança
+  // (`status: 'none'`), mas a linha existe desde o início para que `GET /v1/billing/subscription`
+  // nunca precise distinguir "sem assinatura" de "no plano Free" — é sempre a mesma leitura.
+  await tx.insert(subscriptions).values({ tenantId, plan, status: 'none', paymentMethod: 'none', createdBy });
 
   const roleIds: Record<string, string> = {};
   for (const role of SYSTEM_ROLES) {

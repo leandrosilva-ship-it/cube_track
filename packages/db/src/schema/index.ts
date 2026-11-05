@@ -3,6 +3,7 @@ export { tenants } from './_tenants.js';
 export * from './ai.js';
 export * from './api-access.js';
 export * from './automation.js';
+export * from './billing.js';
 export * from './collaboration.js';
 export * from './columns.js';
 export * from './contracts.js';

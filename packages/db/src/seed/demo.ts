@@ -36,6 +36,9 @@ export async function seedDemo(db: Database): Promise<DemoSeedResult> {
       legalName: 'Empresa Demo Consultoria em Tecnologia Ltda.',
       document: '12.345.678/0001-95',
       calendar: { name: 'São Paulo/SP', stateCode: 'SP', cityIbgeCode: '3550308' },
+      // Enterprise explícito (ADR 0059): o seed usa todos os módulos opcionais e bem mais que os 5
+      // seats do Free — o tenant de demonstração nunca deve ficar sujeito aos limites comerciais.
+      plan: 'enterprise',
     });
     const ctx: SeedContext = {
       tx,

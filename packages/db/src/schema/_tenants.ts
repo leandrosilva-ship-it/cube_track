@@ -3,7 +3,7 @@ import { jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/
 
 import { newId } from '@cube-track/shared';
 
-import { tenantStatus } from './_enums.js';
+import { planTier, tenantStatus } from './_enums.js';
 
 /** Organização (tenant). Raiz do isolamento — RLS: `id = app.current_tenant_id()`. */
 export const tenants = pgTable(
@@ -17,7 +17,11 @@ export const tenants = pgTable(
     slug: text('slug').notNull(),
     legalName: text('legal_name'),
     document: text('document'),
-    plan: text('plan').notNull().default('enterprise'),
+    /** Plano de billing (Prompt 16, ADR 0059) — restrito a `PLAN_TIERS`, catálogo de preço/limites
+     * em `@cube-track/shared/billing`. Novo tenant nasce `'free'`; o tenant de demonstração é
+     * provisionado explicitamente como `'enterprise'` (`seed/demo.ts`) para não ficar sujeito aos
+     * limites do Free nos testes/seed. */
+    plan: planTier('plan').notNull().default('free'),
     status: tenantStatus('status').notNull().default('active'),
     locale: text('locale').notNull().default('pt-BR'),
     timezone: text('timezone').notNull().default('America/Sao_Paulo'),

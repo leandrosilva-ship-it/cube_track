@@ -44,6 +44,7 @@ import { useTranslations } from 'next-intl';
 import { useParams } from 'next/navigation';
 import { useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react';
 
+import { usePrefetchBoard } from '@/features/board/hooks';
 import { Link } from '@/i18n/navigation';
 import type { Favorite, WorkspaceTree as Tree } from '@/lib/api/types';
 import { openDialog } from '@/stores/shell';
@@ -77,6 +78,7 @@ function TreeItemRow({ row, tree, active, favorite, onToggle, onNavigate }: RowP
   const move = useMoveNode(tree.workspaceId);
   const toggleFavorite = useToggleFavorite();
   const deleteFolder = useDeleteFolder(tree.workspaceId);
+  const prefetchBoard = usePrefetchBoard();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } =
     useSortable({
       id: row.id,
@@ -126,12 +128,20 @@ function TreeItemRow({ row, tree, active, favorite, onToggle, onNavigate }: RowP
     ) : (
       <Link
         href={`/w/${tree.workspaceId}/b/${row.id}`}
-        // Árvores grandes: sem prefetch por viewport (dezenas de requisições RSC na abertura).
+        // Árvores grandes: sem prefetch por viewport (dezenas de requisições RSC na abertura) — mas
+        // passar o mouse ou focar UM item específico ainda pré-busca os dados desse board (board +
+        // views, TanStack Query) para o clique já encontrar tudo no cache.
         prefetch={false}
         className={rowClass}
         style={style}
         aria-current={active ? 'page' : undefined}
         onClick={onNavigate}
+        onMouseEnter={() => {
+          prefetchBoard(row.board.id);
+        }}
+        onFocus={() => {
+          prefetchBoard(row.board.id);
+        }}
         {...dragProps}
         // O dnd-kit define role="button"; aqui o elemento é um link de navegação.
         role="link"

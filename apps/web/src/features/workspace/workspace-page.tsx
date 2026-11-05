@@ -5,12 +5,14 @@ import { Briefcase, FileText, Folder, Gauge, LayoutDashboard, LayoutGrid } from 
 import { useTranslations } from 'next-intl';
 
 import { PageHeader } from '@/components/common/page-header';
+import { usePrefetchBoard } from '@/features/board/hooks';
 import { Link } from '@/i18n/navigation';
 import type { TreeBoard } from '@/lib/api/types';
 
 import { useTree, useWorkspaces } from './hooks';
 
 function BoardList({ boards, workspaceId }: { boards: TreeBoard[]; workspaceId: string }) {
+  const prefetchBoard = usePrefetchBoard();
   return (
     <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
       {boards.map((board) => (
@@ -18,6 +20,12 @@ function BoardList({ boards, workspaceId }: { boards: TreeBoard[]; workspaceId: 
           <Link
             href={`/w/${workspaceId}/b/${board.id}`}
             className="flex h-full flex-col gap-1 rounded-lg border border-border bg-surface p-3 hover:border-primary hover:bg-surface-hover"
+            onMouseEnter={() => {
+              prefetchBoard(board.id);
+            }}
+            onFocus={() => {
+              prefetchBoard(board.id);
+            }}
           >
             <span className="flex items-center gap-2 font-medium">
               <LayoutGrid className="size-4 text-primary" aria-hidden="true" />

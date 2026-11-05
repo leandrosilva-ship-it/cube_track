@@ -37,6 +37,37 @@ export function useViews(boardId: string) {
   });
 }
 
+/**
+ * Prefetch de board + views para a navegação mais comum (lista de boards → abrir um board):
+ * `onMouseEnter`/`onFocus` no link do board já dispara a mesma consulta que `useBoard`/`useViews`
+ * fariam ao montar a página, então o clique geralmente encontra os dois já no cache do Query
+ * (`staleTime` curto evita refazer a busca se o usuário passar o mouse várias vezes seguidas).
+ */
+export function usePrefetchBoard() {
+  const queryClient = useQueryClient();
+  const enabled = useSession((state) => state.status === 'authenticated');
+  return (boardId: string) => {
+    if (!enabled) return;
+    // `query()` (não `prefetchQuery`/`fetchQuery`, descontinuados nesta versão) — erro de prefetch
+    // nunca deve aparecer para o usuário, por isso o `.catch` vazio; o clique real, se vier, refaz a
+    // busca normalmente.
+    queryClient
+      .query({
+        queryKey: qk.boardDetail(boardId),
+        queryFn: () => api<BoardDetail>(`/v1/boards/${boardId}`),
+        staleTime: 10_000,
+      })
+      .catch(() => undefined);
+    queryClient
+      .query({
+        queryKey: qk.views(boardId),
+        queryFn: () => api<ViewList>(`/v1/boards/${boardId}/views`),
+        staleTime: 10_000,
+      })
+      .catch(() => undefined);
+  };
+}
+
 export function useUpdateBoardDetails(boardId: string) {
   const queryClient = useQueryClient();
   const errorMessage = useErrorMessage();

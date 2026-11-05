@@ -19,7 +19,9 @@
     "db:reset": "pnpm --filter @cube-track/db db:reset",
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down",
-    "db:seed:large": "pnpm --filter @cube-track/db db:seed:large"
+    "db:seed:large": "pnpm --filter @cube-track/db db:seed:large",
+    "load:items": "k6 run tools/load/items-list.js",
+    "load:realtime": "k6 run tools/load/realtime.js"
   },
   "devDependencies": {
     "@cube-track/config": "workspace:*",

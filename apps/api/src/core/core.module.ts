@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { TransactionInterceptor } from './audit/transaction.interceptor.js';
 import { AuthGuard } from './auth/auth.guard.js';
 import { TokenService } from './auth/token.service.js';
+import { BoardCacheService } from './cache/board-cache.service.js';
 import { ConfigModule } from './config/config.module.js';
 import { RequestContextMiddleware } from './context/request-context.middleware.js';
 import { DatabaseModule } from './database/database.module.js';
@@ -28,6 +29,7 @@ import { TenantResolver } from './tenancy/tenant-resolver.service.js';
     TokenService,
     TenantResolver,
     DomainEvents,
+    BoardCacheService,
     { provide: APP_FILTER, useClass: ProblemFilter },
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: RateLimitGuard },
@@ -42,6 +44,7 @@ import { TenantResolver } from './tenancy/tenant-resolver.service.js';
     TokenService,
     TenantResolver,
     DomainEvents,
+    BoardCacheService,
   ],
 })
 export class CoreModule implements NestModule {

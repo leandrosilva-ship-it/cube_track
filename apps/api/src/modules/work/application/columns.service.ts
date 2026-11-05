@@ -21,6 +21,7 @@ import {
 } from '@cube-track/shared';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 
+import { BoardCacheService } from '../../../core/cache/board-cache.service.js';
 import type { AuthPrincipal } from '../../../core/context/request-context.js';
 import { TransactionRunner } from '../../../core/database/transaction-runner.js';
 import {
@@ -90,6 +91,7 @@ export class ColumnsService {
     private readonly access: AccessService,
     private readonly events: DomainEvents,
     private readonly definitions: BoardDefinitionRepository,
+    private readonly boardCache: BoardCacheService,
   ) {}
 
   async create(user: AuthPrincipal, boardId: string, input: CreateColumnInput) {
@@ -133,6 +135,7 @@ export class ColumnsService {
       after: { key, type: input.type, title: input.title, settings },
     });
     await this.access.invalidate(user.tenantId);
+    await this.boardCache.invalidate(boardId);
     await this.events.emit({
       tenantId: user.tenantId,
       type: 'column.created',
@@ -387,6 +390,7 @@ export class ColumnsService {
       after: { key, sourceKey: column.key, includeValues },
     });
     await this.access.invalidate(user.tenantId);
+    await this.boardCache.invalidate(boardId);
     await this.events.emit({
       tenantId: user.tenantId,
       type: 'column.created',
@@ -416,6 +420,7 @@ export class ColumnsService {
       before: { key: column.key, type: column.type, title: column.title },
     });
     await this.access.invalidate(user.tenantId);
+    await this.boardCache.invalidate(boardId);
     await this.events.emit({
       tenantId: user.tenantId,
       type: 'column.deleted',
@@ -447,6 +452,7 @@ export class ColumnsService {
       before: { statusColumnKey: definition.settings.statusColumnKey ?? null },
       after: { statusColumnKey: columnKey },
     });
+    await this.boardCache.invalidate(boardId);
     await this.events.emit({
       tenantId: user.tenantId,
       type: 'board.updated',
@@ -501,6 +507,7 @@ export class ColumnsService {
       after,
     });
     await this.access.invalidate(user.tenantId);
+    await this.boardCache.invalidate(boardId);
     await this.events.emit({
       tenantId: user.tenantId,
       type: 'column.updated',

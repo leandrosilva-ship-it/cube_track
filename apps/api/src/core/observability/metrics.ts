@@ -20,4 +20,10 @@ export const appMetrics = {
   permissionCacheMisses: meter.createCounter('cube_permission_cache_misses_total', {
     description: 'Faltas no cache de permissões',
   }),
+  boardCacheHits: meter.createCounter('cube_board_cache_hits_total', {
+    description: 'Acertos no cache de metadados de board (grupos/colunas/rótulos/opções)',
+  }),
+  boardCacheMisses: meter.createCounter('cube_board_cache_misses_total', {
+    description: 'Faltas no cache de metadados de board (grupos/colunas/rótulos/opções)',
+  }),
 };

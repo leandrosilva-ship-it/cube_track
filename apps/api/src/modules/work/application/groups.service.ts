@@ -3,6 +3,7 @@ import { schema } from '@cube-track/db';
 import { newId, positionBetween, TRASH_RETENTION_DAYS } from '@cube-track/shared';
 import { and, asc, eq, isNull } from 'drizzle-orm';
 
+import { BoardCacheService } from '../../../core/cache/board-cache.service.js';
 import type { AuthPrincipal } from '../../../core/context/request-context.js';
 import { TransactionRunner } from '../../../core/database/transaction-runner.js';
 import {
@@ -41,6 +42,7 @@ export class GroupsService {
     private readonly access: AccessService,
     private readonly events: DomainEvents,
     private readonly items: ItemsService,
+    private readonly boardCache: BoardCacheService,
   ) {}
 
   async create(
@@ -307,6 +309,7 @@ export class GroupsService {
       before,
       after,
     });
+    await this.boardCache.invalidate(boardId);
     await this.events.emit({
       tenantId: user.tenantId,
       type: 'group.changed',

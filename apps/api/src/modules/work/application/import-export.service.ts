@@ -19,6 +19,7 @@ import ExcelJS from 'exceljs';
 import { and, asc, eq, isNull } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
 
+import { BoardCacheService } from '../../../core/cache/board-cache.service.js';
 import type { AuthPrincipal } from '../../../core/context/request-context.js';
 import { TransactionRunner } from '../../../core/database/transaction-runner.js';
 import {
@@ -98,6 +99,7 @@ export class ImportExportService {
     private readonly items: ItemsService,
     private readonly repository: ItemsRepository,
     private readonly writer: ItemWriter,
+    private readonly boardCache: BoardCacheService,
     @Inject(REDIS) private readonly redis: Redis,
   ) {}
 
@@ -440,6 +442,7 @@ export class ImportExportService {
       position: positionBetween(null, last?.position ?? null),
       createdBy: user.userId,
     });
+    await this.boardCache.invalidate(boardId);
     await this.events.emit({
       tenantId: user.tenantId,
       type: 'group.changed',
@@ -491,6 +494,7 @@ export class ImportExportService {
       }
     }
     await this.access.invalidate(user.tenantId);
+    await this.boardCache.invalidate(boardId);
     await this.events.emit({
       tenantId: user.tenantId,
       type: 'column.updated',

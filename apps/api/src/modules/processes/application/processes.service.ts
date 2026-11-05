@@ -3,6 +3,7 @@ import { schema } from '@cube-track/db';
 import { newId, positionBetween } from '@cube-track/shared';
 import { and, asc, eq, isNull } from 'drizzle-orm';
 
+import { BoardCacheService } from '../../../core/cache/board-cache.service.js';
 import type { AuthPrincipal } from '../../../core/context/request-context.js';
 import { TransactionRunner } from '../../../core/database/transaction-runner.js';
 import {
@@ -171,6 +172,7 @@ export class ProcessesService {
     private readonly runner: TransactionRunner,
     private readonly access: AccessService,
     private readonly events: DomainEvents,
+    private readonly boardCache: BoardCacheService,
   ) {}
 
   async config(user: AuthPrincipal, boardId: string): Promise<ProcessConfigDto> {
@@ -311,6 +313,7 @@ export class ProcessesService {
       position: groupPosition,
       createdBy: user.userId,
     });
+    await this.boardCache.invalidate(pipe.boardId);
     await this.events.emit({
       tenantId: user.tenantId,
       type: 'group.changed',
@@ -379,6 +382,7 @@ export class ProcessesService {
     if (row === undefined) throw new Error('Falha ao atualizar fase');
     if (input.name !== undefined && input.name !== existing.name) {
       await tx.update(groups).set({ name: input.name }).where(eq(groups.id, existing.groupId));
+      await this.boardCache.invalidate(pipe.boardId);
       await this.events.emit({
         tenantId: user.tenantId,
         type: 'group.changed',

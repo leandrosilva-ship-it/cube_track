@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { outboxRowToMessage, schema } from '@cube-track/db';
 import type { RealtimeEvent } from '@cube-track/shared';
-import { and, asc, eq, gt, inArray, isNull } from 'drizzle-orm';
+import { and, asc, eq, gt, isNull } from 'drizzle-orm';
 
+import { BoardCacheService } from '../../../core/cache/board-cache.service.js';
 import type { AuthPrincipal } from '../../../core/context/request-context.js';
 import { TransactionRunner } from '../../../core/database/transaction-runner.js';
 import { NotFoundError } from '../../../core/errors/problems.js';
@@ -22,6 +23,44 @@ const {
 
 const REPLAY_LIMIT = 500;
 
+interface BoardShapeColumn {
+  id: string;
+  key: string;
+  type: string;
+  title: string;
+  description: string | null;
+  settings: unknown;
+  binding: string | null;
+  isRequired: boolean;
+  requiredWhen: unknown;
+  defaultValue: unknown;
+  isHidden: boolean;
+  position: string;
+  width: number | null;
+  permissions: unknown;
+  labels: { id: string; columnId: string; label: string; color: string; category: string; position: string }[];
+  options: { id: string; columnId: string; label: string; color: string | null; position: string }[];
+}
+
+interface BoardShape {
+  board: {
+    id: string;
+    workspaceId: string;
+    folderId: string | null;
+    kind: string;
+    name: string;
+    description: string | null;
+    icon: string | null;
+    visibility: string;
+    terminology: unknown;
+    settings: unknown;
+    isTemplate: boolean;
+    contractId: string | null;
+  };
+  groups: { id: string; name: string; color: string; position: string; isCollapsed: boolean }[];
+  columns: BoardShapeColumn[];
+}
+
 /** Leitura de workspaces/boards (filtrada por permissão) e administração de colunas. */
 @Injectable()
 export class BoardsService {
@@ -29,6 +68,7 @@ export class BoardsService {
     private readonly runner: TransactionRunner,
     private readonly access: AccessService,
     private readonly items: ItemsService,
+    private readonly boardCache: BoardCacheService,
   ) {}
 
   async listWorkspaces(user: AuthPrincipal) {
@@ -92,8 +132,15 @@ export class BoardsService {
     return visible.filter((row) => row !== null);
   }
 
-  async getBoard(user: AuthPrincipal, boardId: string) {
-    await this.access.assert(user, 'board.read', { type: 'board', id: boardId }, 'Board');
+  /**
+   * Forma tenant-wide do board (board + grupos + TODAS as colunas com rótulos/opções, nunca
+   * filtradas por permissão), cacheada no Redis (`BoardCacheService`, ADR 0058) — mesma chave para
+   * qualquer usuário, invalidada a cada mutação de board/coluna/grupo (`boardCache.invalidate`,
+   * chamado por `ColumnsService`/`GroupsService`/`ImportExportService`/`StructureService`). Colunas
+   * ocultas por permissão e `canEdit` por coluna continuam calculados a cada requisição em
+   * `getBoard`, nunca cacheados — dependem do usuário autenticado.
+   */
+  private async loadShape(boardId: string): Promise<BoardShape | null> {
     const tx = this.runner.tx;
     const [board] = await tx
       .select({
@@ -108,18 +155,11 @@ export class BoardsService {
         terminology: boards.terminology,
         settings: boards.settings,
         isTemplate: boards.isTemplate,
-        seq: boards.seq,
         contractId: boards.contractId,
       })
       .from(boards)
       .where(eq(boards.id, boardId));
-    if (board === undefined) throw new NotFoundError('Board');
-    const access = await this.access.board(user, boardId);
-    const visibility = await this.items.visibility(user, boardId);
-    const visibleColumns = visibility.columns.filter(
-      (column) => !visibility.hidden.has(column.key),
-    );
-    const columnIds = visibleColumns.map((column) => column.id);
+    if (board === undefined) return null;
     const [groupRows, columnRows, labelRows, optionRows] = await Promise.all([
       tx
         .select({
@@ -134,71 +174,85 @@ export class BoardsService {
           and(eq(groups.boardId, boardId), isNull(groups.deletedAt), isNull(groups.archivedAt)),
         )
         .orderBy(asc(groups.position)),
-      columnIds.length === 0
-        ? Promise.resolve([])
-        : tx
-            .select({
-              id: columnDefinitions.id,
-              key: columnDefinitions.key,
-              type: columnDefinitions.type,
-              title: columnDefinitions.title,
-              description: columnDefinitions.description,
-              settings: columnDefinitions.settings,
-              binding: columnDefinitions.binding,
-              isRequired: columnDefinitions.isRequired,
-              requiredWhen: columnDefinitions.requiredWhen,
-              defaultValue: columnDefinitions.defaultValue,
-              isHidden: columnDefinitions.isHidden,
-              position: columnDefinitions.position,
-              width: columnDefinitions.width,
-              permissions: columnDefinitions.permissions,
-            })
-            .from(columnDefinitions)
-            .where(inArray(columnDefinitions.id, columnIds))
-            .orderBy(asc(columnDefinitions.position)),
-      columnIds.length === 0
-        ? Promise.resolve([])
-        : tx
-            .select({
-              id: statusLabels.id,
-              columnId: statusLabels.columnId,
-              label: statusLabels.label,
-              color: statusLabels.color,
-              category: statusLabels.category,
-              position: statusLabels.position,
-            })
-            .from(statusLabels)
-            .where(and(inArray(statusLabels.columnId, columnIds), isNull(statusLabels.deletedAt)))
-            .orderBy(asc(statusLabels.position)),
-      columnIds.length === 0
-        ? Promise.resolve([])
-        : tx
-            .select({
-              id: dropdownOptions.id,
-              columnId: dropdownOptions.columnId,
-              label: dropdownOptions.label,
-              color: dropdownOptions.color,
-              position: dropdownOptions.position,
-            })
-            .from(dropdownOptions)
-            .where(
-              and(inArray(dropdownOptions.columnId, columnIds), isNull(dropdownOptions.deletedAt)),
-            )
-            .orderBy(asc(dropdownOptions.position)),
+      tx
+        .select({
+          id: columnDefinitions.id,
+          key: columnDefinitions.key,
+          type: columnDefinitions.type,
+          title: columnDefinitions.title,
+          description: columnDefinitions.description,
+          settings: columnDefinitions.settings,
+          binding: columnDefinitions.binding,
+          isRequired: columnDefinitions.isRequired,
+          requiredWhen: columnDefinitions.requiredWhen,
+          defaultValue: columnDefinitions.defaultValue,
+          isHidden: columnDefinitions.isHidden,
+          position: columnDefinitions.position,
+          width: columnDefinitions.width,
+          permissions: columnDefinitions.permissions,
+        })
+        .from(columnDefinitions)
+        .where(eq(columnDefinitions.boardId, boardId))
+        .orderBy(asc(columnDefinitions.position)),
+      tx
+        .select({
+          id: statusLabels.id,
+          columnId: statusLabels.columnId,
+          label: statusLabels.label,
+          color: statusLabels.color,
+          category: statusLabels.category,
+          position: statusLabels.position,
+        })
+        .from(statusLabels)
+        .innerJoin(columnDefinitions, eq(columnDefinitions.id, statusLabels.columnId))
+        .where(and(eq(columnDefinitions.boardId, boardId), isNull(statusLabels.deletedAt)))
+        .orderBy(asc(statusLabels.position)),
+      tx
+        .select({
+          id: dropdownOptions.id,
+          columnId: dropdownOptions.columnId,
+          label: dropdownOptions.label,
+          color: dropdownOptions.color,
+          position: dropdownOptions.position,
+        })
+        .from(dropdownOptions)
+        .innerJoin(columnDefinitions, eq(columnDefinitions.id, dropdownOptions.columnId))
+        .where(and(eq(columnDefinitions.boardId, boardId), isNull(dropdownOptions.deletedAt)))
+        .orderBy(asc(dropdownOptions.position)),
     ]);
+    return {
+      board,
+      groups: groupRows,
+      columns: columnRows.map((column) => ({
+        ...column,
+        labels: labelRows.filter((label) => label.columnId === column.id),
+        options: optionRows.filter((option) => option.columnId === column.id),
+      })),
+    };
+  }
+
+  async getBoard(user: AuthPrincipal, boardId: string) {
+    await this.access.assert(user, 'board.read', { type: 'board', id: boardId }, 'Board');
+    const [shape, seqRow, access, visibility] = await Promise.all([
+      this.boardCache.cached(boardId, 'shape', () => this.loadShape(boardId)),
+      this.runner.tx.select({ seq: boards.seq }).from(boards).where(eq(boards.id, boardId)),
+      this.access.board(user, boardId),
+      this.items.visibility(user, boardId),
+    ]);
+    if (shape === null) throw new NotFoundError('Board');
+    const visibleColumns = shape.columns.filter((column) => !visibility.hidden.has(column.key));
     const canEdit = await Promise.all(
-      columnRows.map((column) =>
+      visibleColumns.map((column) =>
         this.access.can(user, 'column.update', { type: 'column', boardId, key: column.key }),
       ),
     );
     return {
-      ...board,
-      groups: groupRows,
-      columns: columnRows.map((column, index) => ({
+      ...shape.board,
+      seq: seqRow[0]?.seq ?? 0,
+      groups: shape.groups,
+      columns: visibleColumns.map((column, index) => ({
         ...column,
         canEdit: canEdit[index] ?? false,
-        labels: labelRows.filter((label) => label.columnId === column.id),
-        options: optionRows.filter((option) => option.columnId === column.id),
       })),
       permissions: [...(access?.permissions ?? [])],
       itemScope: access?.itemScope ?? 'all',

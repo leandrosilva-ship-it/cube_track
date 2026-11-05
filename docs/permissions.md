@@ -301,3 +301,33 @@ mas descobrir quais agentes existem num board (`GET /v1/boards/:boardId/ai-agent
 agentes para então ver suas filas. Na prática os dois papéis devem ser concedidos juntos (como já é o
 caso do papel `workspace_admin`); documentado em `docs/ai.md` §10, não resolvido com uma permissão
 nova nesta entrega.
+
+### API pública, integrações e templates (Prompt 15, ADR 0056)
+
+Duas permissões novas: `api_tokens.manage` e `templates.manage` (tenant — já reservadas desde o
+início do projeto, implementadas só agora) e `integrations.manage` (workspace, nova). Criar/revogar o
+**próprio** token pessoal não exige nenhuma delas (autosserviço, mesmo espírito de trocar a própria
+senha); `api_tokens.manage` gate só a administração de tokens de OUTRAS pessoas e os apps OAuth do
+tenant.
+
+| Operação                                                                                   | Permissão exigida                                                                              |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Criar/listar/revogar o próprio token pessoal de API                                            | sessão autenticada (sem permissão especial)                                                     |
+| Listar/revogar o token de qualquer usuário do tenant, gerenciar apps OAuth (`client_credentials`) | `api_tokens.manage`                                                                              |
+| Ver/reenviar entrega de webhook                                                                | `webhook.manage` do board (já existia desde o Prompt 10)                                        |
+| Ler a galeria pública de templates (global, somente leitura)                                   | sessão autenticada                                                                               |
+| Criar/editar/excluir template da galeria interna do tenant, aplicar um template                | `templates.manage`                                                                               |
+| Salvar um board como template                                                                  | `board.manage`                                                                                   |
+| Importar (preview/mapeamento/commit em background) num board                                   | `item.create` do board (mesma permissão do importador síncrono existente)                       |
+| Conectar/listar/desconectar uma integração de terceiro do workspace                            | `integrations.manage`                                                                            |
+
+Um token de API é um **teto** de escopo (`packages/shared/src/api-access.ts`) verificado ANTES do
+RBAC normal, nunca no lugar dele: uma requisição autenticada por token só pode o que (a) o escopo do
+token cobre E (b) o dono do token poderia fazer de qualquer forma numa sessão normal. Ações fora do
+catálogo de escopos (gestão de membros/papéis/times, IA, contratos, timesheet, portfólio…) são sempre
+bloqueadas para um principal de token — `scopeForAction` devolve `null` para qualquer ação não
+mapeada, e `null` nunca libera, só bloqueia. Um app OAuth não tem identidade própria no RBAC: o token
+que ele emite (`client_credentials`) age com as permissões de quem **criou** o app no tenant — mesmo
+raciocínio usado para "quem age" por trás de um webhook de integração sem sessão (comando de barra do
+Slack, auto-avanço de status ao mesclar PR): sempre `integration_connections.createdBy`, nunca uma
+identidade de serviço separada. Ver `docs/integrations.md` para o funcionamento completo.

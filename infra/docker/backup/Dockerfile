@@ -10,7 +10,7 @@
 
 FROM minio/mc:RELEASE.2025-04-16T18-13-26Z AS mc
 
-FROM postgres:16-alpine AS runtime
+FROM postgres:18-alpine AS runtime
 COPY --from=mc /usr/bin/mc /usr/local/bin/mc
 COPY infra/scripts/backup-postgres.sh /usr/local/bin/backup-postgres.sh
 RUN chmod +x /usr/local/bin/backup-postgres.sh

@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react';
 
 import type { ActivityLogEntry, BoardDetail, Item } from '@/lib/api/types';
 
+import { DevEventsSection } from '../integrations/dev-events-section';
 import { useActivityActors, useActivityLog } from './hooks';
 
 type ItemPanelTranslator = ReturnType<typeof useTranslations<'itemPanel'>>;
@@ -92,6 +93,7 @@ export function ActivityTab({ board, item }: { board: BoardDetail; item: Item })
 
   return (
     <div className="flex flex-col gap-3">
+      <DevEventsSection itemId={item.id} />
       <div className="flex flex-wrap items-end gap-2">
         <Select
           aria-label={t('activity.filterUser')}

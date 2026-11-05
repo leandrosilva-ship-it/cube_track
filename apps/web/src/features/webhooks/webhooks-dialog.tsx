@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDateTime } from '@cube-track/i18n';
 import {
   Badge,
   Button,
@@ -13,22 +14,26 @@ import {
   Switch,
   toast,
 } from '@cube-track/ui';
-import { Pencil, Plug, Plus, RefreshCw, Trash2, X } from 'lucide-react';
-import { useTranslations } from 'next-intl';
+import { History, Inbox, Pencil, Plug, Plus, RefreshCw, Send, Trash2, X } from 'lucide-react';
+import { useLocale, useTranslations } from 'next-intl';
 import { useState } from 'react';
 
-import type { BoardDetail, Webhook, WebhookWithSecret } from '@/lib/api/types';
+import type { BoardDetail, Webhook, WebhookDelivery, WebhookWithSecret } from '@/lib/api/types';
 import { useErrorMessage } from '@/lib/errors/use-error-message';
 
 import {
   useCreateWebhook,
   useDeleteWebhook,
   useRegenerateWebhookSecret,
+  useResendWebhookDelivery,
   useUpdateWebhook,
+  useWebhookDeliveries,
   useWebhooks,
 } from './hooks';
 import {
+  deliveryStatusTone,
   headersToRows,
+  isDeliveryResendable,
   rowsToHeaders,
   WEBHOOK_EVENT_TYPES,
   type HeaderRow,
@@ -38,7 +43,8 @@ import {
 type View =
   | { mode: 'list' }
   | { mode: 'form'; webhook?: Webhook }
-  | { mode: 'secret'; webhook: WebhookWithSecret };
+  | { mode: 'secret'; webhook: WebhookWithSecret }
+  | { mode: 'deliveries'; webhook: Webhook };
 
 export function WebhooksDialog({ board }: { board: BoardDetail }) {
   const [view, setView] = useState<View>({ mode: 'list' });
@@ -72,6 +78,17 @@ export function WebhooksDialog({ board }: { board: BoardDetail }) {
     );
   }
 
+  if (view.mode === 'deliveries') {
+    return (
+      <DeliveriesView
+        webhook={view.webhook}
+        onBack={() => {
+          setView({ mode: 'list' });
+        }}
+      />
+    );
+  }
+
   return (
     <WebhooksList
       board={board}
@@ -83,6 +100,9 @@ export function WebhooksDialog({ board }: { board: BoardDetail }) {
       }}
       onSecretRevealed={(webhook) => {
         setView({ mode: 'secret', webhook });
+      }}
+      onViewDeliveries={(webhook) => {
+        setView({ mode: 'deliveries', webhook });
       }}
     />
   );
@@ -132,11 +152,13 @@ function WebhooksList({
   onCreate,
   onEdit,
   onSecretRevealed,
+  onViewDeliveries,
 }: {
   board: BoardDetail;
   onCreate: () => void;
   onEdit: (webhook: Webhook) => void;
   onSecretRevealed: (webhook: WebhookWithSecret) => void;
+  onViewDeliveries: (webhook: Webhook) => void;
 }) {
   const t = useTranslations('webhooks');
   const tc = useTranslations('common');
@@ -193,6 +215,14 @@ function WebhooksList({
                     checked={webhook.isEnabled}
                     onCheckedChange={(checked) => {
                       update.mutate({ id: webhook.id, input: { isEnabled: checked } });
+                    }}
+                  />
+                  <IconButton
+                    label={t('viewDeliveries')}
+                    icon={<History aria-hidden="true" />}
+                    size="icon-sm"
+                    onClick={() => {
+                      onViewDeliveries(webhook);
                     }}
                   />
                   <IconButton
@@ -430,6 +460,86 @@ function WebhookForm({
           {t('enabledField')}
         </label>
       </div>
+    </Modal>
+  );
+}
+
+/** Log de entregas de um webhook (ADR 0056): status, tentativa, código de resposta, duração e erro,
+ * mais recentes primeiro, com reenvio manual por entrega. */
+function DeliveriesView({ webhook, onBack }: { webhook: Webhook; onBack: () => void }) {
+  const t = useTranslations('webhooks');
+  const tc = useTranslations('common');
+  const locale = useLocale();
+  const errorMessage = useErrorMessage();
+  const deliveries = useWebhookDeliveries(webhook.id);
+  const resend = useResendWebhookDelivery(webhook.id);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+
+  const resendOne = (delivery: WebhookDelivery) => {
+    setResendingId(delivery.id);
+    resend.mutate(delivery.id, {
+      onSuccess: () => {
+        setResendingId(null);
+        toast.success(t('resendSuccess'));
+      },
+      onError: (error) => {
+        setResendingId(null);
+        toast.error(errorMessage(error));
+      },
+    });
+  };
+
+  return (
+    <Modal
+      title={t('deliveriesTitle', { name: webhook.name })}
+      description={t('deliveriesDescription')}
+      closeLabel={tc('close')}
+      className="max-w-2xl"
+      footer={
+        <Button variant="ghost" onClick={onBack}>
+          {tc('back')}
+        </Button>
+      }
+    >
+      {deliveries.data === undefined ? (
+        <Skeleton className="h-32" />
+      ) : deliveries.data.data.length === 0 ? (
+        <EmptyState icon={<Inbox aria-hidden="true" />} title={t('deliveriesEmpty')} />
+      ) : (
+        <ul className="flex flex-col divide-y divide-border">
+          {deliveries.data.data.map((delivery) => (
+            <li key={delivery.id} className="flex flex-col gap-1 py-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge tone={deliveryStatusTone(delivery.status)}>{t(`deliveryStatus.${delivery.status}`)}</Badge>
+                <span className="text-sm font-medium text-fg">{delivery.eventType}</span>
+                <span className="text-xs text-fg-subtle">
+                  {t('attempt', { attempt: delivery.attempt })}
+                  {delivery.responseStatus === null ? '' : ` · HTTP ${String(delivery.responseStatus)}`}
+                  {delivery.durationMs === null ? '' : ` · ${String(delivery.durationMs)} ms`}
+                </span>
+                <span className="ms-auto text-xs text-fg-subtle">{formatDateTime(delivery.createdAt, locale)}</span>
+                {isDeliveryResendable(delivery.status) ? (
+                  <IconButton
+                    label={t('resend')}
+                    icon={<Send aria-hidden="true" />}
+                    size="icon-sm"
+                    loading={resendingId === delivery.id}
+                    onClick={() => {
+                      resendOne(delivery);
+                    }}
+                  />
+                ) : null}
+              </div>
+              {delivery.error === null ? null : (
+                <p className="text-xs text-danger">{delivery.error}</p>
+              )}
+              {delivery.resentFromId === null ? null : (
+                <p className="text-xs text-fg-subtle">{t('resentFrom')}</p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </Modal>
   );
 }

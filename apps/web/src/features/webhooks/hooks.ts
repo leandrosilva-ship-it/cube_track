@@ -4,7 +4,7 @@ import { toast } from '@cube-track/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api } from '@/lib/api/client';
-import type { Webhook, WebhookWithSecret } from '@/lib/api/types';
+import type { Page, Webhook, WebhookDelivery, WebhookWithSecret } from '@/lib/api/types';
 import { useErrorMessage } from '@/lib/errors/use-error-message';
 import { qk } from '@/lib/query/keys';
 
@@ -57,6 +57,26 @@ export function useDeleteWebhook(boardId: string) {
   return useMutation({
     mutationFn: (id: string) => api<undefined>(`/v1/webhooks/${id}`, { method: 'DELETE' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.webhooksOfBoard(boardId) }),
+    onError: (error) => toast.error(errorMessage(error)),
+  });
+}
+
+// --------------------------------------------------------------- log de entregas e reenvio (ADR 0056) ---
+
+export function useWebhookDeliveries(webhookId: string) {
+  return useQuery({
+    queryKey: qk.webhookDeliveries(webhookId),
+    queryFn: () => api<Page<WebhookDelivery>>(`/v1/webhooks/${webhookId}/deliveries`, { query: { limit: 50 } }),
+  });
+}
+
+export function useResendWebhookDelivery(webhookId: string) {
+  const queryClient = useQueryClient();
+  const errorMessage = useErrorMessage();
+  return useMutation({
+    mutationFn: (deliveryId: string) =>
+      api<WebhookDelivery>(`/v1/webhook-deliveries/${deliveryId}/resend`, { method: 'POST' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.webhookDeliveries(webhookId) }),
     onError: (error) => toast.error(errorMessage(error)),
   });
 }

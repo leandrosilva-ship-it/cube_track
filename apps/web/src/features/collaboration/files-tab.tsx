@@ -31,6 +31,7 @@ import { useRef, useState } from 'react';
 import { api } from '@/lib/api/client';
 import type { AttachmentSummary, AttachmentVersion, BoardDetail, Item } from '@/lib/api/types';
 
+import { ExternalFilesSection } from '../integrations/external-files-section';
 import {
   useDeleteFile,
   useDownloadFile,
@@ -153,6 +154,7 @@ export function FilesTab({
           ))}
         </ul>
       )}
+      <ExternalFilesSection itemId={item.id} canManage={canManage} />
       <Dialog
         open={preview !== null}
         onOpenChange={(open) => {

@@ -1,5 +1,6 @@
 import type { Messages } from './pt-BR.js';
 import { aiEs } from './ai.es.js';
+import { apiAccessEs } from './api-access.es.js';
 import { automationsEs } from './automations.es.js';
 import { calendarEs } from './calendar.es.js';
 import { capacityEs } from './capacity.es.js';
@@ -9,11 +10,14 @@ import { dashboardsEs } from './dashboards.es.js';
 import { formsEs } from './forms.es.js';
 import { ganttEs } from './gantt.es.js';
 import { governanceEs } from './governance.es.js';
+import { importsEs } from './imports.es.js';
+import { integrationsEs } from './integrations.es.js';
 import { kanbanEs } from './kanban.es.js';
 import { planningEs } from './planning.es.js';
 import { portfolioEs } from './portfolio.es.js';
 import { processesEs } from './processes.es.js';
 import { tableEs } from './table.es.js';
+import { templatesEs } from './templates.es.js';
 import { timelineEs } from './timeline.es.js';
 import { timesheetEs } from './timesheet.es.js';
 import { webhooksEs } from './webhooks.es.js';
@@ -166,6 +170,7 @@ export const es: Messages = {
       timesheet: 'Timesheet',
       ai: 'IA',
       more: 'Más',
+      templates: 'Plantillas',
       settings: 'Configuración',
       shortcuts: 'Atajos de teclado',
       commandPalette: 'Paleta de comandos',
@@ -271,6 +276,8 @@ export const es: Messages = {
     serviceOrders: 'Órdenes de Servicio',
     ai: 'IA',
     agents: 'Agentes',
+    saveAsTemplate: 'Guardar como plantilla',
+    import: 'Importar',
     featureLater: 'Disponible cuando el módulo se habilite para esta organización.',
     inviteDialog: {
       title: 'Invitar a la organización',
@@ -496,6 +503,10 @@ export const es: Messages = {
     inBoard: 'en {board}',
   },
   ai: aiEs,
+  apiAccess: apiAccessEs,
+  templates: templatesEs,
+  imports: importsEs,
+  integrations: integrationsEs,
   workspacePage: {
     boards: 'Tableros del espacio de trabajo',
     folders: 'Carpetas',

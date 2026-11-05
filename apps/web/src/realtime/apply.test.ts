@@ -699,3 +699,62 @@ describe('Prompt 13: Contratos/OS/UST', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.invoicesOf('ct1') });
   });
 });
+
+describe('Prompt 15: API pública, integrações, importadores e templates', () => {
+  it('api_token.changed invalida a lista do próprio usuário e a lista administrativa do tenant', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('api_token.changed', { tokenId: 't1', userId: 'u1', change: 'created' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.apiTokensMine() });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.apiTokensAll() });
+  });
+
+  it('oauth_app.changed invalida a lista de apps OAuth do tenant', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(queryClient, makeEvent('oauth_app.changed', { appId: 'a1', change: 'created' }), context());
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.oauthApps() });
+  });
+
+  it('integration_connection.changed invalida as conexões do workspace', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('integration_connection.changed', {
+        connectionId: 'c1',
+        workspaceId: 'ws1',
+        provider: 'github',
+        change: 'connected',
+      }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.integrationsOfWorkspace('ws1') });
+  });
+
+  it('import_job.changed invalida o status do job de importação', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('import_job.changed', { jobId: 'j1', boardId: BOARD_ID, status: 'processing' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.importJob('j1') });
+  });
+
+  it('template.changed invalida a galeria interna do tenant (a pública nunca emite este evento)', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('template.changed', { templateId: 'tp1', kind: 'board', change: 'created' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.templatesInternal() });
+  });
+});

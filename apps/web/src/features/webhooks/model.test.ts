@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { headersToRows, rowsToHeaders, WEBHOOK_EVENT_TYPES } from './model';
+import {
+  deliveryStatusTone,
+  headersToRows,
+  isDeliveryResendable,
+  rowsToHeaders,
+  WEBHOOK_EVENT_TYPES,
+} from './model';
 
 describe('headersToRows / rowsToHeaders', () => {
   it('converte um mapa de cabeçalhos em linhas editáveis e de volta', () => {
@@ -38,5 +44,21 @@ describe('WEBHOOK_EVENT_TYPES', () => {
     for (const type of internal) {
       expect(WEBHOOK_EVENT_TYPES).not.toContain(type);
     }
+  });
+});
+
+describe('deliveryStatusTone / isDeliveryResendable', () => {
+  it('mapeia cada status a um tom', () => {
+    expect(deliveryStatusTone('pending')).toBe('neutral');
+    expect(deliveryStatusTone('succeeded')).toBe('success');
+    expect(deliveryStatusTone('failed')).toBe('warning');
+    expect(deliveryStatusTone('dead')).toBe('danger');
+  });
+
+  it('só uma entrega que já terminou é reenviável', () => {
+    expect(isDeliveryResendable('pending')).toBe(false);
+    expect(isDeliveryResendable('succeeded')).toBe(true);
+    expect(isDeliveryResendable('failed')).toBe(true);
+    expect(isDeliveryResendable('dead')).toBe(true);
   });
 });

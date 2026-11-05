@@ -3,6 +3,7 @@
  * Sintaxe ICU (next-intl): `{name}`, `{count, plural, one {...} other {...}}`.
  */
 import { aiPtBR } from './ai.pt-BR.js';
+import { apiAccessPtBR } from './api-access.pt-BR.js';
 import { automationsPtBR } from './automations.pt-BR.js';
 import { calendarPtBR } from './calendar.pt-BR.js';
 import { capacityPtBR } from './capacity.pt-BR.js';
@@ -12,11 +13,14 @@ import { dashboardsPtBR } from './dashboards.pt-BR.js';
 import { formsPtBR } from './forms.pt-BR.js';
 import { ganttPtBR } from './gantt.pt-BR.js';
 import { governancePtBR } from './governance.pt-BR.js';
+import { importsPtBR } from './imports.pt-BR.js';
+import { integrationsPtBR } from './integrations.pt-BR.js';
 import { kanbanPtBR } from './kanban.pt-BR.js';
 import { planningPtBR } from './planning.pt-BR.js';
 import { portfolioPtBR } from './portfolio.pt-BR.js';
 import { processesPtBR } from './processes.pt-BR.js';
 import { tablePtBR } from './table.pt-BR.js';
+import { templatesPtBR } from './templates.pt-BR.js';
 import { timelinePtBR } from './timeline.pt-BR.js';
 import { timesheetPtBR } from './timesheet.pt-BR.js';
 import { webhooksPtBR } from './webhooks.pt-BR.js';
@@ -169,6 +173,7 @@ export const ptBR = {
       timesheet: 'Timesheet',
       ai: 'IA',
       more: 'Mais',
+      templates: 'Templates',
       settings: 'Configurações',
       shortcuts: 'Atalhos de teclado',
       commandPalette: 'Paleta de comandos',
@@ -274,6 +279,8 @@ export const ptBR = {
     serviceOrders: 'Ordens de Serviço',
     ai: 'IA',
     agents: 'Agentes',
+    saveAsTemplate: 'Salvar como template',
+    import: 'Importar',
     featureLater: 'Disponível quando o módulo for habilitado para esta organização.',
     inviteDialog: {
       title: 'Convidar para a organização',
@@ -497,6 +504,10 @@ export const ptBR = {
     inBoard: 'em {board}',
   },
   ai: aiPtBR,
+  apiAccess: apiAccessPtBR,
+  templates: templatesPtBR,
+  imports: importsPtBR,
+  integrations: integrationsPtBR,
   workspacePage: {
     boards: 'Boards do workspace',
     folders: 'Pastas',

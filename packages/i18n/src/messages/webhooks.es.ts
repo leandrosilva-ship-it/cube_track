@@ -53,4 +53,18 @@ export const webhooksEs = {
   secretLabel: 'Secreto (HMAC-SHA256)',
   secretWarning: 'Cópialo ahora — por seguridad, no volveremos a mostrar este secreto.',
   done: 'Listo',
+  viewDeliveries: 'Ver entregas',
+  deliveriesTitle: 'Entregas de "{name}"',
+  deliveriesDescription: 'Más recientes primero. Reenvía una entrega para repetir el mismo evento ahora.',
+  deliveriesEmpty: 'Aún no hay entregas registradas.',
+  attempt: 'intento {attempt}',
+  resend: 'Reenviar',
+  resendSuccess: 'Entrega reencolada.',
+  resentFrom: 'Reenvío de una entrega anterior.',
+  deliveryStatus: {
+    pending: 'Pendiente',
+    succeeded: 'Entregado',
+    failed: 'Falló',
+    dead: 'Desactivado tras fallos repetidos',
+  },
 };

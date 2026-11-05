@@ -24,6 +24,7 @@ import {
   Share2,
   ShieldCheck,
   Star,
+  Upload,
   UserPlus,
   Workflow,
   Zap,
@@ -40,7 +41,9 @@ import { AiDialog } from '../ai/ai-dialog';
 import { AutomationsDialog } from '../automations/automations-dialog';
 import { ServiceOrdersDialog } from '../contracts/service-orders-dialog';
 import { GovernanceDialog } from '../governance/governance-dialog';
+import { ImportWizardDialog } from '../imports/import-wizard-dialog';
 import { ProcessSettingsDialog } from '../processes/process-settings-dialog';
+import { SaveAsTemplateDialog } from '../templates/save-as-template-dialog';
 import { useFavorites, useToggleFavorite, useWorkspaces } from '../workspace/hooks';
 import { WebhooksDialog } from '../webhooks/webhooks-dialog';
 import { InviteDialog, ShareDialog } from './board-dialogs';
@@ -87,6 +90,8 @@ export function BoardHeader({ board }: { board: BoardDetail }) {
   const canAutomate = board.permissions.includes('automation.manage');
   const canManageProcess = board.kind === 'process' && board.permissions.includes('process.manage');
   const canManageWebhooks = board.permissions.includes('webhook.manage');
+  const canSaveAsTemplate = board.permissions.includes('board.manage');
+  const canImport = board.permissions.includes('item.create');
   const canGovernance = board.kind === 'project';
   const canServiceOrders = board.contractId !== null;
   const canInvite = useSession((state) => state.tenant !== null);
@@ -102,7 +107,17 @@ export function BoardHeader({ board }: { board: BoardDetail }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(board.description ?? '');
   const [dialog, setDialog] = useState<
-    'invite' | 'share' | 'automate' | 'process' | 'webhooks' | 'governance' | 'serviceOrders' | 'ai' | null
+    | 'invite'
+    | 'share'
+    | 'automate'
+    | 'process'
+    | 'webhooks'
+    | 'governance'
+    | 'serviceOrders'
+    | 'ai'
+    | 'saveAsTemplate'
+    | 'import'
+    | null
   >(null);
   const isFavorite = (favorites.data ?? []).some((entry) => entry.entityId === board.id);
 
@@ -363,6 +378,52 @@ export function BoardHeader({ board }: { board: BoardDetail }) {
                   <Bot aria-hidden="true" />
                   <span className="hidden xl:inline">{t('ai')}</span>
                   <span className="sr-only xl:hidden">{t('ai')}</span>
+                </Button>
+              </DialogTrigger>
+            ) : null}
+            {dialog === 'saveAsTemplate' && canSaveAsTemplate ? (
+              <SaveAsTemplateDialog
+                boardId={board.id}
+                onDone={() => {
+                  setDialog(null);
+                }}
+              />
+            ) : null}
+            {canSaveAsTemplate ? (
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDialog('saveAsTemplate');
+                  }}
+                >
+                  <LayoutTemplate aria-hidden="true" />
+                  <span className="hidden xl:inline">{t('saveAsTemplate')}</span>
+                  <span className="sr-only xl:hidden">{t('saveAsTemplate')}</span>
+                </Button>
+              </DialogTrigger>
+            ) : null}
+            {dialog === 'import' && canImport ? (
+              <ImportWizardDialog
+                board={board}
+                onDone={() => {
+                  setDialog(null);
+                }}
+              />
+            ) : null}
+            {canImport ? (
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDialog('import');
+                  }}
+                >
+                  <Upload aria-hidden="true" />
+                  <span className="hidden xl:inline">{t('import')}</span>
+                  <span className="sr-only xl:hidden">{t('import')}</span>
                 </Button>
               </DialogTrigger>
             ) : null}

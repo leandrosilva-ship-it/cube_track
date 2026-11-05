@@ -1,5 +1,6 @@
 import type { Messages } from './pt-BR.js';
 import { aiEn } from './ai.en.js';
+import { apiAccessEn } from './api-access.en.js';
 import { automationsEn } from './automations.en.js';
 import { calendarEn } from './calendar.en.js';
 import { capacityEn } from './capacity.en.js';
@@ -9,11 +10,14 @@ import { dashboardsEn } from './dashboards.en.js';
 import { formsEn } from './forms.en.js';
 import { ganttEn } from './gantt.en.js';
 import { governanceEn } from './governance.en.js';
+import { importsEn } from './imports.en.js';
+import { integrationsEn } from './integrations.en.js';
 import { kanbanEn } from './kanban.en.js';
 import { planningEn } from './planning.en.js';
 import { portfolioEn } from './portfolio.en.js';
 import { processesEn } from './processes.en.js';
 import { tableEn } from './table.en.js';
+import { templatesEn } from './templates.en.js';
 import { timelineEn } from './timeline.en.js';
 import { timesheetEn } from './timesheet.en.js';
 import { webhooksEn } from './webhooks.en.js';
@@ -166,6 +170,7 @@ export const en: Messages = {
       timesheet: 'Timesheet',
       ai: 'AI',
       more: 'More',
+      templates: 'Templates',
       settings: 'Settings',
       shortcuts: 'Keyboard shortcuts',
       commandPalette: 'Command palette',
@@ -271,6 +276,8 @@ export const en: Messages = {
     serviceOrders: 'Service Orders',
     ai: 'AI',
     agents: 'Agents',
+    saveAsTemplate: 'Save as template',
+    import: 'Import',
     featureLater: 'Available when the module is enabled for this organization.',
     inviteDialog: {
       title: 'Invite to the organization',
@@ -495,6 +502,10 @@ export const en: Messages = {
     inBoard: 'in {board}',
   },
   ai: aiEn,
+  apiAccess: apiAccessEn,
+  templates: templatesEn,
+  imports: importsEn,
+  integrations: integrationsEn,
   workspacePage: {
     boards: 'Workspace boards',
     folders: 'Folders',

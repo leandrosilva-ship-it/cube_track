@@ -23,6 +23,8 @@ import {
 } from '@/stores/preferences';
 
 import { AiSettingsSection } from '../ai/ai-settings-section';
+import { ApiAccessAdminSection } from '../api-access/api-access-admin-section';
+import { ApiTokensSection } from '../api-access/api-tokens-section';
 import { useMe } from '../shell/hooks';
 import { NotificationPreferencesSection } from './notification-preferences-section';
 
@@ -235,6 +237,7 @@ function MfaPanel({ enabled }: { enabled: boolean }) {
 export function SettingsPage() {
   const t = useTranslations('settings');
   const ta = useTranslations('ai.settings');
+  const tapi = useTranslations('apiAccess');
   const tu = useTranslations('shell.user');
   const me = useMe();
   const theme = usePreferences((state) => state.theme);
@@ -329,6 +332,14 @@ export function SettingsPage() {
         {me.data?.tenant.permissions.includes('ai.manage') === true ? (
           <Section title={ta('title')} id="settings-ai">
             <AiSettingsSection />
+          </Section>
+        ) : null}
+        <Section title={tapi('title')} id="settings-api-tokens">
+          <ApiTokensSection />
+        </Section>
+        {me.data?.tenant.permissions.includes('api_tokens.manage') === true ? (
+          <Section title={tapi('adminTitle')} id="settings-api-access-admin">
+            <ApiAccessAdminSection />
           </Section>
         ) : null}
       </div>

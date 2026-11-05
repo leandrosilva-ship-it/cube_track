@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/common/page-header';
 import type { Workspace } from '@/lib/api/types';
 import { useErrorMessage } from '@/lib/errors/use-error-message';
 
+import { IntegrationsSection } from '../integrations/integrations-section';
 import { useTree, useUpdateWorkspace, useWorkspaces } from './hooks';
 
 export interface WorkspaceSettingsPageProps {
@@ -147,6 +148,13 @@ export function WorkspaceSettingsPage({ workspaceId }: WorkspaceSettingsPageProp
     <div className="flex flex-col gap-6 pb-10">
       <PageHeader title={t('pageTitle')} subtitle={t('pageSubtitle')} />
       <WorkspaceSettingsForm key={workspace.id} workspace={workspace} />
+      <section className="flex max-w-2xl flex-col gap-3 px-4 sm:px-8" id="workspace-settings-integrations">
+        <div>
+          <h2 className="text-sm font-semibold text-fg">{t('integrationsTitle')}</h2>
+          <p className="text-sm text-fg-muted">{t('integrationsDescription')}</p>
+        </div>
+        <IntegrationsSection workspaceId={workspace.id} />
+      </section>
     </div>
   );
 }

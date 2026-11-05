@@ -27,4 +27,6 @@ export const workspaceSettingsEn = {
     },
   },
   saved: 'Workspace updated.',
+  integrationsTitle: 'Integrations',
+  integrationsDescription: 'Connect Google Workspace, Microsoft 365, Slack, Microsoft Teams, GitHub, GitLab or Azure DevOps to this workspace — every credential is registered by the organization itself (BYOK).',
 };

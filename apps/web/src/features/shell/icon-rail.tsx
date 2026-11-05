@@ -16,6 +16,7 @@ import {
   Command,
   Home,
   Keyboard,
+  LayoutTemplate,
   MoreHorizontal,
   Search,
   Settings,
@@ -146,6 +147,14 @@ function MoreMenu({ orientation }: { orientation: 'vertical' | 'horizontal' }) {
           }}
         >
           {t('shortcuts')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          icon={<LayoutTemplate aria-hidden="true" />}
+          onSelect={() => {
+            router.push('/templates');
+          }}
+        >
+          {t('templates')}
         </DropdownMenuItem>
         <DropdownMenuItem
           icon={<Settings aria-hidden="true" />}

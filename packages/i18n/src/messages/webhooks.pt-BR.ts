@@ -53,4 +53,18 @@ export const webhooksPtBR = {
   secretLabel: 'Segredo (HMAC-SHA256)',
   secretWarning: 'Copie agora — por segurança, não mostramos este segredo de novo.',
   done: 'Concluído',
+  viewDeliveries: 'Ver entregas',
+  deliveriesTitle: 'Entregas de "{name}"',
+  deliveriesDescription: 'Mais recentes primeiro. Reenvie uma entrega para repetir o mesmo evento agora.',
+  deliveriesEmpty: 'Nenhuma entrega registrada ainda.',
+  attempt: 'tentativa {attempt}',
+  resend: 'Reenviar',
+  resendSuccess: 'Entrega reenfileirada.',
+  resentFrom: 'Reenvio de uma entrega anterior.',
+  deliveryStatus: {
+    pending: 'Pendente',
+    succeeded: 'Entregue',
+    failed: 'Falhou',
+    dead: 'Desativado após falhas repetidas',
+  },
 };

@@ -135,6 +135,16 @@ export const qk = {
   aiPredictions: (boardId: string) => ['boards', boardId, 'ai-predictions'] as const,
   aiAgents: (boardId: string) => ['boards', boardId, 'ai-agents'] as const,
   aiAgentRuns: (agentId: string) => ['ai-agents', agentId, 'runs'] as const,
+  webhookDeliveries: (webhookId: string) => ['webhooks', webhookId, 'deliveries'] as const,
+  apiTokensMine: () => ['me', 'tokens'] as const,
+  apiTokensAll: () => ['tokens'] as const,
+  oauthApps: () => ['oauth-apps'] as const,
+  templatesPublic: () => ['templates', 'public'] as const,
+  templatesInternal: () => ['templates', 'internal'] as const,
+  importJob: (importJobId: string) => ['imports', importJobId] as const,
+  integrationsOfWorkspace: (workspaceId: string) => ['workspaces', workspaceId, 'integrations'] as const,
+  devEvents: (itemId: string) => ['items', itemId, 'dev-events'] as const,
+  externalFiles: (itemId: string) => ['items', itemId, 'external-files'] as const,
 };
 
 export interface CapacityScopeParams {

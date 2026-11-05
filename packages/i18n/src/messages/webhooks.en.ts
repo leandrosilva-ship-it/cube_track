@@ -53,4 +53,18 @@ export const webhooksEn = {
   secretLabel: 'Secret (HMAC-SHA256)',
   secretWarning: 'Copy it now — for security, we won\'t show this secret again.',
   done: 'Done',
+  viewDeliveries: 'View deliveries',
+  deliveriesTitle: 'Deliveries for "{name}"',
+  deliveriesDescription: 'Most recent first. Resend a delivery to replay the same event now.',
+  deliveriesEmpty: 'No deliveries recorded yet.',
+  attempt: 'attempt {attempt}',
+  resend: 'Resend',
+  resendSuccess: 'Delivery re-queued.',
+  resentFrom: 'Resent from an earlier delivery.',
+  deliveryStatus: {
+    pending: 'Pending',
+    succeeded: 'Delivered',
+    failed: 'Failed',
+    dead: 'Disabled after repeated failures',
+  },
 };

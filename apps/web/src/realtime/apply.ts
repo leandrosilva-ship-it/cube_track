@@ -717,6 +717,28 @@ export function applyRealtimeEvent(
     case 'session.revoked':
       context.onSessionRevoked();
       return;
+    case 'api_token.changed':
+      // API pública (ADR 0056): sem board, lista do próprio usuário e lista administrativa do tenant.
+      void queryClient.invalidateQueries({ queryKey: qk.apiTokensMine() });
+      void queryClient.invalidateQueries({ queryKey: qk.apiTokensAll() });
+      return;
+    case 'oauth_app.changed':
+      void queryClient.invalidateQueries({ queryKey: qk.oauthApps() });
+      return;
+    case 'integration_connection.changed': {
+      const { workspaceId: integrationWorkspaceId } = event.payload as { workspaceId: string };
+      void queryClient.invalidateQueries({ queryKey: qk.integrationsOfWorkspace(integrationWorkspaceId) });
+      return;
+    }
+    case 'import_job.changed': {
+      const { jobId } = event.payload as { jobId: string; boardId: string };
+      void queryClient.invalidateQueries({ queryKey: qk.importJob(jobId) });
+      return;
+    }
+    case 'template.changed':
+      // `tenantId` nulo (galeria pública) nunca emite este evento — só a galeria interna do tenant.
+      void queryClient.invalidateQueries({ queryKey: qk.templatesInternal() });
+      return;
     default:
       return;
   }

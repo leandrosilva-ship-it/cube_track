@@ -1029,6 +1029,24 @@ export interface WebhookWithSecret extends Webhook {
   secret: string;
 }
 
+export type WebhookDeliveryStatus = 'pending' | 'succeeded' | 'failed' | 'dead';
+
+export interface WebhookDelivery {
+  id: string;
+  webhookId: string;
+  eventId: string;
+  eventType: string;
+  status: WebhookDeliveryStatus;
+  attempt: number;
+  responseStatus: number | null;
+  responseBody: string | null;
+  error: string | null;
+  durationMs: number | null;
+  deliveredAt: string | null;
+  createdAt: string;
+  resentFromId: string | null;
+}
+
 // --------------------------------------------------------------- preferências de notificação ---
 
 export type NotificationChannel = 'in_app' | 'email' | 'push';
@@ -1802,4 +1820,145 @@ export interface AiAgentRun {
   executedAt: string | null;
   revertedAt: string | null;
   revertedBy: string | null;
+}
+
+// --------------------------------------------------------------------------- API pública (ADR 0056) ---
+
+export interface ApiToken {
+  id: string;
+  userId: string | null;
+  userName: string | null;
+  oauthAppId: string | null;
+  name: string;
+  tokenPrefix: string;
+  scopes: string[];
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  createdAt: string;
+}
+
+/** Só na criação: o token em texto simples (nunca mais é devolvido). */
+export interface ApiTokenWithSecret extends ApiToken {
+  token: string;
+}
+
+export interface OAuthApp {
+  id: string;
+  name: string;
+  description: string | null;
+  clientId: string;
+  scopes: string[];
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Só na criação: o `clientSecret` em texto simples (nunca mais é devolvido). */
+export interface OAuthAppWithSecret extends OAuthApp {
+  clientSecret: string;
+}
+
+// ------------------------------------------------------------------------------ templates (ADR 0056) ---
+
+export type TemplateKind = 'board' | 'workspace' | 'dashboard' | 'automation' | 'form';
+
+export interface Template {
+  id: string;
+  tenantId: string | null;
+  kind: TemplateKind;
+  name: string;
+  description: string | null;
+  category: string | null;
+  payload: Record<string, unknown>;
+  version: number;
+  usageCount: number;
+  isGlobal: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// -------------------------------------------------------------------- importação em background (ADR 0056) ---
+
+export type BackgroundImportSource = 'csv' | 'monday' | 'trello' | 'jira' | 'pipefy';
+export type ImportJobStatus = 'uploaded' | 'processing' | 'completed' | 'failed';
+
+export type ImportMappingTarget =
+  | { type: 'ignore' }
+  | { type: 'name' }
+  | { type: 'group' }
+  | { type: 'column'; key: string };
+
+/** Chaves são o índice (como string) da coluna da planilha/export de origem. */
+export type ImportMapping = Record<string, ImportMappingTarget>;
+
+export interface ImportPreviewResponse {
+  importJobId: string;
+  headers: string[];
+  sample: string[][];
+  totalRows: number;
+  suggestedMapping: ImportMapping;
+}
+
+export interface BackgroundImportJob {
+  id: string;
+  boardId: string;
+  source: BackgroundImportSource;
+  status: ImportJobStatus;
+  fileName: string;
+  mapping: ImportMapping;
+  totalRows: number;
+  createdCount: number | null;
+  skippedCount: number | null;
+  errorReport: { row: number; message: string }[] | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+}
+
+// --------------------------------------------------------------------------- integrações (ADR 0056) ---
+
+export type IntegrationProvider =
+  | 'google'
+  | 'microsoft'
+  | 'slack'
+  | 'teams'
+  | 'github'
+  | 'gitlab'
+  | 'azure_devops';
+
+export interface IntegrationConnection {
+  id: string;
+  workspaceId: string;
+  provider: IntegrationProvider;
+  authKind: 'oauth' | 'webhook_secret';
+  userId: string | null;
+  connectedBy: string | null;
+  isActive: boolean;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExternalFileLink {
+  id: string;
+  itemId: string;
+  connectionId: string;
+  externalFileId: string;
+  name: string;
+  url: string;
+  mimeType: string | null;
+  createdAt: string;
+}
+
+export interface DevEventLink {
+  id: string;
+  itemId: string;
+  connectionId: string;
+  kind: string;
+  repo: string;
+  title: string;
+  url: string;
+  authorName: string;
+  createdAt: string;
 }

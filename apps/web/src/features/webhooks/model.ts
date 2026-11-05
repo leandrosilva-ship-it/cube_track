@@ -49,3 +49,24 @@ export function rowsToHeaders(rows: readonly HeaderRow[]): Record<string, string
   }
   return headers;
 }
+
+// --------------------------------------------------------------- log de entregas (ADR 0056) ---
+
+export type WebhookDeliveryStatus = 'pending' | 'succeeded' | 'failed' | 'dead';
+
+const DELIVERY_STATUS_TONE: Record<WebhookDeliveryStatus, 'neutral' | 'warning' | 'success' | 'danger'> = {
+  pending: 'neutral',
+  succeeded: 'success',
+  failed: 'warning',
+  dead: 'danger',
+};
+
+/** Tom de `Badge` (design system) para o status de uma entrega de webhook. */
+export function deliveryStatusTone(status: WebhookDeliveryStatus): 'neutral' | 'warning' | 'success' | 'danger' {
+  return DELIVERY_STATUS_TONE[status];
+}
+
+/** Uma entrega só é reenviável quando já terminou (nunca uma ainda `pending`, que já está na fila). */
+export function isDeliveryResendable(status: WebhookDeliveryStatus): boolean {
+  return status !== 'pending';
+}

@@ -806,8 +806,48 @@ exatamente um rótulo "concluído").
 mesmo webhook `/v1/email/inbound` sem teste automatizado dedicado; link preview do Slack monta o payload
 de unfurl mas não chama `chat.unfurl` de volta (exigiria bot token, fora do escopo BYOK desta entrega);
 Teams sem slash command/interação (exigiria Bot Framework); reconciliação de exclusão de evento no
-Microsoft Graph é best-effort (sem delta query); sem frontend para as novas telas de integrações (fora
-do pedido desta entrega, que foi só backend). Detalhes completos em `docs/adr/0056-*.md`.
+Microsoft Graph é best-effort (sem delta query). Detalhes completos em `docs/adr/0056-*.md`.
+
+### Frontend do Prompt 15
+
+**Feito**: Configurações → "Chaves de API" (autosserviço de tokens pessoais; administração de tokens/apps
+OAuth com `api_tokens.manage`; link para o Swagger); log de entregas + reenvio na aba nova do diálogo de
+Webhooks do board; galeria de templates (`/templates`: pública + interna do tenant, aplicação com
+formulário por `kind`) e "Salvar como template" no cabeçalho do board; assistente de importação em
+background de 4 passos (origem → upload → mapeamento → progresso em tempo real) a partir do botão
+"Importar" no board; conexões de integração por workspace (Google/Microsoft OAuth BYOK, Slack/Teams,
+GitHub/GitLab/Azure DevOps) em Configurações do Workspace, com página-ponte `/integrations` para o
+retorno do callback OAuth; trilha de commits/PRs somente leitura na aba de atividade do painel do item;
+vínculo de arquivo do Drive/OneDrive por referência na aba de Arquivos. `realtime/apply.ts` trata os 5
+eventos novos (`api_token.changed`, `oauth_app.changed`, `integration_connection.changed`,
+`import_job.changed`, `template.changed`). i18n: namespaces `api-access`/`templates`/`imports`/
+`integrations` em pt-BR/en/es.
+
+**Pendências/simplificações documentadas**: (1) o callback OAuth do backend redireciona para
+`/integrations?status=...` sem levar o `workspaceId` de origem (é uma navegação pública sem esse
+contexto) — a ponte usa `sessionStorage` (gravado antes do redirect) para voltar à aba de integrações do
+workspace certo; sem esse valor (aba fechada, storage limpo), volta ao início — a conexão em si já foi
+concluída do lado do servidor; (2) "Anexar por link" (Drive/OneDrive) pede o id da conexão e o id do
+arquivo em campos de texto — não há seletor de arquivo (picker) nesta entrega, simplificação honesta
+dentro do escopo; (3) a seção de Integrações na página do workspace usa o mesmo gate de página
+(`canManageWorkspace`) como proxy de `integrations.manage`, já que o DTO da árvore do workspace não expõe
+essa permissão fina — o backend continua sendo a autoridade final (403 em uso indevido); (4) CRUD de
+template interno usa um editor de `payload` em JSON bruto (sem um construtor visual por `kind`), dada a
+variedade de formatos por tipo de template.
+
+**Como rodar e testar**
+
+```bash
+pnpm --filter @cube-track/i18n test
+pnpm --filter @cube-track/web typecheck && pnpm --filter @cube-track/web lint && pnpm --filter @cube-track/web test
+pnpm infra:up && pnpm db:reset && pnpm db:seed && pnpm build
+pnpm --filter @cube-track/api dev & pnpm --filter @cube-track/worker dev & pnpm --filter @cube-track/web dev
+```
+
+Manualmente: Configurações → "Chaves de API" (criar/revogar token pessoal; com `api_tokens.manage`,
+administrar tokens/apps OAuth); num board, "Integrar" → ícone de histórico num webhook → ver entregas e
+reenviar; "Salvar como template" e, em `/templates`, aplicar um template; "Importar" para o assistente de
+4 passos; Configurações do Workspace → "Integrações" para conectar um provedor (BYOK).
 
 **Como rodar e testar**
 

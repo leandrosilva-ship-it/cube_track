@@ -339,3 +339,24 @@ export const authTokens = pgTable(
     index('auth_tokens_user_purpose_idx').on(t.userId, t.purpose),
   ],
 );
+
+/**
+ * Histórico de senhas (ADR 0057, política de senha `historyCount`) — GLOBAL como `users.password_hash`
+ * (um usuário pode pertencer a vários tenants com políticas diferentes; a senha em si é única). Uma
+ * linha por troca ANTERIOR (nunca a atual, que vive só em `users.password_hash`). Append-only.
+ */
+export const passwordHistory = pgTable(
+  'password_history',
+  {
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`app.uuid_v7()`)
+      .$defaultFn(newId),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    passwordHash: text('password_hash').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('password_history_user_idx').on(t.userId, t.createdAt)],
+);

@@ -1,6 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { provisionTenant, schema } from '@cube-track/db';
-import { initialPositions, newId, QUEUES, type EmailJob } from '@cube-track/shared';
+import {
+  checkAccessRestriction,
+  DEFAULT_PASSWORD_POLICY,
+  initialPositions,
+  isPasswordExpired,
+  newId,
+  QUEUES,
+  type EmailJob,
+} from '@cube-track/shared';
 import type { Redis } from 'ioredis';
 
 import { APP_CONFIG, type AppConfig } from '../../../core/config/config.js';
@@ -16,7 +24,12 @@ import {
 import { DomainEvents } from '../../../core/events/domain-events.js';
 import { QUEUE_REGISTRY, type QueueRegistry } from '../../../core/queues/queues.module.js';
 import { REDIS } from '../../../core/redis/redis.module.js';
-import { checkPasswordPolicy, hashPassword, verifyPassword } from '../domain/password.js';
+import {
+  checkPasswordPolicy,
+  hashPassword,
+  isPasswordReused,
+  verifyPassword,
+} from '../domain/password.js';
 import { randomToken, sha256Hex } from '../domain/secrets.js';
 import {
   IdentityRepository,
@@ -26,6 +39,7 @@ import {
 import { OAuthClient, type OAuthProviderName } from '../infrastructure/oauth.client.js';
 import { AuthAudit } from './auth-audit.js';
 import { MfaService } from './mfa.service.js';
+import { SecurityPolicyService } from './security-policy.service.js';
 import { SessionService, type IssuedSession } from './session.service.js';
 
 const MAX_FAILED_LOGINS = 5;
@@ -68,6 +82,7 @@ export class AuthService {
     private readonly runner: TransactionRunner,
     private readonly events: DomainEvents,
     private readonly audit: AuthAudit,
+    private readonly securityPolicy: SecurityPolicyService,
   ) {}
 
   // ----------------------------------------------------------------------------- cadastro ---
@@ -189,6 +204,36 @@ export class AuthService {
       currentContext()?.tenant ?? null,
       preferredTenantId,
     );
+    const policy = await this.runner.run(
+      { tenantId: membership.tenantId, userId: user.id },
+      () => this.securityPolicy.forTenant(membership.tenantId),
+      { readOnly: true },
+    );
+    const restriction = checkAccessRestriction(
+      currentContext()?.ip ?? null,
+      user.email,
+      policy.accessRestriction,
+    );
+    if (!restriction.allowed) {
+      this.audit.securityLog('auth.login_blocked', {
+        userId: user.id,
+        tenantId: membership.tenantId,
+        reason: restriction.reason,
+        ip: currentContext()?.ip,
+      });
+      throw new ForbiddenError(
+        'Login bloqueado pela política de segurança da organização (rede ou domínio de e-mail não permitido).',
+        'access_restricted',
+      );
+    }
+    if (method === 'password' && isPasswordExpired(user.passwordChangedAt, policy.password)) {
+      throw new AppError(
+        403,
+        'password_expired',
+        'Senha expirada',
+        'Sua senha expirou e precisa ser redefinida. Use "esqueci minha senha" para continuar.',
+      );
+    }
     if (user.mfaEnabled) {
       const challenge = await this.mfa.createChallenge(user.id, membership.tenantId, method, amr);
       return { kind: 'mfa', ...challenge };
@@ -315,11 +360,17 @@ export class AuthService {
     if (record === null) throw new UnauthorizedError('link_invalid', 'Link inválido ou expirado.');
     const user = await this.repository.findUserById(record.userId);
     if (user === null) throw new UnauthorizedError('link_invalid', 'Link inválido ou expirado.');
-    const policy = checkPasswordPolicy(password, user.email);
+    const memberships = await this.repository.listMemberships(user.id);
+    const tenantPolicy = await this.passwordPolicyFor(user.id, memberships[0]?.tenantId ?? null);
+    const policy = checkPasswordPolicy(password, user.email, tenantPolicy);
     if (!policy.ok)
       throw new ValidationError(
         policy.reasons.map((message) => ({ path: 'body.password', message })),
       );
+    await this.enforcePasswordHistory(user.id, password, tenantPolicy);
+    if (user.passwordHash !== null) {
+      await this.repository.pushPasswordHistory(user.id, user.passwordHash, tenantPolicy.historyCount);
+    }
     await this.repository.updateUser(user.id, {
       passwordHash: await hashPassword(password),
       passwordChangedAt: new Date(),
@@ -328,7 +379,7 @@ export class AuthService {
       emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
     });
     await this.sessions.revokeAllForUser(user.id, 'password_reset');
-    for (const membership of await this.repository.listMemberships(user.id)) {
+    for (const membership of memberships) {
       await this.audit.record(membership.tenantId, user.id, 'auth.password_reset', 'user', user.id);
     }
   }
@@ -343,16 +394,51 @@ export class AuthService {
     if (user === null || !(await verifyPassword(user.passwordHash, currentPassword))) {
       throw new UnauthorizedError('invalid_credentials', 'Senha atual incorreta.');
     }
-    const policy = checkPasswordPolicy(newPassword, user.email);
+    const tenantPolicy = await this.passwordPolicyFor(userId, tenantId);
+    const policy = checkPasswordPolicy(newPassword, user.email, tenantPolicy);
     if (!policy.ok)
       throw new ValidationError(
         policy.reasons.map((message) => ({ path: 'body.newPassword', message })),
       );
+    await this.enforcePasswordHistory(user.id, newPassword, tenantPolicy);
+    if (user.passwordHash !== null) {
+      await this.repository.pushPasswordHistory(user.id, user.passwordHash, tenantPolicy.historyCount);
+    }
     await this.repository.updateUser(user.id, {
       passwordHash: await hashPassword(newPassword),
       passwordChangedAt: new Date(),
     });
     await this.audit.record(tenantId, user.id, 'auth.password_changed', 'user', user.id);
+  }
+
+  /** Política de senha efetiva: a do tenant informado, ou os padrões (sem tenant conhecido, ex.:
+   * cadastro de uma organização nova). Lida sob RLS normal (`security_policies`), nunca via
+   * `IdentityRepository` (papel `app_auth`, sem acesso a tabelas de negócio). */
+  private async passwordPolicyFor(userId: string, tenantId: string | null) {
+    if (tenantId === null) return DEFAULT_PASSWORD_POLICY;
+    const policy = await this.runner.run(
+      { tenantId, userId },
+      () => this.securityPolicy.forTenant(tenantId),
+      { readOnly: true },
+    );
+    return policy.password;
+  }
+
+  private async enforcePasswordHistory(
+    userId: string,
+    password: string,
+    policy: { historyCount: number },
+  ): Promise<void> {
+    if (policy.historyCount <= 0) return;
+    const previous = await this.repository.recentPasswordHashes(userId, policy.historyCount);
+    if (await isPasswordReused(password, previous)) {
+      throw new ValidationError([
+        {
+          path: 'body.password',
+          message: `Não é possível reutilizar uma das últimas ${policy.historyCount} senhas.`,
+        },
+      ]);
+    }
   }
 
   // ------------------------------------------------------------------ verificação de e-mail ---

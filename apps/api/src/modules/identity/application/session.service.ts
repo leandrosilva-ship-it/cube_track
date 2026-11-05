@@ -4,7 +4,9 @@ import { newId } from '@cube-track/shared';
 import { APP_CONFIG, type AppConfig } from '../../../core/config/config.js';
 import { TokenService } from '../../../core/auth/token.service.js';
 import { currentContext } from '../../../core/context/request-context.js';
+import { TransactionRunner } from '../../../core/database/transaction-runner.js';
 import { ForbiddenError, UnauthorizedError } from '../../../core/errors/problems.js';
+import { isSessionBeyondAbsoluteLifetime, isSessionIdle, sessionsToEvict } from '../domain/session-policy.js';
 import { randomToken, sha256Hex } from '../domain/secrets.js';
 import {
   IdentityRepository,
@@ -13,6 +15,7 @@ import {
   type UserRecord,
 } from '../infrastructure/identity.repository.js';
 import { AuthAudit } from './auth-audit.js';
+import { SecurityPolicyService } from './security-policy.service.js';
 
 export interface IssuedSession {
   accessToken: string;
@@ -41,6 +44,8 @@ export class SessionService {
     private readonly repository: IdentityRepository,
     private readonly tokens: TokenService,
     private readonly audit: AuthAudit,
+    private readonly runner: TransactionRunner,
+    private readonly securityPolicy: SecurityPolicyService,
   ) {}
 
   async issue(input: IssueInput): Promise<IssuedSession> {
@@ -58,6 +63,7 @@ export class SessionService {
       mfaVerified: input.amr.includes('otp'),
       authMethod: input.method,
     });
+    await this.enforceMaxConcurrentSessions(input.membership.tenantId, input.user.id, session.id);
     const accessToken = await this.tokens.signAccessToken({
       userId: input.user.id,
       tenantId: input.membership.tenantId,
@@ -115,6 +121,7 @@ export class SessionService {
     }
     if (session.expiresAt.getTime() <= Date.now())
       throw new UnauthorizedError('refresh_expired', 'Sessão expirada.');
+    await this.enforceSessionPolicy(session);
     const issued = await this.issueForRefresh(session);
     const rotated = await this.repository.markRotated(session.id, issued.sessionId);
     if (!rotated) {
@@ -128,6 +135,50 @@ export class SessionService {
       );
     }
     return issued;
+  }
+
+  /** Expulsa (revoga) as sessões ativas mais antigas que excedam `maxConcurrentSessions` — nunca a
+   * recém-emitida (ADR 0057, sempre o login/refresh corrente vence sobre sessões antigas ociosas). */
+  private async enforceMaxConcurrentSessions(
+    tenantId: string,
+    userId: string,
+    newSessionId: string,
+  ): Promise<void> {
+    const policy = await this.policyFor(tenantId, userId);
+    const active = await this.repository.activeSessions(tenantId, userId);
+    const evict = sessionsToEvict(active, newSessionId, policy.session);
+    for (const sessionId of evict) {
+      await this.revoke(sessionId, 'max_concurrent_sessions');
+    }
+  }
+
+  private async policyFor(tenantId: string, userId: string) {
+    return this.runner.run({ tenantId, userId }, () => this.securityPolicy.forTenant(tenantId), {
+      readOnly: true,
+    });
+  }
+
+  /**
+   * Timeout de inatividade e vida útil absoluta (ADR 0057) — avaliados no REFRESH (não a cada
+   * requisição com o access token, que não toca o banco): `lastSeenAt` da sessão atual é "a última
+   * vez que renovou", e a vida útil absoluta conta da criação da FAMÍLIA, não desta rotação.
+   */
+  private async enforceSessionPolicy(session: SessionRecord): Promise<void> {
+    const policy = await this.policyFor(session.tenantId, session.userId);
+    if (session.lastSeenAt !== null && isSessionIdle(session.lastSeenAt, policy.session)) {
+      const revoked = await this.repository.revokeFamily(session.familyId, 'idle_timeout');
+      await this.audit.sessionsRevoked(revoked);
+      throw new UnauthorizedError('session_idle_timeout', 'Sessão encerrada por inatividade.');
+    }
+    const familyCreatedAt = await this.repository.familyCreatedAt(session.familyId);
+    if (familyCreatedAt !== null && isSessionBeyondAbsoluteLifetime(familyCreatedAt, policy.session)) {
+      const revoked = await this.repository.revokeFamily(session.familyId, 'absolute_lifetime');
+      await this.audit.sessionsRevoked(revoked);
+      throw new UnauthorizedError(
+        'session_expired_absolute',
+        'Sessão encerrada: tempo máximo de sessão atingido. Entre novamente.',
+      );
+    }
   }
 
   private withinReuseGrace(session: SessionRecord): boolean {

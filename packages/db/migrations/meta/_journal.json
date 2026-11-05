@@ -246,6 +246,20 @@
       "when": 1793883706388,
       "tag": "0034_security_rls_and_audit_retention",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1793894934179,
+      "tag": "0035_thankful_anita_blake",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1793894948867,
+      "tag": "0036_password_history_grants",
+      "breakpoints": true
     }
   ]
 }

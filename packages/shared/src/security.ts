@@ -201,6 +201,113 @@ export type AccessRestrictionPolicy = z.infer<typeof AccessRestrictionPolicySche
 export const DEFAULT_ACCESS_RESTRICTION_POLICY: AccessRestrictionPolicy =
   AccessRestrictionPolicySchema.parse({});
 
+// Parsing de IP/CIDR em JS puro (sem `node:net`/`node:dns`): este arquivo entra no barrel principal
+// (`@cube-track/shared`), e qualquer módulo nativo aqui arrasta o mesmo problema de bundle do cliente
+// documentado para `node:crypto` em `crypto.ts`.
+
+function parseIpv4(ip: string): number | null {
+  const parts = ip.split('.');
+  if (parts.length !== 4) return null;
+  let value = 0;
+  for (const part of parts) {
+    if (!/^\d{1,3}$/.test(part)) return null;
+    const n = Number(part);
+    if (n > 255) return null;
+    value = (value << 8) | n;
+  }
+  return value >>> 0;
+}
+
+function ipv4InCidr(ip: string, cidr: string): boolean {
+  const [base, bitsRaw] = cidr.split('/');
+  const target = parseIpv4(ip);
+  const network = parseIpv4(base ?? '');
+  if (target === null || network === null) return false;
+  const bits = bitsRaw === undefined ? 32 : Number(bitsRaw);
+  if (!Number.isInteger(bits) || bits < 0 || bits > 32) return false;
+  if (bits === 0) return true;
+  const mask = bits === 32 ? 0xffffffff : (~(0xffffffff >>> bits) >>> 0);
+  return (target & mask) >>> 0 === (network & mask) >>> 0;
+}
+
+/** Expande `::` e valida um endereço IPv6 completo, devolvendo os 128 bits como `bigint`. */
+function parseIpv6(ip: string): bigint | null {
+  if (!ip.includes(':')) return null;
+  const halves = ip.split('::');
+  if (halves.length > 2) return null;
+  const head = halves[0] === '' || halves[0] === undefined ? [] : halves[0].split(':');
+  const tail =
+    halves.length === 2 && halves[1] !== '' && halves[1] !== undefined ? halves[1].split(':') : [];
+  let groups: string[];
+  if (halves.length === 2) {
+    const missing = 8 - head.length - tail.length;
+    if (missing < 0) return null;
+    groups = [...head, ...Array<string>(missing).fill('0'), ...tail];
+  } else {
+    groups = head;
+  }
+  if (groups.length !== 8) return null;
+  let value = 0n;
+  for (const group of groups) {
+    if (!/^[0-9a-fA-F]{1,4}$/.test(group)) return null;
+    value = (value << 16n) | BigInt(parseInt(group, 16));
+  }
+  return value;
+}
+
+function ipv6InCidr(ip: string, cidr: string): boolean {
+  const [base, bitsRaw] = cidr.split('/');
+  const target = parseIpv6(ip);
+  const network = parseIpv6(base ?? '');
+  if (target === null || network === null) return false;
+  const bits = bitsRaw === undefined ? 128 : Number(bitsRaw);
+  if (!Number.isInteger(bits) || bits < 0 || bits > 128) return false;
+  if (bits === 0) return true;
+  const fullMask = (1n << 128n) - 1n;
+  const mask = bits === 128 ? fullMask : (fullMask << BigInt(128 - bits)) & fullMask;
+  return (target & mask) === (network & mask);
+}
+
+/** `ip` cai em algum dos CIDRs/IPs isolados de `allowedCidrs`. Lista vazia nunca permite (fail-safe —
+ * o chamador decide separadamente se a lista vazia bloqueia tudo ou é "regra não configurada"). */
+export function isIpAllowed(ip: string, allowedCidrs: readonly string[]): boolean {
+  return allowedCidrs.some((cidr) =>
+    ip.includes(':') ? cidr.includes(':') && ipv6InCidr(ip, cidr) : ipv4InCidr(ip, cidr),
+  );
+}
+
+/** O domínio do e-mail está entre `allowedEmailDomains` (comparação exata, case-insensitive). */
+export function isEmailDomainAllowed(email: string, allowedEmailDomains: readonly string[]): boolean {
+  const domain = email.split('@')[1]?.toLowerCase();
+  return domain !== undefined && allowedEmailDomains.includes(domain);
+}
+
+export type AccessRestrictionReason = 'ip_not_allowed' | 'domain_not_allowed' | 'no_rules_configured';
+
+/**
+ * Decide se um login/requisição pode prosseguir sob a allowlist do tenant. Fail-safe: habilitada SEM
+ * nenhuma regra preenchida bloqueia tudo (`no_rules_configured`), nunca libera por omissão. Quando as
+ * duas listas estão preenchidas, AMBAS precisam bater (E lógico) — a mais restritiva faz sentido para
+ * o caso de referência (órgão público: rede corporativa E domínio institucional).
+ */
+export function checkAccessRestriction(
+  ip: string | null,
+  email: string,
+  policy: AccessRestrictionPolicy,
+): { allowed: boolean; reason: AccessRestrictionReason | null } {
+  if (!policy.isEnabled) return { allowed: true, reason: null };
+  const hasCidrRule = policy.allowedCidrs.length > 0;
+  const hasDomainRule = policy.allowedEmailDomains.length > 0;
+  if (!hasCidrRule && !hasDomainRule) return { allowed: false, reason: 'no_rules_configured' };
+  if (hasCidrRule && (ip === null || !isIpAllowed(ip, policy.allowedCidrs))) {
+    return { allowed: false, reason: 'ip_not_allowed' };
+  }
+  if (hasDomainRule && !isEmailDomainAllowed(email, policy.allowedEmailDomains)) {
+    return { allowed: false, reason: 'domain_not_allowed' };
+  }
+  return { allowed: true, reason: null };
+}
+
 /** Política completa de segurança de um tenant — uma linha por tenant (`security_policies`). */
 export const SecurityPolicySchema = z
   .object({

@@ -1,12 +1,21 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { schema, type DatabaseHandle } from '@cube-track/db';
 import { newId } from '@cube-track/shared';
-import { and, asc, eq, gt, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, isNull, sql } from 'drizzle-orm';
 
 import { AUTH_DB } from '../../../core/database/tokens.js';
 
-const { users, sessions, authTokens, userIdentities, memberships, tenants, roles, invitations } =
-  schema;
+const {
+  users,
+  sessions,
+  authTokens,
+  userIdentities,
+  memberships,
+  tenants,
+  roles,
+  invitations,
+  passwordHistory,
+} = schema;
 
 export type UserRecord = typeof users.$inferSelect;
 export type SessionRecord = typeof sessions.$inferSelect;
@@ -71,6 +80,39 @@ export class IdentityRepository {
 
   async updateUser(id: string, values: Partial<typeof users.$inferInsert>): Promise<void> {
     await this.db.update(users).set(values).where(eq(users.id, id));
+  }
+
+  /** Últimos `limit` hashes de senha ANTERIORES do usuário (mais recente primeiro) — política de
+   * histórico (ADR 0057). Nunca inclui a senha atual (`users.password_hash`, verificada à parte). */
+  async recentPasswordHashes(userId: string, limit: number): Promise<string[]> {
+    if (limit <= 0) return [];
+    const rows = await this.db
+      .select({ passwordHash: passwordHistory.passwordHash })
+      .from(passwordHistory)
+      .where(eq(passwordHistory.userId, userId))
+      .orderBy(desc(passwordHistory.createdAt))
+      .limit(limit);
+    return rows.map((row) => row.passwordHash);
+  }
+
+  /** Registra o hash SUBSTITUÍDO (não o novo) e descarta o que exceder `keep` entradas. */
+  async pushPasswordHistory(userId: string, previousHash: string, keep: number): Promise<void> {
+    if (keep <= 0) return;
+    await this.db.insert(passwordHistory).values({ userId, passwordHash: previousHash });
+    const stale = await this.db
+      .select({ id: passwordHistory.id })
+      .from(passwordHistory)
+      .where(eq(passwordHistory.userId, userId))
+      .orderBy(desc(passwordHistory.createdAt))
+      .offset(keep);
+    if (stale.length > 0) {
+      await this.db.delete(passwordHistory).where(
+        sql`${passwordHistory.id} in (${sql.join(
+          stale.map((row) => sql`${row.id}::uuid`),
+          sql`, `,
+        )})`,
+      );
+    }
   }
 
   async registerFailedLogin(id: string, maxAttempts: number, lockMinutes: number): Promise<void> {
@@ -164,6 +206,31 @@ export class IdentityRepository {
       .where(and(eq(sessions.id, id), isNull(sessions.revokedAt)))
       .returning({ id: sessions.id });
     return rows.length > 0;
+  }
+
+  /** Criação da PRIMEIRA sessão da família (antes de qualquer rotação) — base da vida útil absoluta
+   * (ADR 0057, `SessionPolicy.absoluteLifetimeHours`), que não se estende a cada refresh. */
+  async familyCreatedAt(familyId: string): Promise<Date | null> {
+    const [row] = await this.db
+      .select({ createdAt: sql<string | Date | null>`min(${sessions.createdAt})` })
+      .from(sessions)
+      .where(eq(sessions.familyId, familyId));
+    return row?.createdAt === null || row?.createdAt === undefined ? null : new Date(row.createdAt);
+  }
+
+  /** Sessões ativas (não revogadas) do usuário no tenant, da mais antiga para a mais nova — usado
+   * para aplicar `SessionPolicy.maxConcurrentSessions` (expulsa a mais antiga ao exceder). */
+  async activeSessions(
+    tenantId: string,
+    userId: string,
+  ): Promise<{ id: string; createdAt: Date }[]> {
+    return this.db
+      .select({ id: sessions.id, createdAt: sessions.createdAt })
+      .from(sessions)
+      .where(
+        and(eq(sessions.tenantId, tenantId), eq(sessions.userId, userId), isNull(sessions.revokedAt)),
+      )
+      .orderBy(asc(sessions.createdAt));
   }
 
   async revokeFamily(familyId: string, reason: string): Promise<SessionRecord[]> {

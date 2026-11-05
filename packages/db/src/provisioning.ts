@@ -52,6 +52,10 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
       'templates.manage',
       'workspace.create',
       'ai.manage',
+      'audit.export',
+      'sso.manage',
+      'security_policy.manage',
+      'lgpd.manage',
     ],
   },
   {
@@ -70,6 +74,10 @@ export const SYSTEM_ROLES: readonly SystemRole[] = [
       'templates.manage',
       'workspace.create',
       'ai.manage',
+      'audit.export',
+      'sso.manage',
+      'security_policy.manage',
+      'lgpd.manage',
     ],
   },
   {

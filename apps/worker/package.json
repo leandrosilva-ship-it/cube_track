@@ -28,7 +28,7 @@
     "@opentelemetry/sdk-node": "^0.205.0",
     "bullmq": "^5.61.0",
     "decimal.js-light": "2.5.1",
-    "dotenv": "^17.2.3",
+    "dotenv": "^18.0.9",
     "drizzle-orm": "^0.45.0",
     "express": "^5.1.0",
     "fractional-indexing": "^3.2.0",

@@ -38,7 +38,7 @@
     "@cube-track/config": "workspace:*",
     "@storybook/addon-a11y": "^10.0.0",
     "@storybook/addon-docs": "^10.0.0",
-    "@storybook/react-vite": "^10.0.0",
+    "@storybook/react-vite": "^10.6.6",
     "@tailwindcss/vite": "^4.1.14",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",

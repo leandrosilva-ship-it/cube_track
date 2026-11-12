@@ -45,7 +45,7 @@ const InvoiceObjectSchema = z.object({
   currency: z.string().optional(),
 });
 
-/** Mapa de status do Stripe → `SubscriptionStatus` do CUBE TRACK (mais restrito — ver
+/** Mapa de status do Stripe → `SubscriptionStatus` do CUBE PROJECT (mais restrito — ver
  * `packages/shared/src/billing.ts`). `incomplete_expired`/`unpaid`/`paused` não têm equivalente
  * dedicado: tratados como `incomplete` (mesma consequência prática: sem acesso pago confirmado). */
 const STRIPE_STATUS_MAP: Record<string, SubscriptionStatus> = {

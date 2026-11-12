@@ -22,16 +22,16 @@ const TEMPLATES: Record<
   (data: Data) => { subject: string; lines: string[]; action?: { label: string; url: string } }
 > = {
   magic_link: (data) => ({
-    subject: 'Seu link de acesso ao CUBE TRACK',
+    subject: 'Seu link de acesso ao CUBE PROJECT',
     lines: [
       `Olá, ${data.name ?? ''}!`,
       `Use o botão abaixo para entrar em ${data.organization ?? 'sua organização'}. O link expira em ${data.expiresInMinutes ?? '15'} minutos e só pode ser usado uma vez.`,
       'Se você não solicitou este acesso, ignore este e-mail.',
     ],
-    action: { label: 'Entrar no CUBE TRACK', url: data.link ?? '' },
+    action: { label: 'Entrar no CUBE PROJECT', url: data.link ?? '' },
   }),
   password_reset: (data) => ({
-    subject: 'Redefinição de senha — CUBE TRACK',
+    subject: 'Redefinição de senha — CUBE PROJECT',
     lines: [
       `Olá, ${data.name ?? ''}!`,
       `Recebemos um pedido para redefinir sua senha. O link expira em ${data.expiresInMinutes ?? '60'} minutos.`,
@@ -40,7 +40,7 @@ const TEMPLATES: Record<
     action: { label: 'Redefinir senha', url: data.link ?? '' },
   }),
   email_verification: (data) => ({
-    subject: 'Confirme seu e-mail — CUBE TRACK',
+    subject: 'Confirme seu e-mail — CUBE PROJECT',
     lines: [
       `Olá, ${data.name ?? ''}!`,
       'Confirme seu endereço de e-mail para concluir o cadastro.',
@@ -48,7 +48,7 @@ const TEMPLATES: Record<
     action: { label: 'Confirmar e-mail', url: data.link ?? '' },
   }),
   invitation: (data) => ({
-    subject: `${data.inviter ?? 'Alguém'} convidou você para ${data.organization ?? 'uma organização'} no CUBE TRACK`,
+    subject: `${data.inviter ?? 'Alguém'} convidou você para ${data.organization ?? 'uma organização'} no CUBE PROJECT`,
     lines: [
       `${data.inviter ?? 'Alguém'} convidou você para colaborar em ${data.organization ?? 'uma organização'}.`,
       ...(data.message === undefined || data.message === '' ? [] : [`Mensagem: “${data.message}”`]),
@@ -70,12 +70,12 @@ const TEMPLATES: Record<
     action: { label: 'Ver pedido de aprovação', url: data.link ?? '' },
   }),
   notification_digest: (data) => ({
-    subject: `${data.count ?? '0'} novidade(s) no CUBE TRACK`,
+    subject: `${data.count ?? '0'} novidade(s) no CUBE PROJECT`,
     lines: [
       'Resumo de notificações pendentes:',
       ...(data.items ?? '').split('\n').filter((line) => line !== ''),
     ],
-    action: { label: 'Ver tudo no CUBE TRACK', url: data.link ?? '' },
+    action: { label: 'Ver tudo no CUBE PROJECT', url: data.link ?? '' },
   }),
   absence_requested: (data) => ({
     subject: `${data.requester ?? 'Alguém'} solicitou ausência`,
@@ -169,7 +169,7 @@ const TEMPLATES: Record<
     action: { label: 'Ver importação', url: data.link ?? '' },
   }),
   billing_payment_issue: (data) => ({
-    subject: 'Pendência na assinatura do CUBE TRACK',
+    subject: 'Pendência na assinatura do CUBE PROJECT',
     lines: [
       `Olá, ${data.name ?? ''}!`,
       data.message ?? 'Há uma pendência na assinatura da sua organização.',
@@ -187,12 +187,12 @@ export function renderEmail(template: EmailTemplate, data: Data): Rendered {
     ...spec.lines,
     ...(action === undefined ? [] : ['', `${action.label}: ${action.url}`]),
     '',
-    '— CUBE TRACK',
+    '— CUBE PROJECT',
   ].join('\n');
   const html = `<!doctype html><html lang="pt-BR"><body style="font-family:Arial,sans-serif;color:#1f2937;line-height:1.5">
 ${spec.lines.map((line) => `<p>${escapeHtml(line)}</p>`).join('\n')}
 ${action === undefined ? '' : `<p><a href="${escapeHtml(action.url)}" style="background:#0073ea;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none">${escapeHtml(action.label)}</a></p>`}
-<p style="color:#6b7280;font-size:12px">— CUBE TRACK</p></body></html>`;
+<p style="color:#6b7280;font-size:12px">— CUBE PROJECT</p></body></html>`;
   return { subject: spec.subject, text, html };
 }
 

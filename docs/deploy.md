@@ -1,4 +1,4 @@
-# Deploy — CUBE TRACK
+# Deploy — CUBE PROJECT
 
 Guia de referência para build, deploy, migrações, feature flags, backup/restauração e resposta a
 incidentes. Lê-se junto com `infra/helm/cube-track/README.md` (detalhes do chart) e

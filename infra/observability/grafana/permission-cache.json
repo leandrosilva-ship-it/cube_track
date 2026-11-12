@@ -1,5 +1,5 @@
 {
-  "title": "CUBE TRACK — Permission cache hit rate",
+  "title": "CUBE PROJECT — Permission cache hit rate",
   "uid": "cube-track-permission-cache",
   "description": "cube_permission_cache_hits_total / cube_permission_cache_misses_total (apps/api/src/core/observability/metrics.ts). Uma queda brusca na taxa de acerto costuma indicar cache quebrado (Redis flushado, mudança de formato de chave) — correlacione com a latência da api (dashboard 'API health').",
   "schemaVersion": 39,

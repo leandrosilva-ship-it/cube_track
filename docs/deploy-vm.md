@@ -1,6 +1,6 @@
 # Deploy em uma única VM (Google Cloud, sem Kubernetes)
 
-Caminho mais simples para colocar a CUBE TRACK no ar para a própria equipe, numa única máquina
+Caminho mais simples para colocar a CUBE PROJECT no ar para a própria equipe, numa única máquina
 virtual, usando `docker-compose.prod.yml`. Para um deploy enterprise com Kubernetes/Helm,
 autoscaling e zero-downtime, ver [`docs/deploy.md`](deploy.md) — este guia é o equivalente
 "ponto a ponto" para quem não tem (ou não quer, por ora) um cluster.

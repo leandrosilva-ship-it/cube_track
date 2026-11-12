@@ -358,7 +358,7 @@ describe('Marca e estados', () => {
         <Kbd>Ctrl</Kbd>
       </div>,
     );
-    expect(screen.getByRole('img', { name: 'CUBE TRACK' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'CUBE PROJECT' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Nenhum board' })).toBeInTheDocument();
     await expectNoA11yViolations();
   });

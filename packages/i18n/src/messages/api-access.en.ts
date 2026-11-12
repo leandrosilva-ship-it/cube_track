@@ -1,6 +1,6 @@
 export const apiAccessEn = {
   title: 'API keys',
-  description: 'Create personal tokens to access the CUBE TRACK API from your own scripts and integrations.',
+  description: 'Create personal tokens to access the CUBE PROJECT API from your own scripts and integrations.',
   new: 'New token',
   emptyTitle: 'No tokens yet',
   emptyDescription: 'Create a token to access the API with your own permissions.',

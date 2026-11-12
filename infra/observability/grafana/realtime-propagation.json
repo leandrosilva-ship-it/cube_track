@@ -1,5 +1,5 @@
 {
-  "title": "CUBE TRACK — Realtime propagation",
+  "title": "CUBE PROJECT — Realtime propagation",
   "uid": "cube-track-realtime",
   "description": "Métricas de negócio do gateway realtime (ADR 0027), emitidas por apps/api/src/core/observability/metrics.ts: cube_realtime_events_delivered_total, cube_realtime_connections, cube_realtime_propagation_ms. Meta de propagação: p95 < 300ms (docs/realtime-events.md).",
   "schemaVersion": 39,

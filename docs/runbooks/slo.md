@@ -1,4 +1,4 @@
-# SLO — CUBE TRACK
+# SLO — CUBE PROJECT
 
 ## Alvo de disponibilidade
 

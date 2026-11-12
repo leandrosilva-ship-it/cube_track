@@ -51,7 +51,7 @@ test('sessão sobrevive ao recarregar (refresh cookie) e sair encerra', async ({
 
 test('telas públicas em outros idiomas', async ({ page }) => {
   await page.goto('/en/login');
-  await expect(page.getByRole('heading', { name: 'Sign in to CUBE TRACK' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sign in to CUBE PROJECT' })).toBeVisible();
   await page.goto('/es/auth/forgot-password');
   await expect(page.getByRole('heading', { name: 'Recuperar contraseña' })).toBeVisible();
   // Volta ao português pelo seletor de idioma (atualiza o cookie de idioma).

@@ -35,7 +35,7 @@ export function basicAuth(user: string, password: string) {
         return;
       }
     }
-    response.setHeader('WWW-Authenticate', 'Basic realm="CUBE TRACK filas", charset="UTF-8"');
+    response.setHeader('WWW-Authenticate', 'Basic realm="CUBE PROJECT filas", charset="UTF-8"');
     response.status(401).type('text/plain').send('Autenticação necessária.');
   };
 }

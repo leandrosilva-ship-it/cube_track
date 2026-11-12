@@ -1,4 +1,4 @@
-# CUBE TRACK
+# CUBE PROJECT
 
 Plataforma SaaS multi-tenant de gestão de **projetos, processos e portfólio** — colaborativa e em
 tempo real, do operacional (boards, itens, Kanban) ao estratégico (programas, portfólio, rollups).
@@ -29,7 +29,7 @@ apps/api        NestJS — REST (OpenAPI) + GraphQL leitura + gateway Socket.IO
 apps/worker     BullMQ — outbox relay, e-mails, notificações, automações, cronograma, busca, antivírus
 packages/db     Schema Drizzle, migrações SQL, políticas RLS, seeds
 packages/shared Contratos (Zod), tipos de domínio, eventos, registro de tipos de coluna
-packages/ui     Design system (shadcn/ui + componentes CUBE TRACK)
+packages/ui     Design system (shadcn/ui + componentes CUBE PROJECT)
 packages/config ESLint, Prettier, tsconfig, Tailwind preset
 packages/i18n   Mensagens pt-BR/en/es, formatadores, feriados
 packages/sdk    SDK TypeScript gerado a partir do OpenAPI

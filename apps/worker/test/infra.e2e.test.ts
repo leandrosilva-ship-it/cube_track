@@ -157,7 +157,7 @@ describe('filas', () => {
       link: 'https://app.test/i/abc',
       message: 'Bem-vinda!',
     });
-    expect(rendered.subject).toBe('Ana <script> convidou você para Empresa Demo no CUBE TRACK');
+    expect(rendered.subject).toBe('Ana <script> convidou você para Empresa Demo no CUBE PROJECT');
     expect(rendered.html).toContain('Ana &lt;script&gt;');
     expect(rendered.html).not.toContain('<script>');
     expect(rendered.text).toContain('Aceitar convite: https://app.test/i/abc');
@@ -171,7 +171,7 @@ describe('filas', () => {
         5,
       );
     }
-    const process = emailProcessor(createMailer('json://'), 'CUBE TRACK <noreply@cubetrack.test>');
+    const process = emailProcessor(createMailer('json://'), 'CUBE PROJECT <noreply@cubetrack.test>');
     const result = await process(
       fakeJob({
         to: 'carlos@empresademo.com.br',

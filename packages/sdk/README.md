@@ -1,6 +1,6 @@
 # @cube-track/sdk
 
-Cliente TypeScript tipado para a **API pública** do CUBE TRACK (Prompt 15, ADR 0056): tokens de API,
+Cliente TypeScript tipado para a **API pública** do CUBE PROJECT (Prompt 15, ADR 0056): tokens de API,
 apps OAuth, webhooks, templates, importadores e integrações de terceiros. Os tipos de requisição/resposta
 são gerados a partir do documento OpenAPI publicado pela própria API (`docs/openapi.json`), então o
 cliente nunca fica fora de sincronia com os contratos reais.
@@ -81,7 +81,7 @@ Cobertura tipada e com assinatura dedicada para a superfície do **Prompt 15**:
 
 ## O resto da API: o escape hatch `request()`
 
-O CUBE TRACK tem centenas de rotas de prompts anteriores (boards, itens, colunas, dashboards, etc. —
+O CUBE PROJECT tem centenas de rotas de prompts anteriores (boards, itens, colunas, dashboards, etc. —
 veja `/v1/docs` na sua instância, ou `docs/openapi.json` neste repositório) que este SDK não embrulha
 uma a uma. Todas elas continuam **totalmente tipadas** através do escape hatch genérico:
 

@@ -1,4 +1,4 @@
-# CUBE TRACK — Modelo de dados
+# CUBE PROJECT — Modelo de dados
 
 > Status: **Prompt 2** — implementado em `packages/db` (Drizzle + migrações SQL).
 > Decisões: ADRs 0004, 0005, 0013, 0014, 0015, 0019 e 0020–0025.

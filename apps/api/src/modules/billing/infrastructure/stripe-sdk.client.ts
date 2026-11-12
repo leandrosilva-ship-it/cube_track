@@ -59,7 +59,7 @@ export class StripeSdkClient implements StripeClient {
             unit_amount: unitAmount,
             recurring: { interval: 'month' },
             product_data: {
-              name: `CUBE TRACK — Plano ${input.plan}`,
+              name: `CUBE PROJECT — Plano ${input.plan}`,
               metadata: { tenantId: input.metadata.tenantId },
             },
           },

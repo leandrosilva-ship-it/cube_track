@@ -1,5 +1,5 @@
 {
-  "title": "CUBE TRACK — API health",
+  "title": "CUBE PROJECT — API health",
   "uid": "cube-track-api-health",
   "description": "Taxa de requisições, latência e taxa de erro da api. Métricas confirmadas rodando a api localmente (METRICS_PORT=9464) e lendo /metrics de verdade — ver docs/deploy.md. Nomes reais: http_server_duration_count/_bucket (histograma em MILISSEGUNDOS, não segundos), labels http_method/http_status_code/net_host_port.",
   "schemaVersion": 39,

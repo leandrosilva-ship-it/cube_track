@@ -10,11 +10,11 @@ export interface LogoMarkProps extends Omit<SVGProps<SVGSVGElement>, 'children'>
 }
 
 /**
- * Marca CUBE TRACK: cubo isométrico com três faces — lavanda (topo), Azul Cubo (esquerda) e
+ * Marca CUBE PROJECT: cubo isométrico com três faces — lavanda (topo), Azul Cubo (esquerda) e
  * turquesa (direita) — e uma trilha clara que atravessa as faces laterais ("track").
  */
 export function LogoMark({
-  title = 'CUBE TRACK',
+  title = 'CUBE PROJECT',
   decorative = false,
   className,
   ...props

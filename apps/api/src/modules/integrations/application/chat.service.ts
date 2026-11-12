@@ -24,7 +24,7 @@ export interface SlackEventResult {
   /** Resposta imediata do comando de barra (ADR 0056: Slack espera um corpo JSON simples). */
   slashCommandResponse?: { response_type: 'ephemeral' | 'in_channel'; text: string };
   /**
-   * Payload de unfurl pronto (ADR 0056) — CUBE TRACK só tem a URL de "Incoming Webhook" e o signing
+   * Payload de unfurl pronto (ADR 0056) — CUBE PROJECT só tem a URL de "Incoming Webhook" e o signing
    * secret do app Slack (BYOK), não um bot token com escopo `links:read`/`links:write`; sem ele não dá
    * para chamar `chat.unfurl` de volta para o Slack (ficaria limitado a mandar mensagens PARA um canal
    * fixo, não a enriquecer um link específico). Documentado como lacuna conhecida: o payload é montado

@@ -94,7 +94,7 @@ export function InboxPage() {
                   <Avatar
                     person={{
                       id: notification.actorId ?? notification.id,
-                      name: notification.actorName ?? 'CUBE TRACK',
+                      name: notification.actorName ?? 'CUBE PROJECT',
                       avatarUrl: notification.actorAvatarUrl,
                     }}
                     size="md"

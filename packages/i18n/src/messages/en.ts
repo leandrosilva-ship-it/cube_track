@@ -25,7 +25,7 @@ import { workspaceSettingsEn } from './workspace-settings.en.js';
 
 export const en: Messages = {
   common: {
-    appName: 'CUBE TRACK',
+    appName: 'CUBE PROJECT',
     loading: 'Loading…',
     save: 'Save',
     cancel: 'Cancel',
@@ -83,7 +83,7 @@ export const en: Messages = {
     google: 'Sign in with Google',
     microsoft: 'Sign in with Microsoft',
     login: {
-      title: 'Sign in to CUBE TRACK',
+      title: 'Sign in to CUBE PROJECT',
       submit: 'Sign in',
       forgot: 'Forgot my password',
       magicLink: 'Email me a sign-in link',

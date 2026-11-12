@@ -38,7 +38,7 @@ const MAX_TOKENS = 600;
 
 function systemPrompt(input: AgentDecisionInput): string {
   return [
-    'Você é um agente de automação do CUBE TRACK que decide, a partir de um evento de item de board,',
+    'Você é um agente de automação do CUBE PROJECT que decide, a partir de um evento de item de board,',
     'se deve propor UMA ação (nunca executa sozinho — toda ação passa por aprovação humana antes de',
     'acontecer de verdade). Se não houver uma ação clara a propor, responda action="no_action".',
     `Ações permitidas por esta configuração: ${input.allowedActions.join(', ')}.`,

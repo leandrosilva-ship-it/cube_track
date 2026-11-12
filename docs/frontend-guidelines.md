@@ -1,4 +1,4 @@
-# CUBE TRACK — Diretrizes do frontend
+# CUBE PROJECT — Diretrizes do frontend
 
 Este guia vale para `apps/web` (Next.js) e `packages/ui` (design system). Decisões relacionadas: ADRs 0016, 0031–0036. Identidade visual em `docs/brand.md`.
 

@@ -28,7 +28,7 @@ import { workspaceSettingsPtBR } from './workspace-settings.pt-BR.js';
 
 export const ptBR = {
   common: {
-    appName: 'CUBE TRACK',
+    appName: 'CUBE PROJECT',
     loading: 'Carregando…',
     save: 'Salvar',
     cancel: 'Cancelar',
@@ -86,7 +86,7 @@ export const ptBR = {
     google: 'Entrar com Google',
     microsoft: 'Entrar com Microsoft',
     login: {
-      title: 'Entrar no CUBE TRACK',
+      title: 'Entrar no CUBE PROJECT',
       submit: 'Entrar',
       forgot: 'Esqueci minha senha',
       magicLink: 'Receber link de acesso por e-mail',

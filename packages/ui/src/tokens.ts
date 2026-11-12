@@ -1,5 +1,5 @@
 /**
- * Tokens de design do CUBE TRACK (fonte da verdade). `styles/tokens.css` replica estes valores como
+ * Tokens de design do CUBE PROJECT (fonte da verdade). `styles/tokens.css` replica estes valores como
  * variáveis CSS — um teste garante que os dois não divergem. Documentação em docs/brand.md.
  */
 

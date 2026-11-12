@@ -23,7 +23,7 @@ export const WorkerConfigSchema = z.object({
   API_URL: z.url().default('http://localhost:3001'),
   INBOUND_EMAIL_WEBHOOK_SECRET: z.string().min(16).default('dev-inbound-email-secret-change-me'),
   SMTP_URL: z.string().default('smtp://localhost:1025'),
-  EMAIL_FROM: z.string().default('CUBE TRACK <nao-responda@cubetrack.com.br>'),
+  EMAIL_FROM: z.string().default('CUBE PROJECT <nao-responda@cubetrack.com.br>'),
   /** Mesmo segredo da API — assina/confere o endereço de resposta por e-mail (ADR 0048). */
   JWT_SECRET: z.string().min(32),
   /** Mesma chave da API (AES-256-GCM, 32 bytes em base64) — decifra o segredo de webhooks para assinar a entrega (ADR 0051). */

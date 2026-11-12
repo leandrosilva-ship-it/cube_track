@@ -1,10 +1,10 @@
-# CUBE TRACK — Guia do Projeto
+# CUBE PROJECT — Guia do Projeto
 
 > Leia este arquivo, `docs/architecture.md`, `docs/roadmap.md` e todas as ADRs em `docs/adr/` **antes de começar qualquer trabalho**.
 
 ## 1. Visão do produto
 
-**CUBE TRACK** é uma plataforma web SaaS, multi-tenant, de gestão de **projetos, processos e portfólio**, colaborativa e em tempo real, usada pelo time inteiro: gestores, PMO, executores e clientes convidados.
+**CUBE PROJECT** é uma plataforma web SaaS, multi-tenant, de gestão de **projetos, processos e portfólio**, colaborativa e em tempo real, usada pelo time inteiro: gestores, PMO, executores e clientes convidados.
 
 Combina, numa única fonte de dados:
 
@@ -56,7 +56,7 @@ apps/api        NestJS (REST + GraphQL, regras de negócio) + gateway Socket.IO 
 apps/worker     BullMQ (outbox relay, e-mails, notificações, automações, cronograma, busca, antivírus) + Bull Board
 packages/db     Schema Drizzle, migrações SQL, políticas RLS, seeds
 packages/shared Contratos (Zod), tipos de domínio, eventos, registro de tipos de coluna
-packages/ui     Design system (shadcn/ui + componentes CUBE TRACK)
+packages/ui     Design system (shadcn/ui + componentes CUBE PROJECT)
 packages/config ESLint, Prettier, tsconfig, Tailwind preset
 packages/i18n   Mensagens pt-BR/en/es, formatadores, feriados
 packages/testing Utilitários de teste (banco isolado por execução, papéis sem BYPASSRLS)

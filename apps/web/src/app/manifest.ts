@@ -3,8 +3,8 @@ import type { MetadataRoute } from 'next';
 /** Manifesto PWA: instalável em desktop, tablet e mobile. */
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'CUBE TRACK',
-    short_name: 'CUBE TRACK',
+    name: 'CUBE PROJECT',
+    short_name: 'CUBE PROJECT',
     description: 'Projetos, processos e portfólio em tempo real.',
     id: '/',
     start_url: '/',

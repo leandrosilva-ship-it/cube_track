@@ -173,10 +173,10 @@ export function buildOpenApiDocument(app: INestApplication): Record<string, unkn
   return {
     openapi: '3.1.0',
     info: {
-      title: 'CUBE TRACK API',
+      title: 'CUBE PROJECT API',
       version: '1.0.0',
       description:
-        'API REST v1 do CUBE TRACK. Erros seguem RFC 7807 (`application/problem+json`). Paginação por cursor (`limit`, `cursor`). ' +
+        'API REST v1 do CUBE PROJECT. Erros seguem RFC 7807 (`application/problem+json`). Paginação por cursor (`limit`, `cursor`). ' +
         'Multi-tenant: o tenant é resolvido pelo subdomínio ou pelo header `X-Tenant` e deve coincidir com o do token. ' +
         'Leituras agregadas também estão disponíveis em GraphQL (`/v1/graphql`, somente leitura). ' +
         '\n\n**Autenticação de integrações (ADR 0056)**: além do access token de sessão (login), a API aceita ' +

@@ -86,7 +86,7 @@ export function verifyTotp(
   return null;
 }
 
-export function otpauthUri(secretBase32: string, account: string, issuer = 'CUBE TRACK'): string {
+export function otpauthUri(secretBase32: string, account: string, issuer = 'CUBE PROJECT'): string {
   const label = encodeURIComponent(`${issuer}:${account}`);
   const params = new URLSearchParams({
     secret: secretBase32,

@@ -1,6 +1,6 @@
 # Colunas, fórmulas e Tabela
 
-Referência dos tipos de coluna do CUBE TRACK, das fórmulas e do comportamento da view Tabela. A fonte da verdade dos tipos é `packages/shared/src/columns/registry.ts` (schemas Zod de valor e configuração); a das funções de fórmula é `FORMULA_FUNCTIONS` em `packages/shared/src/formula`.
+Referência dos tipos de coluna do CUBE PROJECT, das fórmulas e do comportamento da view Tabela. A fonte da verdade dos tipos é `packages/shared/src/columns/registry.ts` (schemas Zod de valor e configuração); a das funções de fórmula é `FORMULA_FUNCTIONS` em `packages/shared/src/formula`.
 
 ## 1. Tipos de coluna
 

@@ -50,7 +50,7 @@ describe('TOTP (RFC 6238)', () => {
     const buffer = Buffer.from('cube-track-secret');
     expect(base32Decode(base32Encode(buffer))).toEqual(buffer);
     expect(otpauthUri('ABC', 'ana@x.com')).toContain(
-      'otpauth://totp/CUBE%20TRACK%3Aana%40x.com?secret=ABC',
+      'otpauth://totp/CUBE%20PROJECT%3Aana%40x.com?secret=ABC',
     );
   });
 

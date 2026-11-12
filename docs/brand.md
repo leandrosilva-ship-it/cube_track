@@ -1,4 +1,4 @@
-# CUBE TRACK — Identidade visual
+# CUBE PROJECT — Identidade visual
 
 > Fonte da verdade dos valores: `packages/ui/src/tokens.ts`, espelhado em `packages/ui/src/styles/tokens.css` (um teste garante que os dois coincidem). Os componentes podem ser vistos no Storybook: `pnpm --filter @cube-track/ui storybook`.
 
@@ -35,7 +35,7 @@ Regras de uso:
 - Tamanho mínimo: 16 px (favicon); 24 px em interfaces.
 - Não rotacionar, não trocar as cores das faces e não aplicar sombra.
 - Sobre fundos escuros, usar o mesmo símbolo: as faces mantêm contraste com `#12141c`.
-- Acessibilidade: com texto visível ao lado, a marca é decorativa (`aria-hidden`). Isolada, tem `role="img"` e `aria-label="CUBE TRACK"`.
+- Acessibilidade: com texto visível ao lado, a marca é decorativa (`aria-hidden`). Isolada, tem `role="img"` e `aria-label="CUBE PROJECT"`.
 
 ## 3. Cores da marca
 

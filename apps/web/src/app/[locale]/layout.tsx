@@ -25,11 +25,11 @@ export async function generateMetadata({
     namespace: 'auth',
   });
   return {
-    title: { default: 'CUBE TRACK', template: '%s · CUBE TRACK' },
+    title: { default: 'CUBE PROJECT', template: '%s · CUBE PROJECT' },
     description: t('tagline'),
-    applicationName: 'CUBE TRACK',
+    applicationName: 'CUBE PROJECT',
     manifest: '/manifest.webmanifest',
-    appleWebApp: { capable: true, title: 'CUBE TRACK', statusBarStyle: 'default' },
+    appleWebApp: { capable: true, title: 'CUBE PROJECT', statusBarStyle: 'default' },
     formatDetection: { telephone: false },
   };
 }

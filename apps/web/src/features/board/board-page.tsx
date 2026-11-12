@@ -55,7 +55,7 @@ export function BoardPage({
   }, [board.data]);
 
   useEffect(() => {
-    if (board.data !== undefined) document.title = `${board.data.name} · CUBE TRACK`;
+    if (board.data !== undefined) document.title = `${board.data.name} · CUBE PROJECT`;
   }, [board.data]);
 
   if (board.isError) {

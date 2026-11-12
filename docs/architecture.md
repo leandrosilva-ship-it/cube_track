@@ -1,4 +1,4 @@
-# CUBE TRACK — Arquitetura
+# CUBE PROJECT — Arquitetura
 
 > Status: **Proposta (Prompt 1)** — aguardando validação. Decisões formais em `docs/adr/`.
 
@@ -525,9 +525,9 @@ classDiagram
 - **Contratos/OS/UST** (módulo opcional) mantém entidades fortes e se vincula aos itens; no caso PMSP, cada demanda é um item vinculado a uma OS, e as colunas _Nº OS, Processo SEI, Qtde UST, Data de faturamento_ são _bound columns_ do módulo.
 - **Atividade (log do item)** ≠ **auditoria**: a atividade é para usuários (legível, filtrável); a auditoria é para compliance (imutável, completa, inclui leituras sensíveis e acessos administrativos).
 
-### 6.2 Mapeamento do caso de referência (Monday → CUBE TRACK)
+### 6.2 Mapeamento do caso de referência (Monday → CUBE PROJECT)
 
-| Monday (PMSP)                                             | CUBE TRACK                                                                 |
+| Monday (PMSP)                                             | CUBE PROJECT                                                               |
 | --------------------------------------------------------- | -------------------------------------------------------------------------- |
 | Workspace → pastas (Sustentação, Templates…)              | Workspace → Folders (aninháveis); Templates como pasta especial + catálogo |
 | Board "PMSP"                                              | Board `kind=project` (ou `process`) com módulo Contratos ativo             |

@@ -2,7 +2,7 @@
  * tenant e apps OAuth (`client_credentials`). Ver `features/api-access/`. */
 export const apiAccessPtBR = {
   title: 'Chaves de API',
-  description: 'Crie tokens pessoais para acessar a API do CUBE TRACK a partir de scripts e integrações próprias.',
+  description: 'Crie tokens pessoais para acessar a API do CUBE PROJECT a partir de scripts e integrações próprias.',
   new: 'Novo token',
   emptyTitle: 'Nenhum token ainda',
   emptyDescription: 'Crie um token para acessar a API com as suas permissões.',

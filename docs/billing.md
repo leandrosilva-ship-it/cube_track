@@ -40,7 +40,7 @@ Toda rota de `/v1/billing/*` (exceto o webhook) exige a permissão de tenant **`
 `packages/db/src/provisioning.ts`).
 
 **Lacuna deliberada**: este projeto não tem hoje um conceito de "operador de PLATAFORMA" (staff da
-CUBE TRACK agindo sobre QUALQUER tenant, fora do próprio). O requisito de "endpoints admin-only
+CUBE PROJECT agindo sobre QUALQUER tenant, fora do próprio). O requisito de "endpoints admin-only
 para ver/sobrescrever o plano de um tenant" foi implementado como autosserviço do `owner` do
 PRÓPRIO tenant (`POST /v1/billing/plan/override`), reaproveitando a permissão já existente, em vez
 de inventar um novo conceito de papel cross-tenant — ver `apps/api/src/modules/access/` (`isTenantSuperuser`

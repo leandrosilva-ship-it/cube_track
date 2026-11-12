@@ -12,7 +12,7 @@ integração/webhook possivelmente comprometido.
 - Alerta de scanner de segredo (GitHub secret scanning, se habilitado no repositório) ou de SAST
   (`.github/workflows/security.yml`) apontando um segredo commitado.
 - Um provedor de integração (Google/Microsoft/Slack/GitHub etc.) avisa sobre uso incomum do
-  client secret do CUBE TRACK.
+  client secret do CUBE PROJECT.
 
 ## Diagnóstico — o que está em risco
 
@@ -33,7 +33,7 @@ por grep em todo o repositório:
 | `integration_connections` | `refresh_token_ciphertext` | Token de refresh OAuth da mesma conexão |
 | `integration_connections` | `webhook_secret_ciphertext` | Segredo para validar webhooks de ENTRADA do provedor |
 | `integration_connections` | `outbound_webhook_url_ciphertext` | URL de webhook de saída configurada pelo usuário (pode conter token na query string) |
-| `oauth_apps` | `client_secret_ciphertext` | Client secret de um OAuth app da API pública do CUBE TRACK (Prompt 15) |
+| `oauth_apps` | `client_secret_ciphertext` | Client secret de um OAuth app da API pública do CUBE PROJECT (Prompt 15) |
 
 (Se um agente concorrente adicionar uma coluna `*_ciphertext` nova depois deste prompt, ela entra
 nesta lista também — reconfira com `grep -rn "Ciphertext" packages/db/src/schema/` antes de

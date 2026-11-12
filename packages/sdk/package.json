@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Cliente TypeScript tipado para a API pública do CUBE TRACK (tokens, apps OAuth, webhooks, templates, importadores e integrações).",
+  "description": "Cliente TypeScript tipado para a API pública do CUBE PROJECT (tokens, apps OAuth, webhooks, templates, importadores e integrações).",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

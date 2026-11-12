@@ -9,7 +9,7 @@ import { z } from 'zod';
 
 // ------------------------------------------------------------------------------------- SSO SAML ---
 
-/** Mapeamento de atributos da asserção SAML para os campos do usuário CUBE TRACK. */
+/** Mapeamento de atributos da asserção SAML para os campos do usuário CUBE PROJECT. */
 export const SamlAttributeMappingSchema = z
   .object({
     email: z.string().min(1).default('email'),
@@ -68,7 +68,7 @@ const scimMeta = z.object({
   location: z.string().optional(),
 });
 
-/** Recurso `User` do SCIM 2.0 — só os campos que o provisionamento CUBE TRACK usa. */
+/** Recurso `User` do SCIM 2.0 — só os campos que o provisionamento CUBE PROJECT usa. */
 export const ScimUserSchema = z.object({
   schemas: z.array(z.string()).default([SCIM_SCHEMAS.user]),
   id: z.string().optional(),

@@ -21,7 +21,7 @@ export type Query<Name extends keyof operations> = QueryParamsOf<operations[Name
 export type Response<Name extends keyof operations> = SuccessResponseOf<operations[Name]>;
 
 /**
- * Cliente tipado da API pública do CUBE TRACK (ADR 0056). Cobre, com métodos de conveniência, a
+ * Cliente tipado da API pública do CUBE PROJECT (ADR 0056). Cobre, com métodos de conveniência, a
  * superfície do Prompt 15 — tokens de API, apps OAuth, webhooks, templates, importadores e
  * integrações — e expõe `request()` como escape hatch tipado para QUALQUER rota documentada em
  * `/v1/docs` (veja `docs/openapi.json`), inclusive as de prompts anteriores (boards, itens, etc.).

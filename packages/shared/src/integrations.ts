@@ -202,7 +202,7 @@ export function slackNotificationBlocks(notification: ChatNotification): Record<
   return {
     blocks: [
       { type: 'section', text: { type: 'mrkdwn', text: `*${notification.title}*\n${notification.body}` } },
-      ...(notification.url === null ? [] : [{ type: 'actions', elements: [{ type: 'button', text: { type: 'plain_text', text: 'Abrir no CUBE TRACK' }, url: notification.url }] }]),
+      ...(notification.url === null ? [] : [{ type: 'actions', elements: [{ type: 'button', text: { type: 'plain_text', text: 'Abrir no CUBE PROJECT' }, url: notification.url }] }]),
     ],
   };
 }
@@ -224,7 +224,7 @@ export function teamsAdaptiveCard(notification: ChatNotification): Record<string
           ],
           ...(notification.url === null
             ? {}
-            : { actions: [{ type: 'Action.OpenUrl', title: 'Abrir no CUBE TRACK', url: notification.url }] }),
+            : { actions: [{ type: 'Action.OpenUrl', title: 'Abrir no CUBE PROJECT', url: notification.url }] }),
         },
       },
     ],

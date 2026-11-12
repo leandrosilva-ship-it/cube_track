@@ -70,7 +70,7 @@ implantação — ver `docs/deploy.md`).
 | A07 Falhas de identificação e autenticação | Argon2id, bloqueio após 5 tentativas, MFA TOTP, política de senha/sessão configurável, SSO SAML 2.0 com verificação de assinatura real. |
 | A08 Falhas de integridade de software e dados | `audit_logs` encadeada por hash (`app.audit_hash`/`app.verify_audit_chain`) — qualquer adulteração retroativa é detectável. |
 | A09 Falhas de registro e monitoramento | Auditoria completa de mutações (`@Audited`, verificado por teste automatizado — `toda rota que altera dados é auditada`), agora pesquisável/exportável (`GET /v1/audit/entries`). |
-| A10 Server-Side Request Forgery (SSRF) | O `metadataUrl` de SSO (`sso_configurations`) é só informativo nesta entrega — a API nunca o busca (o admin cola o certificado/URLs diretamente), então não é uma superfície de SSRF. O ponto de risco real e PRÉ-EXISTENTE (fora desta entrega) é a entrega de webhooks de saída do Prompt 10/15, que de fato chama a URL configurada pelo tenant — **ainda não valida o destino contra IPs privados/metadados de nuvem**. Lacuna real, não introduzida nem corrigida aqui — ver §6. |
+| A10 Server-Side Request Forgery (SSRF) | O `metadataUrl` de SSO (`sso_configurations`) é só informativo nesta entrega — a API nunca o busca (o admin cola o certificado/URLs diretamente), então não é uma superfície de SSRF. A entrega de webhooks de saída do Prompt 10/15 (que de fato chama a URL configurada pelo tenant) era a lacuna real identificada pela revisão anterior — **corrigida nesta entrega**: validação de esquema/host no cadastro (`webhook-url-policy.ts`, API) + resolução DNS própria e checagem contra faixas privadas/reservadas a cada tentativa de entrega e a cada redirecionamento seguido manualmente (`webhook-url-guard.ts`, worker). Ver §6. |
 
 ### CSRF (confirmado, não uma lacuna)
 
@@ -81,15 +81,27 @@ cookie (`POST /v1/auth/refresh`) só EMITE uma sessão nova; não muda dado de n
 separação (cookie só para refresh, Bearer para tudo o mais) já é, por construção, uma defesa contra
 CSRF — nenhuma mudança foi necessária.
 
-## 6. Lacunas conhecidas desta entrega (honestas)
+## 6. Lacunas corrigidas
 
-- **SSRF em URLs de webhook de saída/integração** (Prompts 10/15, pré-existentes): nenhuma validação
-  de destino (bloqueio de IPs privados/`169.254.169.254`/etc.) antes de chamar uma URL configurada
-  pelo tenant. Risco real se uma conta comprometida com `webhook.manage`/`integrations.manage`
-  apontar para um endpoint interno. Não introduzido nem corrigido nesta entrega — fora do escopo de
-  Track B (identidade/SSO/auditoria/LGPD), mas vale registrar aqui por ser um achado de revisão
-  OWASP A10 válido para todo o produto. Próximo passo recomendado: validar o destino antes de
-  qualquer `fetch`/`axios` de URL configurada por usuário, em qualquer módulo que já faça isso hoje.
+- **SSRF em URLs de webhook de saída** (Prompt 10/15; identificada pela revisão de segurança do
+  Prompt 16, corrigida em entrega posterior dedicada): a entrega de webhooks chamava a URL
+  configurada pelo tenant sem validar o destino contra IPs privados/reservados/metadados de nuvem,
+  nem revalidar redirecionamentos — um tenant malicioso ou comprometido com `webhook.manage` podia
+  apontar para `169.254.169.254`, `localhost` ou uma faixa RFC 1918 e fazer o worker da plataforma
+  requisitar recursos internos em seu nome. Corrigido em duas camadas: (1) no cadastro/edição
+  (API), checagem síncrona de esquema (só http/https) e de host literal (rejeita `localhost` e
+  literais de IP privado/loopback/link-local) — `apps/api/src/modules/webhooks/domain/webhook-url-policy.ts`;
+  (2) na entrega (worker), resolução DNS própria a cada tentativa — fechando o vetor de DNS
+  rebinding que a checagem só no cadastro não cobre — e `redirect: 'manual'` com revalidação a cada
+  salto seguido manualmente, até 5 redirecionamentos — `apps/worker/src/processors/webhook-url-guard.ts`,
+  usado por `apps/worker/src/processors/webhooks.ts`. O motivo do bloqueio é gravado no campo
+  `error` da entrega (`webhook_deliveries`), reaproveitando o fluxo de retentativa/`dead` já
+  existente. Testes: `apps/api/src/modules/webhooks/domain/webhook-url-policy.test.ts`,
+  `apps/worker/test/webhook-url-guard.unit.test.ts`, cenários dedicados em
+  `apps/worker/test/webhooks.e2e.test.ts` e `apps/api/test/webhooks.e2e.test.ts`.
+
+## 7. Lacunas conhecidas desta entrega (honestas)
+
 - **SLO SAML e assinatura de AuthnRequest pelo SP**: não implementados (ADR 0057, §SSO).
 - **Allowlist de IP/domínio só no login**, não a cada requisição subsequente (custo de desempenho
   de abrir uma transação a cada requisição para checar — ADR 0057).

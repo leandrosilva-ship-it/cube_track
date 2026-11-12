@@ -11,6 +11,7 @@ import { TransactionRunner } from '../../../core/database/transaction-runner.js'
 import { NotFoundError, ValidationError } from '../../../core/errors/problems.js';
 import { DomainEvents } from '../../../core/events/domain-events.js';
 import { AccessService } from '../../access/application/access.service.js';
+import { checkWebhookUrl } from '../domain/webhook-url-policy.js';
 
 const { webhooks, boards } = schema;
 
@@ -62,6 +63,22 @@ function toDto(row: WebhookRow): WebhookDto {
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+/**
+ * Segunda linha de defesa contra SSRF (ADR 0051 + ADR de segurança do worker): o Zod já valida a
+ * URL na borda, mas o serviço revalida para cobrir qualquer chamador futuro que não passe pelos
+ * DTOs do controller.
+ */
+function assertAllowedUrl(url: string): void {
+  if (!url.startsWith('https://'))
+    throw new ValidationError([{ path: 'body.url', message: 'A URL precisa ser https.' }]);
+  const check = checkWebhookUrl(url);
+  if (!check.allowed) {
+    throw new ValidationError([
+      { path: 'body.url', message: check.reason ?? 'URL de webhook não permitida.' },
+    ]);
+  }
 }
 
 function assertValidEvents(events: string[]): void {
@@ -157,6 +174,7 @@ export class WebhooksService {
     const existing = await this.locked(webhookId);
     await this.assertManage(user, existing.workspaceId, existing.boardId);
     if (input.events !== undefined) assertValidEvents(input.events);
+    if (input.url !== undefined) assertAllowedUrl(input.url);
     const [row] = await this.runner.tx
       .update(webhooks)
       .set({
@@ -229,8 +247,7 @@ export class WebhooksService {
     boardId: string | null,
     input: WebhookInput,
   ): Promise<WebhookDto & { secret: string }> {
-    if (!input.url.startsWith('https://'))
-      throw new ValidationError([{ path: 'body.url', message: 'A URL precisa ser https.' }]);
+    assertAllowedUrl(input.url);
     assertValidEvents(input.events);
     const secret = randomToken(32);
     const [row] = await this.runner.tx

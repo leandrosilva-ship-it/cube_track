@@ -1,5 +1,24 @@
 import { z } from 'zod';
 
+import { checkWebhookUrl } from '../domain/webhook-url-policy.js';
+
+/**
+ * https + checagem de SSRF (esquema/host literal — ver `../domain/webhook-url-policy.ts`). Não
+ * substitui a revalidação por DNS feita pelo worker em cada tentativa de entrega.
+ */
+function webhookUrl() {
+  return z.url().superRefine((url, ctx) => {
+    if (!url.startsWith('https://')) {
+      ctx.addIssue({ code: 'custom', message: 'A URL precisa ser https.' });
+      return;
+    }
+    const check = checkWebhookUrl(url);
+    if (!check.allowed) {
+      ctx.addIssue({ code: 'custom', message: check.reason ?? 'URL de webhook não permitida.' });
+    }
+  });
+}
+
 export const WorkspaceParams = z.object({ workspaceId: z.uuid() });
 export const BoardParams = z.object({ boardId: z.uuid() });
 
@@ -24,7 +43,7 @@ export const WebhookWithSecretSchema = WebhookSchema.extend({ secret: z.string()
 export const CreateWebhookBody = z
   .object({
     name: z.string().trim().min(1).max(200),
-    url: z.url().refine((url) => url.startsWith('https://'), 'A URL precisa ser https.'),
+    url: webhookUrl(),
     events: z.array(z.string()).min(1).max(50),
     headers: z.record(z.string(), z.string()).optional(),
     isEnabled: z.boolean().optional(),
@@ -50,10 +69,7 @@ export const WebhookDeliverySchema = z.object({
 export const UpdateWebhookBody = z
   .object({
     name: z.string().trim().min(1).max(200).optional(),
-    url: z
-      .url()
-      .refine((url) => url.startsWith('https://'), 'A URL precisa ser https.')
-      .optional(),
+    url: webhookUrl().optional(),
     events: z.array(z.string()).min(1).max(50).optional(),
     headers: z.record(z.string(), z.string()).optional(),
     isEnabled: z.boolean().optional(),

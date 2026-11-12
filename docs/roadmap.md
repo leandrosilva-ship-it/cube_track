@@ -1046,8 +1046,10 @@ pnpm load:realtime
 - Exportação LGPD não cobre comentários/itens responsável/apontamentos de horas.
 - SCIM Groups somente leitura (CRUD de time já era fora de escopo desde o Prompt 11).
 - Retenção de auditoria com granularidade mensal (partição), não por dia exato por tenant.
-- SSRF em URLs de webhook de saída (Prompts 10/15, pré-existente) — achado de revisão, não corrigido
-  nesta frente.
+- ~~SSRF em URLs de webhook de saída (Prompts 10/15, pré-existente) — achado de revisão, não
+  corrigido nesta frente.~~ **Corrigido em entrega posterior**: checagem de esquema/host no
+  cadastro (API, `webhook-url-policy.ts`) + resolução DNS própria e revalidação a cada
+  redirecionamento na entrega (worker, `webhook-url-guard.ts`) — ver `docs/security.md` §6.
 
 **Como rodar e testar**
 

@@ -56,6 +56,12 @@ o Prompt 10. Esta entrega completa a parte de observabilidade:
 - `POST /v1/webhook-deliveries/:id/resend` — reenfileira o MESMO evento para o MESMO webhook com um
   `eventId` novo; nunca sobrescreve a linha de entrega original (trilha completa preservada, mesmo
   princípio de "nunca apagar auditoria" usado na reversão de ações de agente de IA).
+- **Proteção contra SSRF** (corrigido após achado da revisão de segurança do Prompt 16): a URL é
+  validada no cadastro/edição (esquema http(s), rejeita `localhost`/IP privado literal —
+  `apps/api/src/modules/webhooks/domain/webhook-url-policy.ts`) e, a cada tentativa de entrega, o
+  worker resolve o hostname por DNS e valida cada endereço (e cada redirecionamento, seguido
+  manualmente) contra as faixas privadas/reservadas antes de requisitar
+  (`apps/worker/src/processors/webhook-url-guard.ts`) — ver `docs/security.md` §6.
 
 ## 3. Templates
 

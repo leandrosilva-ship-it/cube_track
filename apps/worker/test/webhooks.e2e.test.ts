@@ -28,7 +28,11 @@ afterAll(async () => {
   await Promise.all([admin.close(), app.close()]);
 });
 
-async function createWebhook(secret: string, events: string[] = ['item.updated']) {
+async function createWebhook(
+  secret: string,
+  events: string[] = ['item.updated'],
+  url = 'https://example.com/hooks/cube-track',
+) {
   const [row] = await admin.db
     .insert(webhooks)
     .values({
@@ -36,7 +40,7 @@ async function createWebhook(secret: string, events: string[] = ['item.updated']
       workspaceId: demo.workspaceId,
       boardId: demo.boardId,
       name: `Webhook ${newId()}`,
-      url: 'https://example.com/hooks/cube-track',
+      url,
       secretCiphertext: encryptSecret(secret, ENCRYPTION_KEY),
       events,
     })
@@ -90,6 +94,9 @@ describe('Fan-out de webhooks (fila webhooks → webhook-deliveries)', () => {
   });
 });
 
+/** `example.com` (endereço público real) — evita depender de DNS de verdade nos testes. */
+const resolvePublicHostname = vi.fn().mockResolvedValue(['93.184.216.34']);
+
 describe('Entrega de webhook (assinatura HMAC, retentativa, desabilitação)', () => {
   it('assina o corpo com HMAC-SHA256 do segredo decifrado e grava a entrega como sucedida', async () => {
     const secret = 'segredo-3';
@@ -100,6 +107,7 @@ describe('Entrega de webhook (assinatura HMAC, retentativa, desabilitação)', (
       encryptionKey: ENCRYPTION_KEY,
       logger: silentLogger,
       fetchImpl,
+      resolveHostname: resolvePublicHostname,
     });
 
     const event = domainEvent({
@@ -139,6 +147,7 @@ describe('Entrega de webhook (assinatura HMAC, retentativa, desabilitação)', (
       encryptionKey: ENCRYPTION_KEY,
       logger: silentLogger,
       fetchImpl,
+      resolveHostname: resolvePublicHostname,
     });
 
     const event = domainEvent({
@@ -177,6 +186,7 @@ describe('Entrega de webhook (assinatura HMAC, retentativa, desabilitação)', (
       encryptionKey: ENCRYPTION_KEY,
       logger: silentLogger,
       fetchImpl,
+      resolveHostname: resolvePublicHostname,
     });
 
     const event = domainEvent({
@@ -201,5 +211,106 @@ describe('Entrega de webhook (assinatura HMAC, retentativa, desabilitação)', (
         and(eq(webhookDeliveries.webhookId, webhook.id), eq(webhookDeliveries.eventId, event.eventId)),
       );
     expect(delivery).toMatchObject({ status: 'failed', attempt: 1 });
+  });
+});
+
+describe('Entrega de webhook — proteção contra SSRF (resolução DNS em tempo de entrega)', () => {
+  it('bloqueia a entrega quando o hostname resolve para um endereço privado/reservado (DNS rebinding) e grava o motivo', async () => {
+    const webhook = await createWebhook(
+      'segredo-ssrf-1',
+      ['item.updated'],
+      'https://rebinding.attacker.example/hook',
+    );
+    const fetchImpl = vi.fn();
+    // Hostname público no cadastro, mas que resolve para o endereço de metadados de nuvem em
+    // tempo de entrega — exatamente o cenário de DNS rebinding que a checagem só na criação não
+    // detecta.
+    const resolveHostname = vi.fn().mockResolvedValue(['169.254.169.254']);
+    const deliver = webhookDeliveryProcessor({
+      database: app,
+      encryptionKey: ENCRYPTION_KEY,
+      logger: silentLogger,
+      fetchImpl,
+      resolveHostname,
+    });
+
+    const event = domainEvent({
+      eventId: newId(),
+      tenantId: demo.tenantId,
+      type: 'item.updated',
+      boardId: demo.boardId,
+      payload: { itemId: newId(), version: 1, changes: [] },
+    });
+    const job = fakeJob(
+      { webhookId: webhook.id, event },
+      'test-job',
+      { attemptsMade: 4, opts: { attempts: 5 } },
+    );
+
+    const result = await deliver(job);
+    expect(result.status).toBe('failed');
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    const [delivery] = await admin.db
+      .select()
+      .from(webhookDeliveries)
+      .where(
+        and(eq(webhookDeliveries.webhookId, webhook.id), eq(webhookDeliveries.eventId, event.eventId)),
+      );
+    expect(delivery).toMatchObject({ status: 'dead' });
+    expect(delivery?.error).toMatch(/privado|reservado/);
+    expect(delivery?.error).toContain('169.254.169.254');
+  });
+
+  it('bloqueia a entrega quando um redirecionamento aponta para um endereço privado/reservado', async () => {
+    const webhook = await createWebhook(
+      'segredo-ssrf-2',
+      ['item.updated'],
+      'https://redirects-to-internal.example/hook',
+    );
+    const fetchImpl = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { location: 'http://169.254.169.254/latest/meta-data/' },
+        }),
+      );
+    const resolveHostname = vi.fn().mockResolvedValue(['93.184.216.34']);
+    const deliver = webhookDeliveryProcessor({
+      database: app,
+      encryptionKey: ENCRYPTION_KEY,
+      logger: silentLogger,
+      fetchImpl,
+      resolveHostname,
+    });
+
+    const event = domainEvent({
+      eventId: newId(),
+      tenantId: demo.tenantId,
+      type: 'item.updated',
+      boardId: demo.boardId,
+      payload: { itemId: newId(), version: 1, changes: [] },
+    });
+    const job = fakeJob(
+      { webhookId: webhook.id, event },
+      'test-job',
+      { attemptsMade: 4, opts: { attempts: 5 } },
+    );
+
+    const result = await deliver(job);
+    expect(result.status).toBe('failed');
+    // A URL original (pública) é requisitada uma vez; o redirecionamento para o endereço privado
+    // é bloqueado antes de ser seguido.
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    const [delivery] = await admin.db
+      .select()
+      .from(webhookDeliveries)
+      .where(
+        and(eq(webhookDeliveries.webhookId, webhook.id), eq(webhookDeliveries.eventId, event.eventId)),
+      );
+    expect(delivery).toMatchObject({ status: 'dead' });
+    expect(delivery?.error).toContain('169.254.169.254');
   });
 });

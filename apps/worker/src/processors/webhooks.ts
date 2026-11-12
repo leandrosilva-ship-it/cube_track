@@ -11,6 +11,11 @@ import type { Job, Queue } from 'bullmq';
 import { and, eq, isNull, or, sql } from 'drizzle-orm';
 
 import type { Logger } from '../logger.js';
+import {
+  defaultResolveHostname,
+  safeWebhookFetch,
+  type HostnameResolver,
+} from './webhook-url-guard.js';
 
 const { webhooks, webhookDeliveries, boards } = schema;
 
@@ -89,8 +94,14 @@ export function webhookDeliveryProcessor(deps: {
   encryptionKey: string;
   logger: Logger;
   fetchImpl?: typeof fetch;
+  /**
+   * Resolve um hostname para seus endereços IP (DNS). Injetável para testes; por padrão usa
+   * `dns.promises.lookup`. Usado para bloquear SSRF — ver `./webhook-url-guard.ts`.
+   */
+  resolveHostname?: HostnameResolver;
 }) {
   const doFetch = deps.fetchImpl ?? fetch;
+  const resolveHostname = deps.resolveHostname ?? defaultResolveHostname;
   return async function deliverWebhook(job: Job): Promise<{ status: 'succeeded' | 'failed' }> {
     const { webhookId, event } = WebhookDeliveryJobSchema.parse(job.data);
     return withTenant(
@@ -107,7 +118,13 @@ export function webhookDeliveryProcessor(deps: {
         const attempt = job.attemptsMade + 1;
         const maxAttempts = job.opts.attempts ?? 1;
         const isFinalAttempt = attempt >= maxAttempts;
-        const result = await attemptDelivery(webhook, event, deps.encryptionKey, doFetch);
+        const result = await attemptDelivery(
+          webhook,
+          event,
+          deps.encryptionKey,
+          doFetch,
+          resolveHostname,
+        );
 
         await tx
           .insert(webhookDeliveries)
@@ -182,6 +199,7 @@ async function attemptDelivery(
   event: DomainEventJob,
   encryptionKey: string,
   doFetch: typeof fetch,
+  resolveHostname: HostnameResolver,
 ): Promise<DeliveryAttemptResult> {
   const startedAt = Date.now();
   const body = JSON.stringify({
@@ -207,18 +225,22 @@ async function attemptDelivery(
     controller.abort();
   }, DELIVERY_TIMEOUT_MS);
   try {
-    const response = await doFetch(webhook.url, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-cubetrack-event': event.type,
-        'x-cubetrack-delivery': event.eventId,
-        'x-cubetrack-signature': sign(secret, body),
-        ...webhook.headers,
+    const response = await safeWebhookFetch(
+      webhook.url,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-cubetrack-event': event.type,
+          'x-cubetrack-delivery': event.eventId,
+          'x-cubetrack-signature': sign(secret, body),
+          ...webhook.headers,
+        },
+        body,
+        signal: controller.signal,
       },
-      body,
-      signal: controller.signal,
-    });
+      { fetchImpl: doFetch, resolveHostname },
+    );
     const responseBody = (await response.text()).slice(0, MAX_RESPONSE_BODY_CHARS);
     return {
       success: response.ok,

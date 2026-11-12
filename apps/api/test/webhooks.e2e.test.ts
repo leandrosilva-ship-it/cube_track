@@ -98,6 +98,23 @@ describe('Webhooks de saída (ADR 0051)', () => {
     expect(unknown.status).toBe(400);
   });
 
+  it('rejeita URLs que apontam para endereços privados/internos (SSRF)', async () => {
+    const targets = [
+      'https://169.254.169.254/latest/meta-data/', // metadados de nuvem
+      'https://127.0.0.1/x', // loopback
+      'https://10.0.0.5/x', // RFC 1918
+      'https://192.168.1.1/x', // RFC 1918
+      'https://localhost/x', // localhost (não-https também seria rejeitado, mas aqui é https)
+    ];
+    for (const url of targets) {
+      const response = await api.post(`/v1/boards/${boardId}/webhooks`, {
+        token: owner,
+        body: { name: 'SSRF', url, events: ['item.created'] },
+      });
+      expect(response.status).toBe(400);
+    }
+  });
+
   it('exige `webhook.manage` no board (CRUD) e `workspace.manage` para webhooks de workspace inteiro', async () => {
     const forbidden = await api.post(`/v1/boards/${boardId}/webhooks`, {
       token: other,

@@ -57,9 +57,15 @@ test('assistente de importação: CSV com nome e uma coluna mapeada manualmente 
   await dialog.getByRole('button', { name: 'Importar 2 linhas', exact: true }).click();
 
   // Passo 4 (progresso): processado no worker a partir da fila `imports` — acompanhado por polling.
-  await expect(dialog.getByRole('status')).toContainText('2 itens criados', { timeout: 20_000 });
-  await expect(dialog.getByRole('status')).toContainText('0 linhas puladas');
-  await dialog.getByRole('button', { name: 'Fechar', exact: true }).click();
+  // `.first()`: enquanto ainda "processando", a `Spinner` interna também tem `role="status"` (seu
+  // próprio `aria-label`) — `getByRole('status')` sozinho bate em 2 elementos durante essa janela e
+  // o modo estrito do Playwright aborta a asserção; `.first()` sempre resolve o container externo
+  // (o único que sobra quando o estado muda para concluído). pt-BR: 0 cai na categoria "one" do CLDR
+  // (singular, "0 linha pulada"), não "other" como em inglês.
+  const status = dialog.getByRole('status').first();
+  await expect(status).toContainText('2 itens criados', { timeout: 20_000 });
+  await expect(status).toContainText('0 linha pulada');
+  await dialog.getByRole('button', { name: 'Fechar', exact: true }).last().click();
   await expect(dialog).toBeHidden();
 
   // Confirmação: os itens aparecem no board, com a coluna mapeada manualmente ("Pontos" → "Story
@@ -98,10 +104,11 @@ test('assistente de importação: linha sem nome é pulada e reportada, sem trav
   await expect(dialog.getByText('2 linhas encontradas')).toBeVisible();
   await dialog.getByRole('button', { name: 'Importar 2 linhas', exact: true }).click();
 
-  await expect(dialog.getByRole('status')).toContainText('1 item criado', { timeout: 20_000 });
-  await expect(dialog.getByRole('status')).toContainText('1 linha pulada');
+  const status = dialog.getByRole('status').first();
+  await expect(status).toContainText('1 item criado', { timeout: 20_000 });
+  await expect(status).toContainText('1 linha pulada');
   await expect(dialog.getByText('Linhas puladas')).toBeVisible();
-  await dialog.getByRole('button', { name: 'Fechar', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Fechar', exact: true }).last().click();
 
   await expect(page.getByRole('row').filter({ hasText: name })).toBeVisible();
 });

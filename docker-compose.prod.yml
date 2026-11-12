@@ -145,6 +145,20 @@ services:
       - '3001:3001'
     restart: unless-stopped
 
+  # Roda as migrações do banco uma vez e sai — NÃO sobe com `docker compose up` normal (precisa
+  # do profile "migrate"). Uso: docker compose -f docker-compose.prod.yml --env-file .env.prod
+  # --profile migrate run --rm migrate
+  migrate:
+    build:
+      context: .
+      dockerfile: packages/db/Dockerfile
+    profiles: ['migrate']
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://cubetrack:${POSTGRES_PASSWORD}@postgres:5432/cubetrack
+
   worker:
     build:
       context: .

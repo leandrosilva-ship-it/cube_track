@@ -20,6 +20,38 @@ test('telas base sem violações WCAG 2.1 AA (axe)', async ({ page }) => {
   await expectAccessible(page);
 });
 
+test('telas do Prompt 16 (templates, config. do workspace, capacidade, contratos, portfólio) sem violações WCAG 2.1 AA', async ({
+  page,
+}) => {
+  await login(page, USERS.ana.email);
+  await openBoard(page, 'PMSP');
+  const match = /\/w\/([^/]+)\//.exec(page.url());
+  if (match === null) throw new Error('workspaceId não encontrado na URL atual.');
+  const workspaceId = match[1];
+
+  await page.goto('/templates');
+  await expect(page.getByRole('heading', { level: 1, name: 'Templates' })).toBeVisible();
+  await expectAccessible(page);
+
+  await page.goto(`/w/${workspaceId}/settings`);
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Configurações do workspace' }),
+  ).toBeVisible();
+  await expectAccessible(page);
+
+  await page.goto(`/w/${workspaceId}/capacity`);
+  await expect(page.getByRole('heading', { level: 1, name: 'Capacidade' })).toBeVisible();
+  await expectAccessible(page);
+
+  await page.goto(`/w/${workspaceId}/contracts`);
+  await expect(page.getByRole('heading', { level: 1, name: 'Contratos' })).toBeVisible();
+  await expectAccessible(page);
+
+  await page.goto(`/w/${workspaceId}/portfolio`);
+  await expect(page.getByRole('heading', { level: 1, name: 'Portfólio' })).toBeVisible();
+  await expectAccessible(page);
+});
+
 test('tema escuro também passa no axe', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark' });
   await login(page, USERS.ana.email);

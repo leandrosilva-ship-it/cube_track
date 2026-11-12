@@ -745,6 +745,31 @@ describe('Prompt 15: API pública, integrações, importadores e templates', () 
       context(),
     );
     expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.importJob('j1') });
+    // Ainda em processamento: nenhum item foi criado, não precisa invalidar a lista do board.
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: qk.items(BOARD_ID) });
+  });
+
+  it('import_job.changed (completed) também invalida a lista de itens do board — o commit roda no worker, sem evento por item', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('import_job.changed', { jobId: 'j1', boardId: BOARD_ID, status: 'completed' }),
+      context(),
+    );
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.importJob('j1') });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: qk.items(BOARD_ID) });
+  });
+
+  it('import_job.changed (failed) não invalida a lista de itens — nenhum item foi criado', () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+    applyRealtimeEvent(
+      queryClient,
+      makeEvent('import_job.changed', { jobId: 'j1', boardId: BOARD_ID, status: 'failed' }),
+      context(),
+    );
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: qk.items(BOARD_ID) });
   });
 
   it('template.changed invalida a galeria interna do tenant (a pública nunca emite este evento)', () => {

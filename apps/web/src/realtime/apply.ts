@@ -731,8 +731,18 @@ export function applyRealtimeEvent(
       return;
     }
     case 'import_job.changed': {
-      const { jobId } = event.payload as { jobId: string; boardId: string };
+      const { jobId, status } = event.payload as {
+        jobId: string;
+        boardId: string;
+        status: 'completed' | 'failed';
+      };
       void queryClient.invalidateQueries({ queryKey: qk.importJob(jobId) });
+      // O commit roda inteiro no worker, sem evento `item.created` por linha (ver
+      // `apps/worker/src/processors/imports.ts`): ao terminar, a lista de itens do board — em
+      // qualquer view/filtro já em cache — precisa ser invalidada aqui, senão os itens criados só
+      // apareceriam depois de um reload manual da página.
+      if (status === 'completed' && boardId !== null)
+        void queryClient.invalidateQueries({ queryKey: qk.items(boardId) });
       return;
     }
     case 'template.changed':

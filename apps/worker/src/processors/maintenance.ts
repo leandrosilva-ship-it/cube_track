@@ -19,6 +19,7 @@ export const MAINTENANCE_SCHEDULE: Record<MaintenanceJob, string> = {
   'ai-agents-date-check': '20 6 * * *',
   'calendar-sync-periodic': '*/15 * * * *',
   'audit-retention-purge': '30 3 * * *',
+  'billing-reconciliation-daily': '15 7 * * *',
 };
 const TIMEZONE = 'America/Sao_Paulo';
 
@@ -42,6 +43,9 @@ interface MaintenanceDeps {
   checkContractAlerts: () => Promise<{ outcomes: { contractId: string; alerts: number }[] }>;
   checkAiAgentDateArrives: () => Promise<{ outcomes: { agentId: string; status: string }[] }>;
   runCalendarSyncPeriodic: () => Promise<{ outcomes: { connectionId: string; reconciled: number }[] }>;
+  runBillingReconciliation: () => Promise<{
+    outcomes: { tenantId: string; subscriptionId: string; status: string }[];
+  }>;
 }
 
 /** Expurgo da lixeira (30 dias) com auditoria por tenant. */
@@ -210,6 +214,14 @@ export function maintenanceProcessor(deps: MaintenanceDeps) {
         deps.logger.info(
           { tenantsApplied, droppedPartitions: droppedPartitions.length },
           'Expurgo de retenção de auditoria concluído',
+        );
+        return;
+      }
+      case 'billing-reconciliation-daily': {
+        const { outcomes } = await deps.runBillingReconciliation();
+        deps.logger.info(
+          { checked: outcomes.length },
+          'Reconciliação/dunning diário de billing concluído',
         );
         return;
       }

@@ -53,6 +53,10 @@ export const EMAIL_TEMPLATES = [
   'ai_agent_run_pending',
   'ai_agent_run_decided',
   'import_job_completed',
+  /** Billing (ADR 0059): lembrete de dunning para o(s) proprietário(s)/administrador(es) do tenant —
+   * assinatura `past_due` (pagamento recorrente falhou) ou renovação atrasada sem confirmação do
+   * webhook. Disparado por `billing-reconciliation-daily`. */
+  'billing_payment_issue',
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
@@ -140,6 +144,13 @@ export const MAINTENANCE_JOBS = [
   /** Aplica a política de retenção de auditoria de cada tenant (ADR 0057, LGPD): arquiva/expurga
    * entradas de `audit_logs` mais antigas que `data_retention_policies.entity_type = 'audit_log'`. */
   'audit-retention-purge',
+  /** Billing (ADR 0059): rede de segurança sobre `app.billing_reconciliation_candidates()` —
+   * assinaturas pagas (`plan <> 'free'`) já `past_due` (reenvia o lembrete de dunning enquanto durar)
+   * ou que ainda dizem `active` com o período corrente vencido há mais de 2 dias sem que o webhook de
+   * renovação tenha chegado. NUNCA a fonte de verdade do estado da assinatura — isso é sempre o
+   * webhook do Stripe (ou o adaptador stub Pix/boleto); esta rotina só avisa e, no caso de atraso
+   * objetivo do webhook, não altera `subscriptions.status` sozinha (ver `docs/billing.md`). */
+  'billing-reconciliation-daily',
 ] as const;
 export type MaintenanceJob = (typeof MAINTENANCE_JOBS)[number];
 

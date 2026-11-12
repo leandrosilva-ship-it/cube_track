@@ -13,6 +13,7 @@ import type { Logger } from './logger.js';
 import { OutboxRelay } from './outbox-relay.js';
 import { aiAgentsProcessor } from './processors/ai-agents.js';
 import { automationsProcessor } from './processors/automations.js';
+import { createBillingReconciliationDaily } from './processors/billing.js';
 import { calendarSyncPushProcessor, createCalendarSyncPeriodic } from './processors/calendar-sync.js';
 import { computedProcessor } from './processors/computed.js';
 import { createContractAlertsDaily } from './processors/contracts.js';
@@ -92,6 +93,13 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
     logger,
   };
   const runCalendarSyncPeriodic = createCalendarSyncPeriodic(calendarSyncDeps);
+  const runBillingReconciliation = createBillingReconciliationDaily({
+    database: appDb,
+    redis,
+    emails: queues[QUEUES.emails],
+    appUrl: config.APP_URL,
+    logger,
+  });
 
   const workers: Worker[] = [
     createWorker(
@@ -138,6 +146,7 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
         checkContractAlerts,
         checkAiAgentDateArrives: aiAgents.checkDateArrives,
         runCalendarSyncPeriodic,
+        runBillingReconciliation,
       }),
       { ...common, concurrency: 1 },
     ),

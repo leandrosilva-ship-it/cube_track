@@ -168,6 +168,15 @@ const TEMPLATES: Record<
         : [`A importação do arquivo "${data.fileName ?? ''}" (origem: ${data.source ?? ''}) não pôde ser concluída.`],
     action: { label: 'Ver importação', url: data.link ?? '' },
   }),
+  billing_payment_issue: (data) => ({
+    subject: 'Pendência na assinatura do CUBE TRACK',
+    lines: [
+      `Olá, ${data.name ?? ''}!`,
+      data.message ?? 'Há uma pendência na assinatura da sua organização.',
+      'Regularize para evitar a suspensão de recursos do plano contratado.',
+    ],
+    action: { label: 'Ver cobrança', url: data.link ?? '' },
+  }),
 };
 
 /** Renderiza o e-mail (texto e HTML com escape de todo conteúdo dinâmico). */

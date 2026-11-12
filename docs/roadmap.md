@@ -1066,3 +1066,65 @@ Manualmente: `PUT /v1/sso/config` com o certificado do IdP para habilitar SSO de
 `GET/PATCH /v1/security/policy` configura a política de segurança do tenant corrente.
 `GET /v1/audit/entries` busca auditoria; `GET /v1/audit/entries/export?format=csv|ndjson` exporta.
 `/v1/me/lgpd/*` é autosserviço; `/v1/lgpd/requests/*` é administração (`lgpd.manage`).
+
+### Billing (planos Free/Pro/Business/Enterprise, checkout Stripe/Pix/boleto, webhook, limite de vagas) — ADR 0059
+
+**Feito**
+
+- Módulo `apps/api/src/modules/billing/` sobre a fundação já commitada numa sessão anterior
+  (catálogo de planos em `packages/shared/src/billing.ts`, verificação de assinatura do webhook em
+  `packages/shared/src/billing-webhook.ts`, tabelas `subscriptions`/`payment_records` com RLS e
+  `tenants.plan` como enum — migração `0038`).
+- `GET /v1/billing/subscription`/`payments`: plano, status, uso corrente (vagas, armazenamento) e
+  histórico de cobranças do tenant (`tenant.billing`, só o papel `owner`).
+- `POST /v1/billing/checkout`: cartão via Stripe real (`stripe@23.1.0`, `checkout.sessions.create`
+  com `price_data` inline) devolvendo uma URL de redirecionamento (ativação só pelo webhook); Pix/
+  boleto via `PixBoletoAdapter` — adaptador stub claramente falso (`FAKE-PIX-`/`FAKE-BOLETO-`,
+  determinístico), que ativa o plano na hora por não haver PSP real para confirmar depois.
+- `POST /v1/billing/stripe/webhook` (público, HMAC real via `verifyStripeSignature`): trata
+  `checkout.session.completed`, `customer.subscription.updated/deleted`, `invoice.paid`/
+  `payment_failed`; resolve o tenant pela metadata do próprio evento (round-trip) e, só quando
+  ausente (eventos de fatura), por `app.resolve_subscription_by_stripe_id` (função SQL já migrada).
+  Idempotente por `payment_records` `UNIQUE (tenant_id, provider_reference_id)`.
+- `POST /v1/billing/cancel` (agenda para o fim do período já pago — nunca cancela na hora) e
+  `POST /v1/billing/plan/override` (override administrativo do plano, sem cobrança — autosserviço
+  do `owner` do próprio tenant; o projeto não tem um conceito de operador de plataforma cross-tenant,
+  decisão registrada na ADR 0059).
+- **Limite de vagas aplicado de verdade**: `assertSeatLimit` (domain, mesmo padrão de
+  `assert-module-enabled.ts`) + `SeatLimitService` (exportado do `BillingModule`, único ponto de
+  acoplamento com o módulo de identidade) barra `POST /v1/invitations` com 409
+  (`seat_limit_exceeded`) quando membros ativos + convites pendentes ultrapassariam `maxSeats` do
+  plano — contagem sempre por `COUNT` em tempo real, nunca um contador em cache/coluna.
+- Rotina diária `billing-reconciliation-daily` (worker): avisa `owner`/`admin` do tenant quando a
+  assinatura está `past_due` ou com o período vencido sem confirmação do webhook — rede de
+  segurança de monitoramento, nunca a fonte de verdade do estado da assinatura.
+- `docs/billing.md` novo; ADR 0059 registrando as decisões desta entrega (sobre a fundação já
+  decidida pela sessão anterior).
+
+**Pendências / lacunas conhecidas (documentadas honestamente em `docs/billing.md` §5)**
+
+- Nenhuma chamada real ao Stripe foi exercitada nesta sessão — sem chave de teste do Stripe
+  disponível neste sandbox; a integração foi escrita contra as formas documentadas do SDK e testada
+  via a porta `StripeClient`/`PaymentMethodAdapter` (seam injetável), nunca fingida como testada
+  contra a API real.
+- Pix/boleto são um stub deliberado — nenhum PSP real integrado.
+- Sem conceito de operador de plataforma cross-tenant (ver `docs/billing.md` §3).
+- Checkout por cartão não troca o plano de uma assinatura Stripe já ativa "no lugar" — exige um novo
+  checkout.
+- Seat limit não cobre provisionamento via SCIM.
+
+**Como rodar e testar**
+
+```bash
+pnpm infra:up && pnpm db:migrate && pnpm db:seed
+pnpm --filter @cube-track/api dev
+pnpm --filter @cube-track/shared test
+pnpm --filter @cube-track/api lint && pnpm --filter @cube-track/api typecheck
+pnpm --filter @cube-track/api test -- billing   # unit (seat-limit) + e2e (checkout/cancelamento/
+                                                 # override/webhook/limite de vagas)
+```
+
+Manualmente (sem chave real do Stripe): `POST /v1/billing/checkout` com `method: 'pix'` ou
+`'boleto'` ativa o plano na hora; `GET /v1/billing/subscription` confirma. Assinar o corpo com
+`signStripePayload` (`@cube-track/shared/billing-webhook`) simula um evento do Stripe contra
+`POST /v1/billing/stripe/webhook` sem precisar de credenciais reais.

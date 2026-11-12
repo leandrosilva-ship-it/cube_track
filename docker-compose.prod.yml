@@ -1,0 +1,209 @@
+name: cube-track-prod
+
+# Deploy de produção para UMA ÚNICA MÁQUINA (VM) — complementa infra/helm (Kubernetes) para quem
+# só precisa colocar a plataforma no ar para a própria equipe, sem um cluster.
+#
+# Uso:
+#   cp .env.prod.example .env.prod   # e preencha os segredos (ver comentários no arquivo)
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#
+# Só os serviços "web" (HTTP) e, opcionalmente, "api" (webhooks de integrações) ficam expostos à
+# internet — postgres/redis/minio/meilisearch só são alcançáveis entre os próprios containers.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cubetrack
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: cubetrack
+      TZ: UTC
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U cubetrack -d cubetrack']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  redis:
+    image: redis:7.4-alpine
+    command: ['redis-server', '--appendonly', 'yes']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: cubetrack
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  minio-setup:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 cubetrack ${MINIO_ROOT_PASSWORD} &&
+      mc mb --ignore-existing local/cubetrack-files &&
+      mc anonymous set none local/cubetrack-files
+      "
+    restart: 'no'
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.13
+    environment:
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      MEILI_ENV: production
+      MEILI_NO_ANALYTICS: 'true'
+    volumes:
+      - meili-data:/meili_data
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://localhost:7700/health']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: '3001'
+      REALTIME_MODE: embedded
+      REALTIME_PORT: '3002'
+      APP_URL: ${PUBLIC_WEB_URL}
+      API_URL: ${PUBLIC_API_URL}
+      BASE_DOMAIN: ${BASE_DOMAIN}
+      CORS_ORIGINS: ${PUBLIC_WEB_URL}
+      API_INTERNAL_URL: http://api:3001
+      NEXT_PUBLIC_REALTIME_URL: ${PUBLIC_API_URL}
+      NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL}
+      DATABASE_URL: postgres://cubetrack:${POSTGRES_PASSWORD}@postgres:5432/cubetrack
+      DATABASE_APP_URL: postgres://cubetrack_app:cubetrack_app@postgres:5432/cubetrack
+      DATABASE_AUTH_URL: postgres://cubetrack_auth:cubetrack_auth@postgres:5432/cubetrack
+      DATABASE_RELAY_URL: postgres://cubetrack_relay:cubetrack_relay@postgres:5432/cubetrack
+      DATABASE_POOL_MAX: '20'
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: cube-track
+      ACCESS_TOKEN_TTL_SECONDS: '600'
+      REFRESH_TOKEN_TTL_DAYS: '30'
+      REFRESH_REUSE_GRACE_SECONDS: '30'
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      COOKIE_SECURE: ${COOKIE_SECURE}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN}
+      RATE_LIMIT_PER_MINUTE: '600'
+      UPLOAD_MAX_BYTES: '104857600'
+      UPLOAD_URL_TTL_SECONDS: '900'
+      MAIL_REPLY_DOMAIN: ${MAIL_REPLY_DOMAIN}
+      INBOUND_EMAIL_WEBHOOK_SECRET: ${INBOUND_EMAIL_WEBHOOK_SECRET}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: cubetrack
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: cubetrack-files
+      S3_FORCE_PATH_STYLE: 'true'
+      MEILI_URL: http://meilisearch:7700
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      MEILI_API_KEY: ${MEILI_MASTER_KEY}
+      OTEL_SDK_DISABLED: 'true'
+      METRICS_PORT: '9464'
+    # Porta 3001 publicada: a maioria das chamadas da web app vai pela rede interna do Docker
+    # (API_INTERNAL_URL, proxy same-origin em /v1), mas o tempo real (Socket.IO) conecta DIRETO do
+    # navegador para a API — por isso ela também precisa estar acessível publicamente (ver
+    # NEXT_PUBLIC_REALTIME_URL). Sem domínio/HTTPS ainda, fica em HTTP simples; ver
+    # docs/deploy-vm.md para adicionar um domínio com HTTPS automático depois.
+    ports:
+      - '3001:3001'
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://cubetrack:${POSTGRES_PASSWORD}@postgres:5432/cubetrack
+      DATABASE_APP_URL: postgres://cubetrack_app:cubetrack_app@postgres:5432/cubetrack
+      DATABASE_RELAY_URL: postgres://cubetrack_relay:cubetrack_relay@postgres:5432/cubetrack
+      DATABASE_POOL_MAX: '10'
+      REDIS_URL: redis://redis:6379
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      APP_URL: ${PUBLIC_WEB_URL}
+      API_URL: http://api:3001
+      S3_ENDPOINT: http://minio:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: cubetrack
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: cubetrack-files
+      S3_FORCE_PATH_STYLE: 'true'
+      MEILI_URL: http://meilisearch:7700
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
+      MEILI_API_KEY: ${MEILI_MASTER_KEY}
+      SMTP_URL: ${SMTP_URL}
+      EMAIL_FROM: ${EMAIL_FROM}
+      ANTIVIRUS_MODE: disabled
+      OUTBOX_POLL_MS: '500'
+      OUTBOX_BATCH_SIZE: '200'
+      OUTBOX_RETENTION_DAYS: '7'
+      WORKER_CONCURRENCY: '8'
+      BOARD_PORT: '3010'
+      BULL_BOARD_USER: ${BULL_BOARD_USER}
+      BULL_BOARD_PASSWORD: ${BULL_BOARD_PASSWORD}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      OTEL_SDK_DISABLED: 'true'
+      METRICS_PORT: '9465'
+    restart: unless-stopped
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        API_INTERNAL_URL: http://api:3001
+        NEXT_PUBLIC_API_URL: ${PUBLIC_API_URL}
+        NEXT_PUBLIC_REALTIME_URL: ${PUBLIC_API_URL}
+    depends_on:
+      - api
+    ports:
+      - '80:3000'
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  meili-data:

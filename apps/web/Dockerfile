@@ -23,8 +23,17 @@ RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store \
 
 FROM deps AS build
 ARG API_INTERNAL_URL=http://cube-track-api:3001
+# NEXT_PUBLIC_* são lidas por Client Components (apps/web/src/realtime/provider.tsx,
+# features/integrations/integrations-section.tsx) e o Next as inlina no bundle do navegador NO
+# BUILD — ajustá-las como variável de ambiente do container em runtime (ex.: valores de
+# infra/helm/cube-track/values-*.yaml) não tem efeito nenhum sobre um bundle já construído.
+# Precisam do domínio público real de cada ambiente passado como --build-arg nesta etapa.
+ARG NEXT_PUBLIC_API_URL=http://localhost:3001
+ARG NEXT_PUBLIC_REALTIME_URL=http://localhost:3001
 ENV NODE_ENV=production
 ENV API_INTERNAL_URL=${API_INTERNAL_URL}
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_REALTIME_URL=${NEXT_PUBLIC_REALTIME_URL}
 RUN pnpm --filter @cube-track/web run build
 
 # next.config.ts tem `output: 'standalone'`: apps/web/.next/standalone já traz um node_modules

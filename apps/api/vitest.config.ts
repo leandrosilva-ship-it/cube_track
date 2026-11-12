@@ -31,5 +31,14 @@ export default defineConfig({
     testTimeout: 30_000,
     hookTimeout: 120_000,
     fileParallelism: false,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'lcov'],
+      // Cobertura só do domínio (CLAUDE.md §5 "cobertura ≥80% no domínio"): regras de negócio
+      // puras, sem Nest/Drizzle/I-O. application/infrastructure/presentation ficam de fora —
+      // controllers e repositórios são wiring, medidos pelos *.e2e.test.ts de integração, não aqui.
+      include: ['src/modules/*/domain/**/*.ts'],
+      exclude: ['src/modules/*/domain/**/*.test.ts'],
+    },
   },
 });

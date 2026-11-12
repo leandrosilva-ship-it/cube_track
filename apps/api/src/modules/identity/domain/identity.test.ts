@@ -1,15 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
-import { checkPasswordPolicy, hashPassword, verifyPassword } from './password.js';
+import { checkPasswordPolicy, hashPassword, isPasswordReused, verifyPassword } from './password.js';
 import {
   decryptSecret,
   encryptSecret,
   generateRecoveryCodes,
+  normalizeRecoveryCode,
   randomToken,
   safeEqualHex,
   sha256Hex,
 } from './secrets.js';
-import { base32Decode, base32Encode, generateTotp, hotp, otpauthUri, verifyTotp } from './totp.js';
+import {
+  base32Decode,
+  base32Encode,
+  generateTotp,
+  generateTotpSecret,
+  hotp,
+  otpauthUri,
+  verifyTotp,
+} from './totp.js';
 
 // Vetores do RFC 6238 (SHA-1, segredo ASCII "12345678901234567890").
 const RFC_SECRET = base32Encode(Buffer.from('12345678901234567890'));
@@ -44,6 +53,16 @@ describe('TOTP (RFC 6238)', () => {
       'otpauth://totp/CUBE%20TRACK%3Aana%40x.com?secret=ABC',
     );
   });
+
+  it('base32Decode rejeita caractere fora do alfabeto', () => {
+    expect(() => base32Decode('abc!')).toThrow('Base32 inválido');
+  });
+
+  it('generateTotpSecret gera um segredo base32 válido e decodificável', () => {
+    const secret = generateTotpSecret();
+    expect(secret).toMatch(/^[A-Z2-7]+$/);
+    expect(() => base32Decode(secret)).not.toThrow();
+  });
 });
 
 describe('senhas', () => {
@@ -60,6 +79,59 @@ describe('senhas', () => {
     expect(checkPasswordPolicy('somenteletras').ok).toBe(false);
     expect(checkPasswordPolicy('ana.ribeiro2026', 'ana.ribeiro@x.com').ok).toBe(false);
     expect(checkPasswordPolicy('Correta-Senha-2026', 'ana@x.com').ok).toBe(true);
+  });
+
+  it('senha muito longa ou sem letra/número falha na política de base', () => {
+    expect(checkPasswordPolicy('a1'.repeat(70)).reasons).toContain(
+      'A senha deve ter no máximo 128 caracteres.',
+    );
+    expect(checkPasswordPolicy('1234567890').reasons).toContain('Use letras e números.');
+  });
+
+  it('senha comum é recusada mesmo sendo longa o bastante', () => {
+    expect(checkPasswordPolicy('cubetrack').ok).toBe(false);
+  });
+
+  it('e-mail local curto (<4 caracteres) não entra na checagem de conter o e-mail', () => {
+    expect(checkPasswordPolicy('Senha-forte-2026', 'ab@x.com').ok).toBe(true);
+  });
+
+  it('a política configurável do tenant se SOMA à de base (nunca afrouxa)', () => {
+    const tenantPolicy = {
+      minLength: 16,
+      requireUppercase: true,
+      requireLowercase: true,
+      requireDigit: true,
+      requireSymbol: true,
+      maxAgeDays: null,
+      historyCount: 5,
+    };
+    // Atende a base (10+, letra+número) mas não a política do tenant (sem símbolo/maiúscula, <16).
+    const result = checkPasswordPolicy('senhasegura1', undefined, tenantPolicy);
+    expect(result.ok).toBe(false);
+    expect(result.reasons).toContain('A senha não atende ao tamanho mínimo exigido pela organização.');
+    expect(result.reasons).toContain('A senha precisa de ao menos uma letra maiúscula.');
+    expect(result.reasons).toContain('A senha precisa de ao menos um símbolo.');
+  });
+
+  it('atendendo base + política do tenant, a senha passa', () => {
+    const tenantPolicy = {
+      minLength: 12,
+      requireUppercase: true,
+      requireLowercase: true,
+      requireDigit: true,
+      requireSymbol: true,
+      maxAgeDays: 90,
+      historyCount: 5,
+    };
+    expect(checkPasswordPolicy('Senha-forte#2026', 'ana@x.com', tenantPolicy).ok).toBe(true);
+  });
+
+  it('isPasswordReused compara com Argon2id, nunca por igualdade de hash', async () => {
+    const hashed = await hashPassword('Senha-antiga-2026');
+    expect(await isPasswordReused('Senha-antiga-2026', [hashed])).toBe(true);
+    expect(await isPasswordReused('Senha-nova-2026', [hashed])).toBe(false);
+    expect(await isPasswordReused('Senha-nova-2026', [])).toBe(false);
   });
 });
 
@@ -81,5 +153,10 @@ describe('segredos', () => {
     expect(codes.every((code) => /^[a-z0-9]{4}-[a-z0-9]{4}$/.test(code))).toBe(true);
     expect(safeEqualHex(sha256Hex('a'), sha256Hex('a'))).toBe(true);
     expect(safeEqualHex(sha256Hex('a'), sha256Hex('b'))).toBe(false);
+  });
+
+  it('normalizeRecoveryCode remove espaços e caixa antes de comparar', () => {
+    expect(normalizeRecoveryCode(' ABCD-1234 ')).toBe('abcd-1234');
+    expect(normalizeRecoveryCode('abcd 1234')).toBe('abcd1234');
   });
 });

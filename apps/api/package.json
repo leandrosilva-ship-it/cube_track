@@ -11,7 +11,8 @@
     "openapi:export": "node --import ./dist/instrumentation.js dist/openapi-export.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.4.0",
@@ -76,6 +77,7 @@
     "@types/express": "^5.0.3",
     "@types/node": "^22.19.0",
     "@types/supertest": "^6.0.3",
+    "@vitest/coverage-v8": "3.2.7",
     "eslint": "^9.39.1",
     "s3rver": "^3.7.1",
     "socket.io-client": "^4.8.1",

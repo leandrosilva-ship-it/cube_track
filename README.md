@@ -11,7 +11,7 @@ Pipefy, MS Project, PPM) — com um módulo opcional de Contratos/OS/UST para co
 - Decisões técnicas (ADRs): [`docs/adr/`](docs/adr/README.md)
 - **Status do desenvolvimento (16 prompts) e relatório final**: [`docs/roadmap.md`](docs/roadmap.md), [`docs/relatorio-final.md`](docs/relatorio-final.md)
 - Segurança (ISO/IEC 27001, OWASP) e LGPD: [`docs/security.md`](docs/security.md), [`docs/lgpd.md`](docs/lgpd.md)
-- Deploy e operação: [`docs/deploy.md`](docs/deploy.md), runbooks em [`docs/runbooks/`](docs/runbooks)
+- Deploy e operação: [`docs/deploy.md`](docs/deploy.md) (Kubernetes/Helm), [`docs/deploy-vm.md`](docs/deploy-vm.md) (Google Cloud, VM única), [`docs/deploy-aws.md`](docs/deploy-aws.md) (AWS EC2, VM única), runbooks em [`docs/runbooks/`](docs/runbooks)
 
 ## Stack
 

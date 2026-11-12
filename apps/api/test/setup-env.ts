@@ -27,5 +27,6 @@ Object.assign(process.env, {
   BASE_DOMAIN: 'cubetrack.test',
   MAIL_REPLY_DOMAIN: 'reply.cubetrack.test',
   INBOUND_EMAIL_WEBHOOK_SECRET: 'test-inbound-email-webhook-secret',
+  STRIPE_WEBHOOK_SECRET: 'whsec_test_0123456789abcdef',
 });
 process.env.TEST_ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;

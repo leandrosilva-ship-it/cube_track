@@ -16,6 +16,7 @@ import {
 import { DomainEvents } from '../../../core/events/domain-events.js';
 import { QUEUE_REGISTRY, type QueueRegistry } from '../../../core/queues/queues.module.js';
 import { AccessService } from '../../access/application/access.service.js';
+import { SeatLimitService } from '../../billing/application/seat-limit.service.js';
 import { checkPasswordPolicy, hashPassword, verifyPassword } from '../domain/password.js';
 import { randomToken, sha256Hex } from '../domain/secrets.js';
 import { IdentityRepository } from '../infrastructure/identity.repository.js';
@@ -42,6 +43,7 @@ export class InvitationService {
     private readonly access: AccessService,
     private readonly repository: IdentityRepository,
     private readonly sessions: SessionService,
+    private readonly seatLimit: SeatLimitService,
   ) {}
 
   /** Executa dentro da unidade de trabalho da requisição (rota @Audited transacional). */
@@ -92,6 +94,12 @@ export class InvitationService {
         .where(eq(schema.memberships.userId, existing.id));
       if (member?.deletedAt === null)
         throw new ConflictError('Esta pessoa já participa da organização.', 'already_member');
+    }
+    // Guarda de limite de vagas do plano (ADR 0059) — só conta para membros (convidados externos não
+    // ocupam vaga, ver `packages/shared/src/billing.ts`). Checado por último, só quando o convite vai
+    // de fato ser criado (depois de validar papel/recurso e confirmar que não é um re-convite).
+    if (input.kind === 'member') {
+      await this.seatLimit.assertCanAddMembers(user.tenantId);
     }
     const token = randomToken();
     const id = newId();

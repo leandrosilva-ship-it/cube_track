@@ -60,6 +60,15 @@ export const ConfigSchema = z.object({
   MAIL_REPLY_DOMAIN: z.string().default('reply.cubetrack.local'),
   /** Segredo do webhook de e-mail recebido (cabeçalho `X-Webhook-Secret` do provedor). */
   INBOUND_EMAIL_WEBHOOK_SECRET: z.string().min(16).default('dev-inbound-email-secret-change-me'),
+  /**
+   * Billing (ADR 0059): chave secreta do Stripe da PLATAFORMA (nunca por tenant/BYOK, ao contrário
+   * de toda outra integração deste projeto — ver `packages/db/src/schema/billing.ts`). Ausente
+   * (`undefined`) em dev/test: checkout por cartão fica indisponível (`NotImplementedError`), mas
+   * Pix/boleto (adaptador stub) e o restante da API continuam funcionando normalmente.
+   */
+  STRIPE_SECRET_KEY: optionalString,
+  /** Segredo do endpoint de webhook (`Stripe-Signature`, verificado por `verifyStripeSignature`). */
+  STRIPE_WEBHOOK_SECRET: z.string().min(16).default('whsec_dev_change_me_0123456789'),
   OAUTH_GOOGLE_CLIENT_ID: optionalString,
   OAUTH_GOOGLE_CLIENT_SECRET: optionalString,
   OAUTH_GOOGLE_ISSUER: z.string().default('https://accounts.google.com'),

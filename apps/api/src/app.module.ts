@@ -11,6 +11,7 @@ import { AccessModule } from './modules/access/access.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
 import { ApiAccessModule } from './modules/api-access/api-access.module.js';
 import { AutomationsModule } from './modules/automations/automations.module.js';
+import { BillingModule } from './modules/billing/billing.module.js';
 import { CollaborationModule } from './modules/collaboration/collaboration.module.js';
 import { ContractsModule } from './modules/contracts/contracts.module.js';
 import { DashboardsModule } from './modules/dashboards/dashboards.module.js';
@@ -47,6 +48,7 @@ import { GovernanceModule } from './modules/governance/governance.module.js';
       context: ({ req, res }: { req: Request; res: Response }) => ({ req, res }),
     }),
     AccessModule,
+    BillingModule,
     IdentityModule,
     WorkModule,
     StructureModule,

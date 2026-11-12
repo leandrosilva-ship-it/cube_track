@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { BillingModule } from '../billing/billing.module.js';
 import { AuthAudit } from './application/auth-audit.js';
 import { AuthService } from './application/auth.service.js';
 import { InvitationService } from './application/invitation.service.js';
@@ -15,6 +16,7 @@ import { MeController } from './presentation/me.controller.js';
 import { SecurityPolicyController } from './presentation/security-policy.controller.js';
 
 @Module({
+  imports: [BillingModule],
   controllers: [AuthController, MeController, InvitationsController, SecurityPolicyController],
   providers: [
     IdentityRepository,

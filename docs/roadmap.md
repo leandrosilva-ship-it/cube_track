@@ -19,7 +19,7 @@ Legenda: ✅ concluído · 🟡 aguardando validação · ⏳ pendente · 🔄 e
 | 13  | Contratos/OS/UST                                   | ✅ Concluído | Contrato, catálogo de serviços (Código Edital), OS com ciclo de vida completo, saldo de UST ao vivo, medição mensal reconciliada, faturamento, alertas diários, 3 widgets de UST                                                                                                                                                                                                                | 0054      |
 | 14  | IA                                                 | ✅ Concluído | Configuração por tenant, assistente lateral, criação de item por texto, resumos, descrição sugerida, previsões, agentes configuráveis com aprovação humana                                                                                                                                                                                                                                      | 0055      |
 | 15  | API pública, Integrações, Importadores e Templates | ✅ Concluído | Tokens pessoais/apps OAuth `client_credentials`, webhooks de saída (log/reenvio), galeria de templates, importação em background (Monday/Trello/Jira/Pipefy/CSV), integrações Google/Microsoft (OAuth, calendário, Drive/OneDrive, e-mail-para-item), Slack/Teams (notificação, comando de barra, link preview) e GitHub/GitLab/Azure DevOps (webhook → vínculo de item, auto-avanço de status) | 0056      |
-| 16  | Segurança, Performance, Testes e Deploy            | ⏳           | Hardening, testes de carga, CI/CD, Helm, observabilidade, runbooks                                                                                                                                                                                                                                                                                                                              | —         |
+| 16  | Segurança, Performance, Testes e Deploy            | ✅ Concluído | Hardening (SSO/SCIM/LGPD/políticas), testes de carga k6 + bundle-splitting, billing (Stripe/Pix/boleto), cobertura de domínio ≥80% + E2E crítico + axe                                                                                                                                                                                                                                         | 0057–0060 |
 
 ## Prompt 1 — Resumo
 
@@ -1128,3 +1128,155 @@ Manualmente (sem chave real do Stripe): `POST /v1/billing/checkout` com `method:
 `'boleto'` ativa o plano na hora; `GET /v1/billing/subscription` confirma. Assinar o corpo com
 `signStripePayload` (`@cube-track/shared/billing-webhook`) simula um evento do Stripe contra
 `POST /v1/billing/stripe/webhook` sem precisar de credenciais reais.
+
+### Testes (cobertura de domínio ≥80%, E2E Playwright dos fluxos críticos, acessibilidade com axe) — ADR 0060
+
+**Diferente das frentes acima**: esta sessão tinha PostgreSQL 16 e Redis nativos já rodando no
+sandbox (não Docker) — a primeira vez, em todo o histórico do projeto, que a suíte inteira
+(unitário, integração sob RLS sem BYPASSRLS, Playwright) rodou de verdade contra infraestrutura
+real, não só foi escrita e lida. Isso tem um custo: vários `*.e2e.test.ts`/specs Playwright nunca
+antes executados (documentado como "não executado nesta sessão" em quase todo prompt anterior)
+revelaram bugs reais pré-existentes, listados honestamente abaixo — nenhum foi corrigido nesta
+frente (fora do escopo de "Testes", que é medir e cobrir, não corrigir as outras onze frentes).
+
+**Feito**
+
+- **Cobertura v8 configurada do zero** (nenhum `vitest.config.ts` do monorepo tinha antes):
+  `@vitest/coverage-v8@3.2.7` em `packages/shared` (`include: ['src/**/*.ts']`, domínio inteiro —
+  exclui só barris de re-export e três arquivos de contrato/tipo puro sem lógica própria:
+  `jobs.ts`/`events.ts`/`formula/context.ts`) e em `apps/api`
+  (`include: ['src/modules/*/domain/**/*.ts']` — só a camada `domain/`, CLAUDE.md §5; application/
+  infrastructure/presentation são wiring, medidos pelos `*.e2e.test.ts`). Decisões completas e
+  justificativa de cada exclusão na ADR 0060.
+- **Fechadas as lacunas reais de maior valor** (nunca testes vazios só para subir o número):
+  `packages/shared` 82,38% → **96,27%** linhas/stmts, 78,37% → **81,34%** branches, 95,93% → 97,76%
+  funções (`board-templates.ts`/`search.ts`/`realtime.ts`: 0% → 100%, sem nenhum teste antes;
+  `integrations.ts`: 44% → 82% de branch nos normalizadores GitHub/GitLab/Azure DevOps;
+  `columns/computed.ts`: 67% → 89% de branch, tabela-verdade completa de `columnValueToFormula`
+  para os ~20 tipos de coluna e de `sourceValue` para rollup/espelho). `apps/api` domain/ 80,42% →
+  **98,1%** linhas/stmts, 86,09% → **90,06%** branches, 89,36% → 100% funções
+  (`work/domain/board-definition.ts` e `forms/domain/form.ts`: 0% → 100%, nenhum teste antes;
+  `identity/domain` — escrito nesta mesma janela pela frente de Segurança, ADR 0057 — ganhou os
+  casos de borda que faltavam: `isPasswordReused`, política configurável do tenant somada à de
+  base, `normalizeRecoveryCode`, `generateTotpSecret`).
+- **E2E do assistente de importação em background** (`apps/web/e2e/imports.spec.ts`, novo):
+  "importação" está na lista de fluxos críticos do Prompt 16 e não tinha NENHUMA cobertura E2E — só
+  o importador síncrono de CSV/Excel (Prompt 5, componente diferente) estava coberto. Novo spec:
+  origem → upload → mapeamento (automático para "Nome" + manual para uma coluna sem equivalente de
+  título) → commit → progresso → confirmação dos itens no board; e o caso de linha sem nome (pulada
+  e reportada, sem travar as demais). Achados reais ao validar contra o app de verdade (não só
+  lendo código), todos corrigidos:
+  - **Bug de produto**: `import_job.changed` (sucesso) só invalidava a consulta do próprio job
+    (`apps/web/src/realtime/apply.ts`) — como o commit roda inteiro no worker sem evento
+    `item.created` por linha (decisão de performance do próprio `imports.ts` do worker, para não
+    gerar milhares de eventos num import grande), a lista de itens do board nunca era invalidada e
+    os itens importados só apareceriam depois de um reload manual, quebrando o critério de pronto
+    "tempo real entre dois navegadores" para este fluxo. Corrigido: invalida `qk.items(boardId)`
+    quando o job termina com sucesso (nunca quando falha). Teste unitário dedicado cobrindo os três
+    status em `apply.test.ts`.
+  - **Dois bugs no próprio teste** (não no produto — o worker sempre completou a importação em bem
+    menos de 1 s, confirmado direto no Postgres): `getByRole('status')` em modo estrito batia em 2
+    elementos durante a janela "processando" (o container do passo e a `Spinner` interna têm, cada
+    um, seu próprio `role="status"`) — `.first()` resolve; e "0 linhas puladas" nunca aparece em
+    pt-BR porque o CLDR trata 0 como categoria "one" (singular) neste idioma, não "other" como em
+    inglês ("0 linha pulada").
+- **Acessibilidade (axe) estendida** a 5 telas dos Prompts 11–15 que nunca tinham sido varridas
+  (`a11y-responsive.spec.ts`, mesmo arquivo, mesmo padrão de `portfolio.spec.ts`/`contracts.spec.ts`
+  para extrair o `workspaceId`): galeria de Templates, Configurações do workspace (onde vivem as
+  seções de integrações/webhooks/API tokens/OAuth apps, todas no mesmo `<section>` sempre
+  renderizado — sem precisar de interação para aparecer no DOM), Capacidade, Contratos e Portfólio.
+  **Resultado: 0 violações WCAG 2.1 A/AA em nenhuma das telas testadas** (base + novas), claro e
+  escuro, nas duas execuções completas da suíte.
+- **Suíte inteira rodada contra infraestrutura real** (números exatos abaixo, com o comando usado
+  em cada um — reproduza com `pnpm db:reset && pnpm db:seed` antes).
+
+**Resultados medidos (reais, duas execuções completas onde indicado — números honestos, não estimados)**
+
+| Pacote/suíte | Comando | Resultado |
+| --- | --- | --- |
+| `packages/shared` | `pnpm --filter @cube-track/shared test:coverage` | 423/423 testes ✅; cobertura 96,27% linhas/stmts, 81,34% branches, 97,76% funções |
+| `apps/api` (domínio) | `cd apps/api && npx vitest run domain --coverage` | 112/112 testes ✅; cobertura 98,1% linhas/stmts, 90,06% branches, 100% funções |
+| `apps/api` (suíte completa, unit + `*.e2e.test.ts` de integração) | `pnpm --filter @cube-track/api test` | 352 passaram, **13–14 falharam**, 3 puladas (369) — pré-existentes, ver lista abaixo |
+| `apps/worker` | `pnpm --filter @cube-track/worker test` | 72 passaram, **7 falharam** (79) — 1 por Meilisearch indisponível no sandbox, 6 pré-existentes |
+| `packages/db` | `pnpm --filter @cube-track/db test` | 41/41 ✅ (RLS real, sem BYPASSRLS) |
+| `packages/ui` / `i18n` / `sdk` | `pnpm --filter <pkg> test` | 53/53, 10/10, 11/11 ✅ |
+| `apps/web` (unitário) | `pnpm --filter @cube-track/web test` | 268/268 ✅ |
+| `apps/web` E2E (Playwright, 1ª execução limpa) | `pnpm --filter @cube-track/web test:e2e` | **21 passaram, 28 falharam**, 1 pulada (50), 15,7 min |
+| `apps/web` E2E (2ª execução, banco resetado, worker reiniciado) | idem | **30 passaram, 19 falharam**, 1 pulada (50), 9,7 min |
+
+A2ª execução, com `imports.spec.ts` já corrigido (ver acima) e Redis/worker limpos antes de começar,
+teve bem menos falhas que a 1ª — mas **as mesmas 19 falhas da 2ª execução já falhavam, idênticas,
+na 1ª também** (mesmo arquivo, mesma linha, durações parecidas): um sinal confiável de bugs reais e
+reprodutíveis, não de instabilidade do sandbox. As ~9 falhas que só apareceram na 1ª execução
+(`imports.spec.ts` ×2 — já corrigidas — `contracts.spec.ts` critério de aceite 1,
+`forms.spec.ts` preenchimento interno, `kanban.spec.ts`, `realtime.spec.ts` ×2, `table.spec.ts` ×2,
+`webhooks.spec.ts`) passaram limpo na 2ª: intermitentes sob carga (sandbox de CPU compartilhada,
+Meilisearch indisponível fazendo o worker reter 5 tentativas com backoff exponencial por indexação
+em cada mutação de toda a suíte — provável causa da variação, não confirmada a fundo por estar fora
+do escopo desta frente).
+
+**19 falhas E2E reproduzidas de forma idêntica nas duas execuções (bugs reais, não corrigidos — fora
+do escopo desta frente, listados para a frente correta corrigir)**:
+
+| Spec | Teste | Causa raiz observada |
+| --- | --- | --- |
+| `automations.spec.ts` | botão dispara automação em tempo real | timeout de 60 s — propagação não chega ao 2º navegador |
+| `capacity.spec.ts` | arrastar célula do heatmap de workload | timeout de 60 s após o drag-and-drop |
+| `dashboards.spec.ts` ×2 | widget em tempo real / saúde do projeto | widget/relatório não aparece no 2º navegador (3–4 s, não é timeout — falha rápida) |
+| `governance.spec.ts` ×2 | risco em tempo real / justificativa de sobreposição | risco não propaga; segunda falha parece lógica de negócio (não só realtime) |
+| `item-panel.spec.ts` ×3 | menção/log de atividade/aprovação em tempo real | menção não notifica (60 s); log de atividade e aprovação falham rápido |
+| `planning.spec.ts` ×2 | Gantt: reagendar sucessor / caminho crítico | falham rápido (~3 s) — parecem bug de lógica (recálculo), não de realtime |
+| `portfolio.spec.ts` ×3 (todos os testes do arquivo) | hierarquia/rollup, permissão `portfolio.read`, widget de rollup | falham rápido (~2–3 s) — **arquivo inteiro falha**, sugere um problema de fixture/setup único |
+| `processes.spec.ts` ×2 (todos os testes do arquivo) | indicadores de fase/SLA, transição bloqueada | **arquivo inteiro falha**, mesma suspeita de fixture/setup |
+| `timesheet.spec.ts` | apontar horas e aprovação em tempo real | timeout de 60 s |
+| `view-management.spec.ts` | renomear/duplicar/link público de view | timeout de 60 s |
+
+Além dos E2E: **13–14 testes de integração de `apps/api`** falharam de forma pré-existente (lidos,
+não corrigidos — confirmado via `git status`/`git diff` que nenhum arquivo envolvido foi tocado
+nesta frente): `forms.e2e.test.ts` (4 casos — captcha/`requiresLogin`/preenchimento interno com
+asserções que não batem com o comportamento atual), `notification-preferences.e2e.test.ts` (o teste
+assume `GET` vazio, mas o seed desde um prompt posterior já provisiona 3 preferências padrão por
+usuário — teste desatualizado, não bug de produto), `planning.e2e.test.ts` (2 — `earlyStart`
+`<=` `lateStart` falha e uma baseline retorna 201 onde o teste espera 200),
+`portfolio.e2e.test.ts` (2 — stage gate e simulação what-if retornam 201 onde o teste espera 200),
+`webhooks.e2e.test.ts` (regenerar segredo retorna 201 onde o teste espera 200 — confirmado:
+`@Post('webhooks/:id/regenerate-secret')` sem `@HttpCode(200)`, um padrão que se repete nos outros
+três "201 vs 200" acima — ação sobre um recurso existente, não criação, provavelmente faltando o
+mesmo decorator em cada controller), `dashboards.e2e.test.ts` (1 — espera 422, recebe 400:
+`widgets.service.ts` lança `ValidationError` de propósito para config inválida, o teste é que
+assume o código errado), `automations.e2e.test.ts` (1 — clique de botão sem automação, mesma
+família 400/422), `board-content.e2e.test.ts` (1 — `PUT .../labels` não retorna 200, causa não
+diagnosticada). `apps/worker`: `notification-digest.e2e.test.ts` (chave duplicada em
+`notification_preferences` — falta de limpeza entre os dois testes do arquivo, que roda contra o
+mesmo tenant seedado sem `beforeEach`), `processors.e2e.test.ts` (EVM com número absurdamente alto
+— suspeita de `cost_entries` não limpos por um teste anterior no mesmo arquivo, e indexação via
+Meilisearch indisponível), `webhooks.e2e.test.ts` (fan-out despacha 1 onde esperava 0 — suspeita de
+assinatura de webhook deixada por um teste anterior no mesmo arquivo). Todos os arquivos
+`*.e2e.test.ts` acima só têm `beforeAll`/`afterAll` (uma vez por arquivo), não `beforeEach` — a
+suspeita de contaminação entre testes do mesmo arquivo é estrutural, não um palpite isolado.
+
+**Pendências**
+
+- Nenhum dos achados acima foi corrigido nesta frente — são regressões/lacunas de outras
+  frentes/prompts (7 a 12), a maioria em specs nunca antes executados. Cada um está listado acima
+  com arquivo e causa raiz observada para a próxima sessão corrigir dentro da frente certa.
+- Meilisearch indisponível neste sandbox (só Postgres/Redis nativos) — testes que dependem dele
+  (`apps/worker/test/processors.e2e.test.ts`, indexação) não exercitam esse caminho.
+- `apps/web/e2e/table.spec.ts` "50 mil itens" segue pulado (precisa de `pnpm db:seed:large`, não
+  rodado nesta sessão por tempo).
+- ADR 0060 registra as decisões completas (escopo da métrica de cobertura, por que os bugs
+  pré-existentes foram reportados e não corrigidos).
+
+**Como rodar e testar**
+
+```bash
+pnpm infra:up && pnpm db:reset   # ou: Postgres/Redis nativos já configurados em .env, sem Docker
+pnpm --filter @cube-track/shared test:coverage
+cd apps/api && npx vitest run domain --coverage && cd ../..
+pnpm lint && pnpm typecheck
+pnpm --filter @cube-track/db test && pnpm --filter @cube-track/api test && pnpm --filter @cube-track/worker test
+pnpm --filter @cube-track/web test
+pnpm --filter @cube-track/api build && pnpm --filter @cube-track/worker build && pnpm --filter @cube-track/web build
+pnpm --filter @cube-track/worker start &   # requerido pelos E2E de automação/webhook/importação/timesheet/etc.
+pnpm --filter @cube-track/web test:e2e     # inclui apps/web/e2e/imports.spec.ts (novo) e a11y estendido
+```

@@ -17,6 +17,7 @@ import {
 import {
   Bot,
   ClipboardList,
+  Copy,
   Link2,
   MoreHorizontal,
   Pencil,
@@ -24,6 +25,7 @@ import {
   Share2,
   ShieldCheck,
   Star,
+  Trash2,
   Upload,
   UserPlus,
   Workflow,
@@ -33,6 +35,7 @@ import {
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 
+import { useRouter } from '@/i18n/navigation';
 import type { BoardDetail } from '@/lib/api/types';
 import { openDialog } from '@/stores/shell';
 import { useSession } from '@/stores/session';
@@ -44,7 +47,13 @@ import { GovernanceDialog } from '../governance/governance-dialog';
 import { ImportWizardDialog } from '../imports/import-wizard-dialog';
 import { ProcessSettingsDialog } from '../processes/process-settings-dialog';
 import { SaveAsTemplateDialog } from '../templates/save-as-template-dialog';
-import { useFavorites, useToggleFavorite, useWorkspaces } from '../workspace/hooks';
+import {
+  useDeleteBoard,
+  useDuplicateBoard,
+  useFavorites,
+  useToggleFavorite,
+  useWorkspaces,
+} from '../workspace/hooks';
 import { WebhooksDialog } from '../webhooks/webhooks-dialog';
 import { InviteDialog, ShareDialog } from './board-dialogs';
 import { useUpdateBoardDetails } from './hooks';
@@ -83,8 +92,11 @@ export function BoardHeader({ board }: { board: BoardDetail }) {
   const t = useTranslations('board');
   const tc = useTranslations('common');
   const present = useBoardPresence(board.id);
+  const router = useRouter();
   const favorites = useFavorites();
   const toggleFavorite = useToggleFavorite();
+  const duplicateBoard = useDuplicateBoard(board.workspaceId);
+  const deleteBoard = useDeleteBoard(board.workspaceId);
   const update = useUpdateBoardDetails(board.id);
   const canManage = board.permissions.includes('board.manage');
   const canAutomate = board.permissions.includes('automation.manage');
@@ -220,6 +232,37 @@ export function BoardHeader({ board }: { board: BoardDetail }) {
             >
               {t('copyLink')}
             </DropdownMenuItem>
+            <DropdownMenuItem
+              icon={<Copy aria-hidden="true" />}
+              onSelect={() => {
+                duplicateBoard.mutate(
+                  { boardId: board.id },
+                  {
+                    onSuccess: (created) => {
+                      router.push(`/w/${board.workspaceId}/b/${created.id}`);
+                    },
+                  },
+                );
+              }}
+            >
+              {t('duplicateBoard')}
+            </DropdownMenuItem>
+            {canManage ? (
+              <DropdownMenuItem
+                destructive
+                icon={<Trash2 aria-hidden="true" />}
+                onSelect={() => {
+                  if (window.confirm(t('deleteBoardConfirm', { name: board.name })))
+                    deleteBoard.mutate(board.id, {
+                      onSuccess: () => {
+                        router.push(`/w/${board.workspaceId}`);
+                      },
+                    });
+                }}
+              >
+                {t('deleteBoard')}
+              </DropdownMenuItem>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
 

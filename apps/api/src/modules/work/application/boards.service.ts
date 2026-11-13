@@ -158,7 +158,7 @@ export class BoardsService {
         contractId: boards.contractId,
       })
       .from(boards)
-      .where(eq(boards.id, boardId));
+      .where(and(eq(boards.id, boardId), isNull(boards.deletedAt)));
     if (board === undefined) return null;
     const [groupRows, columnRows, labelRows, optionRows] = await Promise.all([
       tx

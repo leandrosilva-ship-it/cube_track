@@ -192,6 +192,9 @@ export const es: Messages = {
       boardActions: 'Acciones del tablero {name}',
       deleteFolder: 'Eliminar carpeta',
       deleteFolderConfirm: 'Los tableros y subcarpetas de "{name}" suben un nivel. ¿Continuar?',
+      duplicateBoard: 'Duplicar tablero',
+      deleteBoard: 'Eliminar tablero',
+      deleteBoardConfirm: '¿Eliminar el tablero "{name}"? Esta acción no se puede deshacer.',
       moveToRoot: 'Mover a la raíz',
       moved: '"{name}" movido.',
       dragHint:
@@ -264,6 +267,9 @@ export const es: Messages = {
     unfavorite: 'Quitar de favoritos',
     editDescription: 'Editar descripción',
     copyLink: 'Copiar enlace del tablero',
+    duplicateBoard: 'Duplicar tablero',
+    deleteBoard: 'Eliminar tablero',
+    deleteBoardConfirm: '¿Eliminar el tablero "{name}"? Esta acción no se puede deshacer.',
     presence:
       '{count, plural, =0 {Nadie más aquí} one {# persona viendo este tablero} other {# personas viendo este tablero}}',
     presenceMore: '{count} más',

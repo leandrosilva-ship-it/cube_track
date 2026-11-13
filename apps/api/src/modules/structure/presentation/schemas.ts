@@ -154,6 +154,9 @@ export const BoardTemplatesResponse = z.object({
     }),
   ),
 });
+export const DuplicateBoardBody = z
+  .object({ name: name.optional(), includeItems: z.boolean().optional() })
+  .strict();
 export const ChangesResponse = z.object({
   id: z.uuid(),
   changes: z.record(z.string(), z.unknown()),

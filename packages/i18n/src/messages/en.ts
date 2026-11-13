@@ -192,6 +192,9 @@ export const en: Messages = {
       boardActions: 'Actions for board {name}',
       deleteFolder: 'Delete folder',
       deleteFolderConfirm: 'Boards and subfolders of "{name}" move up one level. Continue?',
+      duplicateBoard: 'Duplicate board',
+      deleteBoard: 'Delete board',
+      deleteBoardConfirm: 'Delete board "{name}"? This action cannot be undone.',
       moveToRoot: 'Move to root',
       moved: '"{name}" moved.',
       dragHint:
@@ -264,6 +267,9 @@ export const en: Messages = {
     unfavorite: 'Remove from favorites',
     editDescription: 'Edit description',
     copyLink: 'Copy board link',
+    duplicateBoard: 'Duplicate board',
+    deleteBoard: 'Delete board',
+    deleteBoardConfirm: 'Delete board "{name}"? This action cannot be undone.',
     presence:
       '{count, plural, =0 {Nobody else here} one {# person viewing this board} other {# people viewing this board}}',
     presenceMore: '{count} more',

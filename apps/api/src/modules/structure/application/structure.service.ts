@@ -79,6 +79,11 @@ export interface CreateBoardInput {
   template?: BoardTemplateInput | undefined;
 }
 
+export interface DuplicateBoardInput {
+  name?: string | undefined;
+  includeItems?: boolean | undefined;
+}
+
 export interface UpdateBoardInput extends Neighbors {
   name?: string | undefined;
   description?: string | null | undefined;
@@ -134,6 +139,7 @@ const BOARD_SUMMARY = {
   kind: boards.kind,
   name: boards.name,
   description: boards.description,
+  icon: boards.icon,
   visibility: boards.visibility,
   position: boards.position,
 };
@@ -799,6 +805,86 @@ export class StructureService {
     }
     await this.structureChanged(user, board.workspaceId);
     return { id: boardId, changes: set };
+  }
+
+  /** Cópia independente: estrutura (grupos, colunas, rótulos/opções, views compartilhadas) e,
+   * opcionalmente, itens — reaproveita o mesmo escritor usado para criar a partir de um template. */
+  async duplicateBoard(user: AuthPrincipal, boardId: string, input: DuplicateBoardInput) {
+    const tx = this.runner.tx;
+    const [board] = await tx
+      .select(BOARD_SUMMARY)
+      .from(boards)
+      .where(and(eq(boards.id, boardId), isNull(boards.deletedAt)));
+    if (board === undefined) throw new NotFoundError('Board');
+    await this.access.assert(user, 'board.read', { type: 'board', id: boardId }, 'Board');
+    await this.access.assert(
+      user,
+      'board.create',
+      { type: 'workspace', id: board.workspaceId },
+      'Workspace',
+    );
+    const siblings = await this.boardsIn(board.workspaceId, board.folderId);
+    const newBoardId = newId();
+    const name = input.name ?? `${board.name} (cópia)`;
+    await tx.insert(boards).values({
+      tenantId: user.tenantId,
+      createdBy: user.userId,
+      id: newBoardId,
+      workspaceId: board.workspaceId,
+      folderId: board.folderId,
+      name,
+      description: board.description,
+      icon: board.icon,
+      kind: board.kind,
+      visibility: board.visibility,
+      ownerId: user.userId,
+      position: this.place(siblings, { afterId: boardId }),
+    });
+    await this.blueprints.fromBoard(user, newBoardId, boardId, input.includeItems ?? false);
+    await this.grant(user, 'board', newBoardId, 'board', 'board_owner');
+    this.domainEvents.recordChange({
+      action: 'board.duplicate',
+      entityType: 'board',
+      entityId: newBoardId,
+      boardId: newBoardId,
+      after: {
+        name,
+        sourceBoardId: boardId,
+        workspaceId: board.workspaceId,
+        folderId: board.folderId,
+      },
+    });
+    await this.structureChanged(user, board.workspaceId);
+    return {
+      id: newBoardId,
+      workspaceId: board.workspaceId,
+      folderId: board.folderId,
+      name,
+      kind: board.kind,
+      visibility: board.visibility,
+    };
+  }
+
+  /** Exclui o board (lixeira) — a leitura (`GET /boards/:id`) já filtra `deletedAt`, então quem
+   * estiver com o board aberto cai na tela de "sem acesso" ao recarregar; a árvore some em tempo real. */
+  async deleteBoard(user: AuthPrincipal, boardId: string): Promise<void> {
+    const tx = this.runner.tx;
+    const [board] = await tx
+      .select(BOARD_SUMMARY)
+      .from(boards)
+      .where(and(eq(boards.id, boardId), isNull(boards.deletedAt)));
+    if (board === undefined) throw new NotFoundError('Board');
+    await this.access.assert(user, 'board.manage', { type: 'board', id: boardId }, 'Board');
+    await tx.update(boards).set({ deletedAt: new Date() }).where(eq(boards.id, boardId));
+    this.domainEvents.recordChange({
+      action: 'board.delete',
+      entityType: 'board',
+      entityId: boardId,
+      boardId,
+      before: { name: board.name, workspaceId: board.workspaceId, folderId: board.folderId },
+    });
+    await this.boardCache.invalidate(boardId);
+    await this.structureChanged(user, board.workspaceId);
   }
 
   // ------------------------------------------------------------------------- Favorites ---

@@ -195,6 +195,9 @@ export const ptBR = {
       boardActions: 'Ações do board {name}',
       deleteFolder: 'Excluir pasta',
       deleteFolderConfirm: 'Os boards e subpastas de "{name}" sobem um nível. Continuar?',
+      duplicateBoard: 'Duplicar board',
+      deleteBoard: 'Excluir board',
+      deleteBoardConfirm: 'Excluir o board "{name}"? Essa ação não pode ser desfeita.',
       moveToRoot: 'Mover para a raiz',
       moved: '"{name}" movido.',
       dragHint:
@@ -267,6 +270,9 @@ export const ptBR = {
     unfavorite: 'Remover dos favoritos',
     editDescription: 'Editar descrição',
     copyLink: 'Copiar link do board',
+    duplicateBoard: 'Duplicar board',
+    deleteBoard: 'Excluir board',
+    deleteBoardConfirm: 'Excluir o board "{name}"? Essa ação não pode ser desfeita.',
     presence:
       '{count, plural, =0 {Ninguém mais aqui} one {# pessoa vendo este board} other {# pessoas vendo este board}}',
     presenceMore: 'mais {count}',

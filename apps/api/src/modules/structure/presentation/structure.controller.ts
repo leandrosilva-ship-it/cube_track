@@ -163,6 +163,39 @@ export class StructureController {
     return this.structure.updateBoard(user, params.boardId, body);
   }
 
+  @Post('boards/:boardId/duplicate')
+  @Audited({ action: 'board.duplicate', entityType: 'board' })
+  @Endpoint({
+    summary: 'Duplicar board (estrutura e, opcionalmente, itens)',
+    tags: ['boards'],
+    status: 201,
+    params: S.BoardParams,
+    body: S.DuplicateBoardBody,
+    response: S.TreeBoardSchema.omit({ description: true, position: true }),
+  })
+  duplicateBoard(
+    @CurrentPrincipal() user: AuthPrincipal,
+    @Input('params') params: z.infer<typeof S.BoardParams>,
+    @Input('body') body: z.infer<typeof S.DuplicateBoardBody>,
+  ) {
+    return this.structure.duplicateBoard(user, params.boardId, body);
+  }
+
+  @Delete('boards/:boardId')
+  @Audited({ action: 'board.delete', entityType: 'board' })
+  @Endpoint({
+    summary: 'Excluir board',
+    tags: ['boards'],
+    status: 204,
+    params: S.BoardParams,
+  })
+  async deleteBoard(
+    @CurrentPrincipal() user: AuthPrincipal,
+    @Input('params') params: z.infer<typeof S.BoardParams>,
+  ) {
+    await this.structure.deleteBoard(user, params.boardId);
+  }
+
   @Get('me/favorites')
   @Endpoint({
     summary: 'Favoritos do usuário',

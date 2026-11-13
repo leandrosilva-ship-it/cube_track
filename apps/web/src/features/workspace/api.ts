@@ -60,6 +60,9 @@ export const workspaceApi = {
     boardId: string,
     input: { name?: string; description?: string | null; folderId?: string | null } & Neighbors,
   ) => api<{ id: string }>(`/v1/boards/${boardId}`, { method: 'PATCH', body: input }),
+  duplicateBoard: (boardId: string, input: { name?: string; includeItems?: boolean }) =>
+    api<TreeBoard>(`/v1/boards/${boardId}/duplicate`, { method: 'POST', body: input }),
+  deleteBoard: (boardId: string) => api<undefined>(`/v1/boards/${boardId}`, { method: 'DELETE' }),
   favorites: () => api<{ data: Favorite[] }>('/v1/me/favorites').then((response) => response.data),
   addFavorite: (entityType: FavoriteType, entityId: string) =>
     api<unknown>('/v1/me/favorites', { method: 'PUT', body: { entityType, entityId } }),

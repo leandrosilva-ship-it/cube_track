@@ -1280,3 +1280,28 @@ pnpm --filter @cube-track/api build && pnpm --filter @cube-track/worker build &&
 pnpm --filter @cube-track/worker start &   # requerido pelos E2E de automação/webhook/importação/timesheet/etc.
 pnpm --filter @cube-track/web test:e2e     # inclui apps/web/e2e/imports.spec.ts (novo) e a11y estendido
 ```
+
+## Pós-lançamento — ajustes de produção
+
+Correções e pequenas funcionalidades aplicadas após o deploy inicial (fora da numeração de prompts).
+
+- **Deploy em VM única (AWS/Google Cloud)**: `docs/deploy-aws.md`/`docs/deploy-vm.md` — correções
+  encontradas num deploy real em EC2: `bitnamilegacy/minio:latest` (MinIO passou a restringir
+  `minio/minio` no Docker Hub/Quay em 2025), `JWT_SECRET` ausente no `worker` do
+  `docker-compose.prod.yml`, `ANTIVIRUS_MODE=clamd` com serviço `clamav` real (produção recusa
+  `disabled`), `SMTP_URL` com valor padrão explícito (string vazia do `.env` não aciona o `.default()`
+  do zod), checagem de saúde do `worker` trocada para `/health/live` (a gravada na imagem depende do
+  OTEL, desligado neste deploy simples) e do `meilisearch` trocada de `localhost` para `127.0.0.1`
+  (resolve para `::1` dentro do container, onde nada escuta).
+- **`crypto.randomUUID()` em HTTP puro**: `apps/web/src/lib/api/client.ts` (`newMutationId`) —
+  essa API do navegador só existe em contexto seguro (HTTPS/`localhost`); acessar a plataforma por IP
+  em HTTP puro (antes de configurar domínio+TLS) quebrava toda mutação. Passa a usar
+  `crypto.getRandomValues` como alternativa (a API só exige 8–128 caracteres `[A-Za-z0-9_-]` na
+  `Idempotency-Key`, não formato UUID).
+- **Excluir e duplicar board**: `POST /v1/boards/:id/duplicate` e `DELETE /v1/boards/:id`
+  (`StructureService`), disponíveis no menu "⋯" do cabeçalho do board e no menu de contexto da árvore
+  (clique direito). Duplicar reaproveita `BoardBlueprintWriter.fromBoard` (mesmo escritor usado para
+  criar a partir de um board-template); excluir é lixeira (`deletedAt`). Corrigido de passagem um gap
+  pré-existente: `BoardsService.loadShape` (leitura de `GET /v1/boards/:id`) não filtrava
+  `deletedAt`, então um board de alguma forma marcado como excluído continuava acessível por essa
+  rota.

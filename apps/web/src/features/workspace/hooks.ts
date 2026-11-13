@@ -120,6 +120,27 @@ export function useDeleteFolder(workspaceId: string) {
   });
 }
 
+export function useDuplicateBoard(workspaceId: string) {
+  const queryClient = useQueryClient();
+  const errorMessage = useErrorMessage();
+  return useMutation({
+    mutationFn: ({ boardId, name }: { boardId: string; name?: string }) =>
+      workspaceApi.duplicateBoard(boardId, name === undefined ? {} : { name }),
+    onError: (error) => toast.error(errorMessage(error)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.tree(workspaceId) }),
+  });
+}
+
+export function useDeleteBoard(workspaceId: string) {
+  const queryClient = useQueryClient();
+  const errorMessage = useErrorMessage();
+  return useMutation({
+    mutationFn: workspaceApi.deleteBoard,
+    onError: (error) => toast.error(errorMessage(error)),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: qk.tree(workspaceId) }),
+  });
+}
+
 /** Favoritar/desfavoritar com update otimista. */
 export function useToggleFavorite() {
   const queryClient = useQueryClient();

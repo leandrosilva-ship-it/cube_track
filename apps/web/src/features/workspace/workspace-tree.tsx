@@ -28,6 +28,7 @@ import {
 } from '@cube-track/ui';
 import {
   ChevronRight,
+  Copy,
   Folder,
   FolderOpen,
   FolderPlus,
@@ -45,11 +46,11 @@ import { useParams } from 'next/navigation';
 import { useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react';
 
 import { usePrefetchBoard } from '@/features/board/hooks';
-import { Link } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import type { Favorite, WorkspaceTree as Tree } from '@/lib/api/types';
 import { openDialog } from '@/stores/shell';
 
-import { useDeleteFolder, useMoveNode, useToggleFavorite } from './hooks';
+import { useDeleteBoard, useDeleteFolder, useDuplicateBoard, useMoveNode, useToggleFavorite } from './hooks';
 import { flattenTree, resolveDrop, type TreeRow } from './tree-model';
 
 const COLLAPSED_KEY = 'ct-tree-collapsed';
@@ -75,9 +76,12 @@ interface RowProps {
 function TreeItemRow({ row, tree, active, favorite, onToggle, onNavigate }: RowProps) {
   const t = useTranslations('shell.workspace');
   const tc = useTranslations('common');
+  const router = useRouter();
   const move = useMoveNode(tree.workspaceId);
   const toggleFavorite = useToggleFavorite();
   const deleteFolder = useDeleteFolder(tree.workspaceId);
+  const duplicateBoard = useDuplicateBoard(tree.workspaceId);
+  const deleteBoard = useDeleteBoard(tree.workspaceId);
   const prefetchBoard = usePrefetchBoard();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging, isOver } =
     useSortable({
@@ -203,6 +207,29 @@ function TreeItemRow({ row, tree, active, favorite, onToggle, onNavigate }: RowP
                   {t('moveToRoot')}
                 </ContextMenuItem>
               ) : null}
+              <ContextMenuItem
+                icon={<Copy aria-hidden="true" />}
+                onSelect={() => {
+                  duplicateBoard.mutate({ boardId: row.id });
+                }}
+              >
+                {t('duplicateBoard')}
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+              <ContextMenuItem
+                destructive
+                icon={<Trash2 aria-hidden="true" />}
+                onSelect={() => {
+                  if (window.confirm(t('deleteBoardConfirm', { name })))
+                    deleteBoard.mutate(row.id, {
+                      onSuccess: () => {
+                        if (active) router.push(`/w/${tree.workspaceId}`);
+                      },
+                    });
+                }}
+              >
+                {t('deleteBoard')}
+              </ContextMenuItem>
             </>
           ) : (
             <>

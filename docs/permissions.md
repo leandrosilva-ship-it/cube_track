@@ -105,6 +105,8 @@ A escrita numa coluna sem permissão de edição, ou num campo nativo vinculado 
 | `POST /v1/workspaces/:id/folders`, `PATCH/DELETE /v1/folders/:id` | `folder.manage` no workspace                                                   |
 | `POST /v1/workspaces/:id/boards`                                  | `board.create` no workspace; o criador recebe `board_owner`                    |
 | `PATCH /v1/boards/:id`                                            | `board.manage` (nome e descrição); mover entre pastas exige `folder.manage`    |
+| `POST /v1/boards/:id/duplicate`                                   | `board.read` na origem + `board.create` no workspace de destino; dono da cópia recebe `board_owner` |
+| `DELETE /v1/boards/:id`                                           | `board.manage` (lixeira — `deletedAt`)                                         |
 | `GET/PUT/DELETE /v1/me/favorites`                                 | leitura do recurso favoritado (`board.read` ou `workspace.read`)               |
 | `GET /v1/boards/:id/views`                                        | `board.read`; cada view é filtrada por `view.read`                             |
 | `POST /v1/boards/:id/views`                                       | `view.manage` (compartilhada) ou `board.read` (pessoal)                        |

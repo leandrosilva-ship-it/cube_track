@@ -224,6 +224,63 @@ describe('Estrutura de navegação (workspaces, pastas, boards, favoritos, views
     ).toBe(403);
   });
 
+  it('duplica e exclui board (estrutura copiada, auditoria, some da árvore)', async () => {
+    const source = await api.post<{ id: string; folderId: string | null }>(
+      `/v1/workspaces/${workspaceId}/boards`,
+      { token: owner, body: { name: 'Board de Origem' } },
+    );
+    expect(source.status).toBe(201);
+    const sourceId = source.body.id;
+
+    const forbiddenDuplicate = await api.post(`/v1/boards/${sourceId}/duplicate`, {
+      token: viewer,
+      body: {},
+    });
+    expect(forbiddenDuplicate.status).toBe(403);
+
+    const duplicated = await api.post<{ id: string; name: string; folderId: string | null }>(
+      `/v1/boards/${sourceId}/duplicate`,
+      { token: owner, body: {} },
+    );
+    expect(duplicated.status).toBe(201);
+    expect(duplicated.body.name).toBe('Board de Origem (cópia)');
+    const copyId = duplicated.body.id;
+
+    const sourceDetail = await api.get<{ columns: { key: string }[]; groups: { name: string }[] }>(
+      `/v1/boards/${sourceId}`,
+      { token: owner },
+    );
+    const copyDetail = await api.get<{ columns: { key: string }[]; groups: { name: string }[] }>(
+      `/v1/boards/${copyId}`,
+      { token: owner },
+    );
+    expect(copyDetail.body.groups.map((group) => group.name)).toEqual(
+      sourceDetail.body.groups.map((group) => group.name),
+    );
+    expect(copyDetail.body.columns.map((column) => column.key)).toEqual(
+      sourceDetail.body.columns.map((column) => column.key),
+    );
+    expect((await tree(owner)).boards.map((board) => board.id)).toContain(copyId);
+
+    const forbiddenDelete = await api.delete(`/v1/boards/${copyId}`, { token: viewer });
+    expect(forbiddenDelete.status).toBe(403);
+
+    expect((await api.delete(`/v1/boards/${copyId}`, { token: owner })).status).toBe(204);
+    expect((await tree(owner)).boards.some((board) => board.id === copyId)).toBe(false);
+    expect((await api.get(`/v1/boards/${copyId}`, { token: owner })).status).toBe(404);
+    expect((await api.delete(`/v1/boards/${copyId}`, { token: owner })).status).toBe(404);
+
+    const admin = adminDb();
+    try {
+      const audits = await admin.db.execute<{ action: string }>(
+        sql`select action from audit_logs where entity_id = ${copyId} order by created_at`,
+      );
+      expect(audits.rows.map((row) => row.action)).toEqual(['board.duplicate', 'board.delete']);
+    } finally {
+      await admin.close();
+    }
+  });
+
   it('favoritos: adiciona (idempotente), lista resolvido e remove', async () => {
     const add = () =>
       api.put('/v1/me/favorites', {

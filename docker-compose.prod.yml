@@ -217,6 +217,16 @@ services:
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       OTEL_SDK_DISABLED: 'true'
       METRICS_PORT: '9465'
+    # A checagem de saúde gravada na imagem (apps/worker/Dockerfile) bate no endpoint de métricas
+    # do OpenTelemetry — que nunca sobe com OTEL_SDK_DISABLED=true, deixando o container
+    # eternamente "unhealthy" mesmo funcionando bem. Troca aqui para /health/live (mesmo painel
+    # HTTP do Bull Board, porta BOARD_PORT, sem exigir autenticação nem depender do OTEL).
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '/dev/null', 'http://127.0.0.1:3010/health/live']
+      interval: 15s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
     restart: unless-stopped
 
   web:

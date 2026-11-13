@@ -198,7 +198,11 @@ services:
       MEILI_URL: http://meilisearch:7700
       MEILI_MASTER_KEY: ${MEILI_MASTER_KEY}
       MEILI_API_KEY: ${MEILI_MASTER_KEY}
-      SMTP_URL: ${SMTP_URL}
+      # Vazio no .env.prod (SMTP opcional) vira string vazia aqui, não "variável ausente" — o
+      # worker tenta montar o cliente de e-mail já na subida e quebra com string vazia (nodemailer).
+      # ":-" cai no mesmo endereço padrão que o próprio worker usaria se a variável nem existisse —
+      # e-mails de fato falham ao tentar enviar (sem servidor SMTP real aqui), mas o processo sobe.
+      SMTP_URL: ${SMTP_URL:-smtp://localhost:1025}
       EMAIL_FROM: ${EMAIL_FROM}
       ANTIVIRUS_MODE: clamd
       CLAMD_HOST: clamav

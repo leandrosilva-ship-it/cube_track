@@ -167,9 +167,12 @@ services:
       DATABASE_RELAY_URL: postgres://cubetrack_relay:cubetrack_relay@postgres:5432/cubetrack
       DATABASE_POOL_MAX: '10'
       REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       APP_URL: ${PUBLIC_WEB_URL}
       API_URL: http://api:3001
+      INBOUND_EMAIL_WEBHOOK_SECRET: ${INBOUND_EMAIL_WEBHOOK_SECRET}
+      MAIL_REPLY_DOMAIN: ${MAIL_REPLY_DOMAIN}
       S3_ENDPOINT: http://minio:9000
       S3_REGION: us-east-1
       S3_ACCESS_KEY: cubetrack

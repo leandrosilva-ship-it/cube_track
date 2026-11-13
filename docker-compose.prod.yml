@@ -60,6 +60,9 @@ services:
       retries: 20
     restart: unless-stopped
 
+  # "localhost" dentro do container resolve primeiro para IPv6 (::1), onde nada escuta — o wget
+  # reduzido desta imagem não cai para IPv4 sozinho e a checagem falha com "Connection refused"
+  # mesmo com o serviço saudável. Usar 127.0.0.1 direto evita a resolução de nome.
   meilisearch:
     image: getmeili/meilisearch:v1.13
     environment:
@@ -69,7 +72,7 @@ services:
     volumes:
       - meili-data:/meili_data
     healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:7700/health']
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:7700/health']
       interval: 5s
       timeout: 3s
       retries: 20

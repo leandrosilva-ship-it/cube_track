@@ -95,6 +95,14 @@ export async function apiBlob(
   };
 }
 
+/**
+ * crypto.randomUUID() só existe em contexto seguro (HTTPS/localhost) — em HTTP puro (ex.: acesso
+ * direto por IP antes de configurar domínio+TLS) ele não existe e quebraria toda mutação. A API só
+ * exige 8–128 caracteres [A-Za-z0-9_-] na Idempotency-Key, então geramos com getRandomValues
+ * (disponível em qualquer contexto) quando randomUUID não está disponível.
+ */
 export function newMutationId(): string {
-  return crypto.randomUUID();
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }

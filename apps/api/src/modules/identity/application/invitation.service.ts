@@ -135,6 +135,7 @@ export class InvitationService {
         to: input.email,
         template: 'invitation',
         locale: 'pt-BR',
+        tenantId: user.tenantId,
         data: {
           organization: tenant?.name ?? '',
           inviter: inviter?.name ?? '',

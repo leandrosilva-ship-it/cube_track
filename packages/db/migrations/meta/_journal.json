@@ -274,6 +274,27 @@
       "when": 1793916816122,
       "tag": "0038_billing_rls_and_resolver",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1794852180434,
+      "tag": "0039_shallow_kree",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1794852188153,
+      "tag": "0040_email_settings_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1794852189952,
+      "tag": "0041_email_settings_permission",
+      "breakpoints": true
     }
   ]
 }

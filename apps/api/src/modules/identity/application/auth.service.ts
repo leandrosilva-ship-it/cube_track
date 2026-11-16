@@ -308,6 +308,7 @@ export class AuthService {
       to: user.email,
       template: 'magic_link',
       locale: user.locale,
+      tenantId: target.tenantId,
       data: {
         name: user.name,
         organization: target.tenantName,
@@ -347,6 +348,7 @@ export class AuthService {
       to: user.email,
       template: 'password_reset',
       locale: user.locale,
+      tenantId: memberships[0]?.tenantId,
       data: {
         name: user.name,
         link: `${this.config.APP_URL}/auth/reset-password?token=${token}`,
@@ -457,6 +459,7 @@ export class AuthService {
     await this.sendEmail({
       to: user.email,
       template: 'email_verification',
+      tenantId: tenantId ?? undefined,
       locale: user.locale,
       data: { name: user.name, link: `${this.config.APP_URL}/auth/verify-email?token=${token}` },
     });

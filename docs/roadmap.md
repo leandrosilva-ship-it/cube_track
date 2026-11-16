@@ -1305,6 +1305,19 @@ Correções e pequenas funcionalidades aplicadas após o deploy inicial (fora da
   pré-existente: `BoardsService.loadShape` (leitura de `GET /v1/boards/:id`) não filtrava
   `deletedAt`, então um board de alguma forma marcado como excluído continuava acessível por essa
   rota.
+- **SMTP configurável por tenant**: cada organização pode configurar seu próprio SMTP (host, porta,
+  usuário, senha, remetente) pela tela de Configurações, substituindo o SMTP padrão da plataforma
+  só para os e-mails daquele tenant — nova permissão `email.manage` (owner/admin), nova tabela
+  `email_settings` (schema `packages/db/src/schema/email.ts`, uma linha por tenant, senha cifrada
+  AES-256-GCM, mesmo padrão de `ai_settings`), serviço/controller em
+  `apps/api/src/modules/identity/{application,presentation}/email-settings.*` (`GET/PATCH
+  /v1/email/settings`, `POST /v1/email/settings/test` — e-mail de teste pelo mesmo caminho de
+  produção, fila do worker, não um segundo código de envio). Host validado contra SSRF (mesmo
+  espírito do `checkWebhookUrl` do Prompt 10/15 — `email-settings-policy.ts`). O worker
+  (`apps/worker/src/processors/email.ts`) passou a resolver o transporter por `tenantId` do job
+  (`EmailJobSchema.tenantId`, agora presente em todos os ~15 pontos de enfileiramento de e-mail da
+  API e do worker): com configuração própria habilitada usa o SMTP do tenant, senão o padrão da
+  plataforma — nunca falha por falta de configuração.
 - **HTTPS automático no deploy de VM única (Caddy)**: `docker-compose.prod.yml` ganhou um serviço
   `caddy` (Let's Encrypt automático, renovação sozinha) na frente de `web`/`api` — único serviço
   com porta publicada no host (80/443); `web`/`api` deixaram de publicar porta própria. Domínio

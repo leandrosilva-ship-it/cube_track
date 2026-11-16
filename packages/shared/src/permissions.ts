@@ -34,6 +34,9 @@ export const TENANT_PERMISSIONS = [
   'workspace.create',
   /** Configura o provedor de IA, chave, modelo e limites do tenant (ADR 0055, LGPD: liga/desliga). */
   'ai.manage',
+  /** Configura o SMTP próprio do tenant (host/porta/usuário/senha, remetente) — sem isso, o worker
+   * usa o SMTP padrão da plataforma. */
+  'email.manage',
 ] as const;
 
 export const WORKSPACE_PERMISSIONS = [

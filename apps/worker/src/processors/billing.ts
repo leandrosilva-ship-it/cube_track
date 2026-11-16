@@ -80,6 +80,7 @@ export function createBillingReconciliationDaily(deps: BillingReconciliationDeps
               to: recipient.email,
               template: 'billing_payment_issue',
               locale: 'pt-BR',
+              tenantId: row.tenant_id,
               data: { name: recipient.name, message, link },
             });
           }

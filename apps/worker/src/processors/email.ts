@@ -1,6 +1,11 @@
+import { schema, withTenant, type DatabaseHandle } from '@cube-track/db';
 import { EmailJobSchema, type EmailJob, type EmailTemplate } from '@cube-track/shared';
+import { decryptSecret } from '@cube-track/shared/crypto';
 import type { Job } from 'bullmq';
+import { eq } from 'drizzle-orm';
 import nodemailer, { type Transporter } from 'nodemailer';
+
+const { emailSettings } = schema;
 
 const escapeHtml = (value: string) =>
   value.replace(
@@ -177,6 +182,12 @@ const TEMPLATES: Record<
     ],
     action: { label: 'Ver cobrança', url: data.link ?? '' },
   }),
+  smtp_test: () => ({
+    subject: 'E-mail de teste — CUBE PROJECT',
+    lines: [
+      'Se você recebeu este e-mail, a configuração de SMTP da sua organização está funcionando.',
+    ],
+  }),
 };
 
 /** Renderiza o e-mail (texto e HTML com escape de todo conteúdo dinâmico). */
@@ -202,10 +213,70 @@ export function createMailer(smtpUrl: string): Transporter {
     : nodemailer.createTransport(smtpUrl);
 }
 
-export function emailProcessor(mailer: Transporter, from: string) {
+/** Monta o transporter a partir dos campos separados do tenant (`email_settings`) — nunca uma
+ * string de conexão: evita problemas de escape quando usuário/senha tem caracteres especiais. */
+function createMailerFromSettings(settings: {
+  host: string;
+  port: number;
+  secure: boolean;
+  username: string | null;
+  password: string | null;
+}): Transporter {
+  return nodemailer.createTransport({
+    host: settings.host,
+    port: settings.port,
+    secure: settings.secure,
+    ...(settings.username !== null && settings.username !== '' && settings.password !== null
+      ? { auth: { user: settings.username, pass: settings.password } }
+      : {}),
+  });
+}
+
+export interface EmailProcessorDeps {
+  database: DatabaseHandle;
+  defaultMailer: Transporter;
+  defaultFrom: string;
+  encryptionKey: string;
+}
+
+/** SMTP próprio do tenant (`email_settings`), se configurado (host+porta) e habilitado; senão, o
+ * padrão da plataforma — nunca falha por falta de configuração do tenant. Sem pool de conexão: o
+ * nodemailer já abre uma conexão nova por envio nesse modo, então montar o transporter aqui não
+ * tem custo extra sobre reaproveitar um único transporter global. */
+export async function resolveMailer(
+  deps: EmailProcessorDeps,
+  tenantId: string | undefined,
+): Promise<{ mailer: Transporter; from: string }> {
+  if (tenantId === undefined) return { mailer: deps.defaultMailer, from: deps.defaultFrom };
+  const settings = await withTenant(deps.database.db, { tenantId, userId: null }, async (tx) => {
+    const [row] = await tx.select().from(emailSettings).where(eq(emailSettings.tenantId, tenantId));
+    return row;
+  });
+  if (
+    settings === undefined ||
+    !settings.enabled ||
+    settings.host === null ||
+    settings.port === null
+  )
+    return { mailer: deps.defaultMailer, from: deps.defaultFrom };
+  const mailer = createMailerFromSettings({
+    host: settings.host,
+    port: settings.port,
+    secure: settings.secure,
+    username: settings.username,
+    password:
+      settings.passwordCiphertext === null
+        ? null
+        : decryptSecret(settings.passwordCiphertext, deps.encryptionKey),
+  });
+  return { mailer, from: settings.fromAddress ?? deps.defaultFrom };
+}
+
+export function emailProcessor(deps: EmailProcessorDeps) {
   return async (job: Job<EmailJob>) => {
     const email = EmailJobSchema.parse(job.data);
     const rendered = renderEmail(email.template, email.data);
+    const { mailer, from } = await resolveMailer(deps, email.tenantId);
     const info = (await mailer.sendMail({
       from,
       to: email.to,

@@ -104,7 +104,12 @@ export async function startWorker(config: WorkerConfig, logger: Logger): Promise
   const workers: Worker[] = [
     createWorker(
       QUEUES.emails,
-      emailProcessor(createMailer(config.SMTP_URL), config.EMAIL_FROM),
+      emailProcessor({
+        database: appDb,
+        defaultMailer: createMailer(config.SMTP_URL),
+        defaultFrom: config.EMAIL_FROM,
+        encryptionKey: config.ENCRYPTION_KEY,
+      }),
       common,
     ),
     createWorker(

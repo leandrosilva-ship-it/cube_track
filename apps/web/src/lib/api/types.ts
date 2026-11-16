@@ -1747,6 +1747,19 @@ export interface AiSettings {
   updatedAt: string | null;
 }
 
+// -------------------------------------------------------------------------------- E-mail ---
+
+export interface EmailSettings {
+  enabled: boolean;
+  host: string | null;
+  port: number | null;
+  secure: boolean;
+  username: string | null;
+  hasPassword: boolean;
+  fromAddress: string | null;
+  updatedAt: string | null;
+}
+
 export interface AiUsageEntry {
   feature: AiFeature;
   tokens: number;

@@ -131,6 +131,7 @@ export const qk = {
   serviceOrdersOfBoard: (boardId: string) => ['boards', boardId, 'service-orders'] as const,
   serviceOrderOfItem: (itemId: string) => ['items', itemId, 'service-order'] as const,
   aiSettings: () => ['ai-settings'] as const,
+  emailSettings: () => ['email-settings'] as const,
   aiUsage: () => ['ai-settings', 'usage'] as const,
   aiPredictions: (boardId: string) => ['boards', boardId, 'ai-predictions'] as const,
   aiAgents: (boardId: string) => ['boards', boardId, 'ai-agents'] as const,

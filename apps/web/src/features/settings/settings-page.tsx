@@ -26,6 +26,7 @@ import { AiSettingsSection } from '../ai/ai-settings-section';
 import { ApiAccessAdminSection } from '../api-access/api-access-admin-section';
 import { ApiTokensSection } from '../api-access/api-tokens-section';
 import { useMe } from '../shell/hooks';
+import { EmailSettingsSection } from './email-settings-section';
 import { NotificationPreferencesSection } from './notification-preferences-section';
 
 function Section({ title, children, id }: { title: string; children: ReactNode; id: string }) {
@@ -237,6 +238,7 @@ function MfaPanel({ enabled }: { enabled: boolean }) {
 export function SettingsPage() {
   const t = useTranslations('settings');
   const ta = useTranslations('ai.settings');
+  const te = useTranslations('settings.email');
   const tapi = useTranslations('apiAccess');
   const tu = useTranslations('shell.user');
   const me = useMe();
@@ -332,6 +334,11 @@ export function SettingsPage() {
         {me.data?.tenant.permissions.includes('ai.manage') === true ? (
           <Section title={ta('title')} id="settings-ai">
             <AiSettingsSection />
+          </Section>
+        ) : null}
+        {me.data?.tenant.permissions.includes('email.manage') === true ? (
+          <Section title={te('title')} id="settings-email">
+            <EmailSettingsSection />
           </Section>
         ) : null}
         <Section title={tapi('title')} id="settings-api-tokens">

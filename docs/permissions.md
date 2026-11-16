@@ -360,3 +360,20 @@ Visibilidade de item por órgão (`guestItemVisibility: 'org'`): ver §3 item 5,
 reaproveitam o RBAC normal (nunca um RBAC paralelo): SSO provisiona com o papel `defaultRoleKey`
 configurado; SCIM provisiona sempre com o papel `member`. Detalhes de design completos na ADR 0057 e
 em `docs/security.md`/`docs/lgpd.md`.
+
+### SMTP por tenant (pós-lançamento)
+
+Uma permissão de tenant nova: `email.manage` — adicionada aos papéis `owner`/`admin` (mesmo
+precedente de `audit.read`/`ai.manage`/`sso.manage`: tenants já existentes não a ganham
+retroativamente). Cada organização pode configurar seu próprio SMTP (host, porta, usuário, senha,
+remetente), substituindo o SMTP padrão da plataforma só para os e-mails daquele tenant.
+
+| Operação                                                        | Permissão exigida |
+| ----------------------------------------------------------------- | ------------------ |
+| Ler/configurar o SMTP da organização (`GET/PATCH /v1/email/settings`) | `email.manage`  |
+| Enviar um e-mail de teste para o próprio usuário (`POST /v1/email/settings/test`) | `email.manage` |
+
+O host informado passa por uma checagem de SSRF (sem DNS, mesmo espírito do `checkWebhookUrl` do
+Prompt 10/15): rejeita `localhost` e literais de IP privado/loopback/link-local. Sem configuração
+própria, ou com `enabled: false`, o worker usa o SMTP padrão da plataforma (variável de ambiente
+`SMTP_URL`) — nunca falha por falta de configuração do tenant.

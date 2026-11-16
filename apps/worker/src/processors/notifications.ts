@@ -304,6 +304,7 @@ async function notifyMentions(
             to: email,
             template: 'mention',
             locale: 'pt-BR',
+            tenantId: event.tenantId,
             data: {
               actor: actorName,
               item: item?.name ?? '',
@@ -435,6 +436,7 @@ async function notifyApproval(
             to: email,
             template: 'approval_requested',
             locale: 'pt-BR',
+            tenantId: event.tenantId,
             data: {
               requester: requester?.name ?? 'Alguém',
               item: itemName,
@@ -651,6 +653,7 @@ async function notifyAbsence(
             to: email,
             template: change === 'created' ? 'absence_requested' : 'absence_decided',
             locale: 'pt-BR',
+            tenantId: event.tenantId,
             data: {
               requester: requesterName,
               type: absence.type,
@@ -732,6 +735,7 @@ async function notifyResourceRequest(
         if (email !== null && change !== 'cancelled') {
           emailJobs.push({
             to: email,
+            tenantId: event.tenantId,
             template: change === 'created' ? 'resource_request_created' : 'resource_request_fulfilled',
             locale: 'pt-BR',
             data: { roleTitle: request.roleTitle, link: `${deps.appUrl}/boards/${boardId}` },
@@ -807,6 +811,7 @@ async function notifyTimesheetApproval(
             to: email,
             template,
             locale: 'pt-BR',
+            tenantId: event.tenantId,
             data: {
               person: personName,
               periodStart,
@@ -865,6 +870,7 @@ async function notifyRisk(deps: NotificationsDeps, event: ReturnType<typeof Doma
           to: email,
           template: 'risk_assigned',
           locale: 'pt-BR',
+          tenantId: event.tenantId,
           data: { title: risk.title, boardName: board?.name ?? '', link: `${deps.appUrl}/boards/${boardId}` },
         });
       }
@@ -914,6 +920,7 @@ async function notifyIssue(deps: NotificationsDeps, event: ReturnType<typeof Dom
           to: email,
           template: 'issue_assigned',
           locale: 'pt-BR',
+          tenantId: event.tenantId,
           data: { title: issue.title, boardName: board?.name ?? '', link: `${deps.appUrl}/boards/${boardId}` },
         });
       }
@@ -982,6 +989,7 @@ async function notifyProjectHealthAlert(
           to: email,
           template: 'project_health_alert',
           locale: 'pt-BR',
+          tenantId: event.tenantId,
           data: { boardName: board.name, status: overall, link: `${deps.appUrl}/boards/${boardId}` },
         });
       }
@@ -1062,6 +1070,7 @@ async function notifyAiAgentRun(deps: NotificationsDeps, event: ReturnType<typeo
             to: email,
             template: status === 'pending_approval' ? 'ai_agent_run_pending' : 'ai_agent_run_decided',
             locale: 'pt-BR',
+            tenantId: event.tenantId,
             data: {
               agentName: agent.name,
               boardName: board?.name ?? '',
@@ -1136,6 +1145,7 @@ async function notifyImportJob(deps: NotificationsDeps, event: ReturnType<typeof
           to: email,
           template: 'import_job_completed',
           locale: 'pt-BR',
+          tenantId: event.tenantId,
           data: {
             fileName: job.fileName,
             source: job.source,

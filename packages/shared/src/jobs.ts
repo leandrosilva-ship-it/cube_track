@@ -57,6 +57,8 @@ export const EMAIL_TEMPLATES = [
    * assinatura `past_due` (pagamento recorrente falhou) ou renovação atrasada sem confirmação do
    * webhook. Disparado por `billing-reconciliation-daily`. */
   'billing_payment_issue',
+  /** Disparado por "Enviar e-mail de teste" nas configurações de SMTP do tenant. */
+  'smtp_test',
 ] as const;
 export type EmailTemplate = (typeof EMAIL_TEMPLATES)[number];
 
@@ -65,6 +67,9 @@ export const EmailJobSchema = z.object({
   template: z.enum(EMAIL_TEMPLATES),
   locale: z.string().default('pt-BR'),
   data: z.record(z.string(), z.string()),
+  /** Tenant dono do envio — resolve o SMTP próprio do tenant (`email_settings`), se configurado e
+   * habilitado; ausente (ou sem configuração), o worker usa o SMTP padrão da plataforma. */
+  tenantId: z.uuid().optional(),
   /** Endereço de resposta por e-mail do item (ADR 0048) — ausente quando não há item associado. */
   replyTo: z.string().optional(),
 });

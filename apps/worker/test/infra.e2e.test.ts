@@ -13,7 +13,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { inject } from 'vitest';
 
 import { createBoardApp, listen } from '../src/board.js';
-import { createMailer, emailProcessor, renderEmail } from '../src/processors/email.js';
+import { createMailer, emailProcessor, renderEmail, resolveMailer } from '../src/processors/email.js';
 import { OutboxRelay } from '../src/outbox-relay.js';
 import { createQueues, createWorker, type QueueRegistry } from '../src/queues.js';
 import {
@@ -171,7 +171,12 @@ describe('filas', () => {
         5,
       );
     }
-    const process = emailProcessor(createMailer('json://'), 'CUBE PROJECT <noreply@cubetrack.test>');
+    const process = emailProcessor({
+      database: app,
+      defaultMailer: createMailer('json://'),
+      defaultFrom: 'CUBE PROJECT <noreply@cubetrack.test>',
+      encryptionKey: 'ynaCp5f+inAPUEzSwT+tnhyO0VyBmiVWgJl9xQ+8uzo=',
+    });
     const result = await process(
       fakeJob({
         to: 'carlos@empresademo.com.br',
@@ -181,6 +186,46 @@ describe('filas', () => {
       }),
     );
     expect(result.messageId).toMatch(/@/);
+  });
+
+  it('resolveMailer usa o SMTP padrão sem override do tenant, e o próprio quando habilitado', async () => {
+    const deps = {
+      database: app,
+      defaultMailer: createMailer('json://'),
+      defaultFrom: 'CUBE PROJECT <noreply@cubetrack.test>',
+      encryptionKey: 'ynaCp5f+inAPUEzSwT+tnhyO0VyBmiVWgJl9xQ+8uzo=',
+    };
+
+    const noOverride = await resolveMailer(deps, demo.tenantId);
+    expect(noOverride.mailer).toBe(deps.defaultMailer);
+    expect(noOverride.from).toBe(deps.defaultFrom);
+
+    await withTenant(app.db, { tenantId: demo.tenantId, userId: null }, (tx) =>
+      tx.insert(schema.emailSettings).values({
+        tenantId: demo.tenantId,
+        enabled: false,
+        host: 'smtp.example.test',
+        port: 465,
+        fromAddress: 'Empresa Demo <no-reply@empresademo.com.br>',
+      }),
+    );
+    const disabled = await resolveMailer(deps, demo.tenantId);
+    expect(disabled.mailer).toBe(deps.defaultMailer);
+
+    await withTenant(app.db, { tenantId: demo.tenantId, userId: null }, (tx) =>
+      tx
+        .update(schema.emailSettings)
+        .set({ enabled: true })
+        .where(eq(schema.emailSettings.tenantId, demo.tenantId)),
+    );
+    const enabled = await resolveMailer(deps, demo.tenantId);
+    expect(enabled.mailer).not.toBe(deps.defaultMailer);
+    expect(enabled.from).toBe('Empresa Demo <no-reply@empresademo.com.br>');
+
+    // Limpeza — não vazar configuração entre os testes deste arquivo.
+    await withTenant(app.db, { tenantId: demo.tenantId, userId: null }, (tx) =>
+      tx.delete(schema.emailSettings).where(eq(schema.emailSettings.tenantId, demo.tenantId)),
+    );
   });
 });
 

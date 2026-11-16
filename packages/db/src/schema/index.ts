@@ -8,6 +8,7 @@ export * from './collaboration.js';
 export * from './columns.js';
 export * from './contracts.js';
 export * from './dashboards.js';
+export * from './email.js';
 export * from './events.js';
 export * from './forms.js';
 export * from './audit.js';

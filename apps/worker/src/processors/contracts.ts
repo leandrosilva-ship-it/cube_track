@@ -63,6 +63,7 @@ async function notifyManager(
     to: email,
     template: EMAIL_TEMPLATE_OF[alert.type],
     locale: 'pt-BR',
+    tenantId,
     data: { message: alert.message, link },
   };
 }

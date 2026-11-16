@@ -114,6 +114,7 @@ export function createNotificationDigest(deps: {
               to: user.email,
               template: 'notification_digest',
               locale: 'pt-BR',
+              tenantId: row.tenant_id,
               data: {
                 count: String(kept.length),
                 items: kept.map((notification) => notification.title).join('\n'),

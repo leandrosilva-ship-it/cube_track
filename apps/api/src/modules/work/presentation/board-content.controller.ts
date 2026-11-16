@@ -390,7 +390,10 @@ export class BoardContentController {
   @Audited({ action: 'board.import_preview', entityType: 'board' })
   @Endpoint({
     summary: 'Enviar planilha (CSV ou XLSX em base64) e obter a prévia com mapeamento sugerido',
-    description: 'Até 10 MB e 5.000 linhas. A prévia fica disponível por 30 minutos.',
+    description:
+      'Até 10 MB e 5.000 linhas. A prévia fica disponível por 30 minutos. Exports do Monday ' +
+      '(título do board + grupos numa aba só) são normalizados automaticamente; cabeçalhos sem ' +
+      'coluna correspondente no board entram em `proposedColumns` com um tipo inferido.',
     tags: ['import-export'],
     status: 201,
     params: S.BoardParams,
@@ -412,7 +415,9 @@ export class BoardContentController {
     summary: 'Importar as linhas com o mapeamento escolhido',
     status: 200,
     description:
-      'Linhas com valores inválidos são ignoradas e relatadas (até 200 erros). `createMissing` cria grupos, rótulos e opções citados.',
+      'Linhas com valores inválidos são ignoradas e relatadas (até 200 erros). `createMissing` cria ' +
+      'grupos, colunas (de `proposedColumns`), rótulos e opções citados; `newColumnTypes` troca o ' +
+      'tipo inferido de uma coluna nova antes de criá-la.',
     tags: ['import-export'],
     params: S.ImportParams,
     body: S.ImportCommitBody,

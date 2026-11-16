@@ -425,6 +425,13 @@ export interface Trash {
 
 export type ImportTarget = 'name' | 'group' | `column:${string}` | null;
 
+export type InferableColumnType = 'date' | 'number' | 'status' | 'long_text' | 'text';
+
+export interface ProposedColumn {
+  title: string;
+  type: InferableColumnType;
+}
+
 export interface ImportPreview {
   importId: string;
   fileName: string;
@@ -432,6 +439,8 @@ export interface ImportPreview {
   sample: string[][];
   totalRows: number;
   suggestedMapping: Record<string, ImportTarget>;
+  /** Por chave de coluna nova citada em `suggestedMapping` (`column:<chave>` que ainda não existe). */
+  proposedColumns: Record<string, ProposedColumn>;
 }
 
 export interface ImportResult {

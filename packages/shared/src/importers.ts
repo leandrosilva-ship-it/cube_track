@@ -40,6 +40,91 @@ export interface ImportTable {
   rows: string[][];
 }
 
+/**
+ * Normaliza o export "tudo numa aba só" do Monday (título do board, depois, para cada grupo, uma
+ * linha-marcador com só a 1ª célula preenchida seguida das linhas do grupo) para a forma tabular
+ * genérica `{headers, rows}` — a coluna "Grupo" sintética entra como 1ª coluna. Sem linha-marcador
+ * antes do cabeçalho (CSV genérico, incluindo o próprio export da plataforma), é só um passthrough:
+ * nada é alterado. Alguns exports do Monday terminam com um bloco de resumo (ex.: total de UST por
+ * contrato) que repete o início do cabeçalho seguido de branco — esse bloco é descartado, não é
+ * dado de item.
+ */
+export function mondaySheetToTable(rawRows: readonly (readonly string[])[]): ImportTable {
+  const width = Math.max(0, ...rawRows.map((row) => row.length));
+  const rows = rawRows.map((row) => Array.from({ length: width }, (_, index) => row[index] ?? ''));
+  const isMarkerRow = (row: string[]): boolean =>
+    row.length > 1 && (row[0] ?? '').trim() !== '' && row.slice(1).every((cell) => cell.trim() === '');
+  let cursor = 0;
+  while (cursor < rows.length && isMarkerRow(rows[cursor] ?? [])) cursor += 1;
+  const headerRow = rows[cursor];
+  if (headerRow === undefined) return { headers: [], rows: [] };
+  if (cursor === 0) return { headers: headerRow, rows: rows.slice(1) };
+
+  let currentGroup = '';
+  for (let index = cursor - 1; index >= 0; index -= 1) {
+    const row = rows[index];
+    if (row !== undefined && isMarkerRow(row)) {
+      currentGroup = (row[0] ?? '').trim();
+      break;
+    }
+  }
+  const headers = ['Grupo', ...headerRow];
+  const dataRows: string[][] = [];
+  for (let index = cursor + 1; index < rows.length; index += 1) {
+    const row = rows[index];
+    if (row === undefined || row.every((cell) => cell.trim() === '')) continue;
+    if (isMarkerRow(row)) {
+      currentGroup = (row[0] ?? '').trim();
+      continue;
+    }
+    if (isHeaderRepeat(row, headerRow)) break;
+    dataRows.push([currentGroup, ...row]);
+  }
+  return { headers, rows: dataRows };
+}
+
+/** O resumo final do Monday repete um prefixo contíguo do cabeçalho (ex.: as 9 primeiras colunas) e
+ * deixa o resto da linha em branco — algo que uma linha de dados real nunca faz. */
+function isHeaderRepeat(row: string[], headerRow: string[]): boolean {
+  let prefixLength = 0;
+  while (prefixLength < row.length && (row[prefixLength] ?? '').trim() !== '') prefixLength += 1;
+  if (prefixLength < 3) return false;
+  for (let index = 0; index < prefixLength; index += 1) {
+    if ((row[index] ?? '').trim() !== (headerRow[index] ?? '').trim()) return false;
+  }
+  for (let index = prefixLength; index < row.length; index += 1) {
+    if ((row[index] ?? '').trim() !== '') return false;
+  }
+  return true;
+}
+
+/** Tipos de coluna que a inferência automática (planilhas sem coluna correspondente no board) pode
+ * propor — um subconjunto pequeno e seguro de `ColumnType`, sempre revisável pelo usuário antes do commit. */
+export const INFERABLE_COLUMN_TYPES = ['date', 'number', 'status', 'long_text', 'text'] as const;
+export type InferableColumnType = (typeof INFERABLE_COLUMN_TYPES)[number];
+
+export function isInferableColumnType(value: string): value is InferableColumnType {
+  return (INFERABLE_COLUMN_TYPES as readonly string[]).includes(value);
+}
+
+const DATE_PATTERN = /^(?:\d{4}-\d{1,2}-\d{1,2}|\d{1,2}[/.-]\d{1,2}[/.-](?:\d{2}|\d{4}))$/;
+const NUMBER_PATTERN = /^-?\d{1,3}(?:[.,]\d{3})*(?:[.,]\d+)?$|^-?\d+(?:[.,]\d+)?$/;
+
+/**
+ * Sugere o tipo de uma coluna nova a partir dos valores (não vazios) da planilha de origem — datas e
+ * números só quando TODOS batem com o padrão; poucos valores distintos repetidos sugere "status";
+ * texto longo quando algum valor passa de 80 caracteres; "text" é o padrão seguro.
+ */
+export function inferColumnType(samples: readonly string[]): InferableColumnType {
+  const values = samples.map((sample) => sample.trim()).filter((sample) => sample !== '');
+  if (values.length === 0) return 'text';
+  if (values.every((value) => DATE_PATTERN.test(value))) return 'date';
+  if (values.every((value) => NUMBER_PATTERN.test(value))) return 'number';
+  const distinct = new Set(values.map((value) => value.toLowerCase()));
+  if (distinct.size >= 2 && distinct.size <= 15 && distinct.size <= values.length * 0.5) return 'status';
+  return Math.max(...values.map((value) => value.length)) > 80 ? 'long_text' : 'text';
+}
+
 const MAX_TRELLO_CARDS = 5_000;
 
 interface TrelloLabel {

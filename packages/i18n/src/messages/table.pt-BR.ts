@@ -381,14 +381,19 @@ export const tablePtBR = {
   },
   import: {
     title: 'Importar planilha',
-    description: 'CSV ou Excel (.xlsx). A primeira linha deve conter os nomes das colunas.',
+    description:
+      'CSV ou Excel (.xlsx). A primeira linha deve conter os nomes das colunas — exports do Monday ' +
+      '(board + grupos numa aba só) são reconhecidos automaticamente.',
     choose: 'Escolher arquivo',
     reading: 'Lendo arquivo…',
     limits: 'Até 10 MB e 5.000 linhas.',
     tooLarge: 'O arquivo passa de 10 MB.',
+    downloadTemplate: 'Baixar modelo de exemplo (.csv)',
+    downloadTemplateHint:
+      'Exporta este board como está, para usar como referência do formato esperado (colunas, grupo e valores).',
     rows: '{file}: {count, plural, one {# linha} other {# linhas}}',
     targetGroup: 'Grupo de destino',
-    createMissing: 'Criar rótulos e opções que não existirem',
+    createMissing: 'Criar colunas, rótulos e opções que não existirem',
     mappingCaption: 'Mapeamento das colunas da planilha',
     sourceColumn: 'Coluna da planilha',
     target: 'Campo no board',
@@ -397,6 +402,9 @@ export const tablePtBR = {
     ignore: 'Ignorar',
     itemName: 'Nome do item',
     group: 'Grupo',
+    newColumn: 'Criar coluna "{title}"',
+    newColumnType: 'Tipo da coluna nova',
+    newColumnTypeFor: 'Tipo da coluna nova para {column}',
     nameRequired: 'Escolha a coluna que vira o nome do item.',
     importRows: '{count, plural, one {Importar # linha} other {Importar # linhas}}',
     done: '{count, plural, one {# item importado.} other {# itens importados.}}',

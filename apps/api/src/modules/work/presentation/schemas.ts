@@ -1,4 +1,4 @@
-import { FilterGroupSchema, PageQuerySchema, parseSort } from '@cube-track/shared';
+import { FilterGroupSchema, INFERABLE_COLUMN_TYPES, PageQuerySchema, parseSort } from '@cube-track/shared';
 import { z } from 'zod';
 
 import { pageSchema } from '../../../core/http/schemas.js';
@@ -443,6 +443,8 @@ const ImportTarget = z.union([
   z.templateLiteral(['column:', z.string()]),
   z.null(),
 ]);
+const inferableColumnType = z.enum(INFERABLE_COLUMN_TYPES);
+const proposedColumn = z.object({ title: z.string(), type: inferableColumnType });
 export const ImportPreviewResponse = z.object({
   importId: z.uuid(),
   fileName: z.string(),
@@ -450,6 +452,7 @@ export const ImportPreviewResponse = z.object({
   sample: z.array(z.array(z.string())),
   totalRows: z.number().int(),
   suggestedMapping: z.record(z.string(), ImportTarget),
+  proposedColumns: z.record(z.string(), proposedColumn),
 });
 export const ImportParams = z.object({ boardId: z.uuid(), importId: z.uuid() });
 export const ImportCommitBody = z
@@ -458,6 +461,9 @@ export const ImportCommitBody = z
     groupId: z.uuid(),
     createMissing: z.boolean().default(false),
     locale,
+    /** Troca o tipo inferido de uma coluna nova (chave citada em `mapping` como `column:<chave>`
+     * que ainda não existe no board) antes dela ser criada. */
+    newColumnTypes: z.record(z.string(), inferableColumnType).optional(),
   })
   .strict();
 export const ImportResultResponse = z.object({

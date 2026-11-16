@@ -381,14 +381,19 @@ export const tableEn: Messages['table'] = {
   },
   import: {
     title: 'Import spreadsheet',
-    description: 'CSV or Excel (.xlsx). The first row must contain the column names.',
+    description:
+      'CSV or Excel (.xlsx). The first row must contain the column names — Monday exports (board + ' +
+      'groups in a single sheet) are recognized automatically.',
     choose: 'Choose file',
     reading: 'Reading file…',
     limits: 'Up to 10 MB and 5,000 rows.',
     tooLarge: 'The file exceeds 10 MB.',
+    downloadTemplate: 'Download example template (.csv)',
+    downloadTemplateHint:
+      'Exports this board as-is, as a reference for the expected format (columns, group and values).',
     rows: '{file}: {count, plural, one {# row} other {# rows}}',
     targetGroup: 'Target group',
-    createMissing: 'Create labels and options that do not exist',
+    createMissing: 'Create columns, labels and options that do not exist',
     mappingCaption: 'Spreadsheet column mapping',
     sourceColumn: 'Spreadsheet column',
     target: 'Board field',
@@ -397,6 +402,9 @@ export const tableEn: Messages['table'] = {
     ignore: 'Ignore',
     itemName: 'Item name',
     group: 'Group',
+    newColumn: 'Create column "{title}"',
+    newColumnType: 'New column type',
+    newColumnTypeFor: 'New column type for {column}',
     nameRequired: 'Choose the column that becomes the item name.',
     importRows: '{count, plural, one {Import # row} other {Import # rows}}',
     done: '{count, plural, one {# item imported.} other {# items imported.}}',

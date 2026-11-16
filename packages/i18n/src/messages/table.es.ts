@@ -384,14 +384,19 @@ export const tableEs: Messages['table'] = {
   },
   import: {
     title: 'Importar hoja de cálculo',
-    description: 'CSV o Excel (.xlsx). La primera fila debe contener los nombres de las columnas.',
+    description:
+      'CSV o Excel (.xlsx). La primera fila debe contener los nombres de las columnas — las ' +
+      'exportaciones de Monday (tablero + grupos en una sola hoja) se reconocen automáticamente.',
     choose: 'Elegir archivo',
     reading: 'Leyendo archivo…',
     limits: 'Hasta 10 MB y 5.000 filas.',
     tooLarge: 'El archivo supera los 10 MB.',
+    downloadTemplate: 'Descargar modelo de ejemplo (.csv)',
+    downloadTemplateHint:
+      'Exporta este tablero tal cual, como referencia del formato esperado (columnas, grupo y valores).',
     rows: '{file}: {count, plural, one {# fila} other {# filas}}',
     targetGroup: 'Grupo de destino',
-    createMissing: 'Crear las etiquetas y opciones que no existan',
+    createMissing: 'Crear columnas, etiquetas y opciones que no existan',
     mappingCaption: 'Correspondencia de las columnas de la hoja',
     sourceColumn: 'Columna de la hoja',
     target: 'Campo en el tablero',
@@ -400,6 +405,9 @@ export const tableEs: Messages['table'] = {
     ignore: 'Ignorar',
     itemName: 'Nombre del elemento',
     group: 'Grupo',
+    newColumn: 'Crear columna "{title}"',
+    newColumnType: 'Tipo de la columna nueva',
+    newColumnTypeFor: 'Tipo de la columna nueva para {column}',
     nameRequired: 'Elige la columna que será el nombre del elemento.',
     importRows: '{count, plural, one {Importar # fila} other {Importar # filas}}',
     done: '{count, plural, one {# elemento importado.} other {# elementos importados.}}',

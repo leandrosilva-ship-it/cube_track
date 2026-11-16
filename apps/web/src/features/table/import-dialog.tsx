@@ -3,16 +3,25 @@
 import { isMappableTarget } from '@cube-track/shared';
 import { Button, Field, Label, Modal, Select, Switch, toast } from '@cube-track/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { FileSpreadsheet } from 'lucide-react';
+import { Download, FileSpreadsheet } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useId, useState } from 'react';
 
-import { api, newMutationId } from '@/lib/api/client';
-import type { BoardDetail, ImportPreview, ImportResult, ImportTarget } from '@/lib/api/types';
+import { api, apiBlob, newMutationId } from '@/lib/api/client';
+import type {
+  BoardDetail,
+  ImportPreview,
+  ImportResult,
+  ImportTarget,
+  InferableColumnType,
+} from '@/lib/api/types';
+import { downloadBlob } from '@/lib/download';
 import { useErrorMessage } from '@/lib/errors/use-error-message';
 import { qk } from '@/lib/query/keys';
 
 import { useCellLocale } from './hooks';
+
+const INFERABLE_COLUMN_TYPES: InferableColumnType[] = ['text', 'long_text', 'number', 'date', 'status'];
 
 /** Tamanho máximo aceito pela API (10 MB). */
 export const IMPORT_MAX_BYTES = 10 * 1024 * 1024;
@@ -29,6 +38,7 @@ async function toBase64(file: File): Promise<string> {
 /** Importar CSV/Excel: pré-visualização no servidor, mapeamento de colunas e criação em lote. */
 export function ImportDialog({ board, onClose }: { board: BoardDetail; onClose: () => void }) {
   const t = useTranslations('table.import');
+  const tt = useTranslations('table');
   const tc = useTranslations('common');
   const errorMessage = useErrorMessage();
   const queryClient = useQueryClient();
@@ -36,10 +46,12 @@ export function ImportDialog({ board, onClose }: { board: BoardDetail; onClose: 
   const fileId = useId();
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [mapping, setMapping] = useState<Record<string, ImportTarget>>({});
+  const [newColumnTypes, setNewColumnTypes] = useState<Record<string, InferableColumnType>>({});
   const [groupId, setGroupId] = useState(board.groups[0]?.id ?? '');
   const [createMissing, setCreateMissing] = useState(true);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [busy, setBusy] = useState(false);
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const targets = [
@@ -49,7 +61,25 @@ export function ImportDialog({ board, onClose }: { board: BoardDetail; onClose: 
     ...board.columns
       .filter((column) => column.canEdit && isMappableTarget(column))
       .map((column) => ({ value: `column:${column.key}`, label: column.title })),
+    ...Object.entries(preview?.proposedColumns ?? {}).map(([key, proposed]) => ({
+      value: `column:${key}`,
+      label: t('newColumn', { title: proposed.title }),
+    })),
   ];
+
+  const downloadTemplate = async () => {
+    setDownloadingTemplate(true);
+    try {
+      const { blob, fileName } = await apiBlob(`/v1/boards/${board.id}/export`, {
+        query: { format: 'csv', locale },
+      });
+      downloadBlob(fileName ?? `${board.name}.csv`, blob);
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setDownloadingTemplate(false);
+    }
+  };
 
   const upload = async (file: File) => {
     setError(null);
@@ -85,7 +115,7 @@ export function ImportDialog({ board, onClose }: { board: BoardDetail; onClose: 
         `/v1/boards/${board.id}/imports/${preview.importId}/commit`,
         {
           method: 'POST',
-          body: { mapping, groupId, createMissing, locale },
+          body: { mapping, groupId, createMissing, locale, newColumnTypes },
           idempotencyKey: newMutationId(),
         },
       );
@@ -168,6 +198,19 @@ export function ImportDialog({ board, onClose }: { board: BoardDetail; onClose: 
               }}
             />
             <p className="text-xs text-fg-muted">{t('limits')}</p>
+            <div className="flex flex-col items-center gap-1 pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                loading={downloadingTemplate}
+                onClick={() => void downloadTemplate()}
+              >
+                <Download aria-hidden="true" />
+                {t('downloadTemplate')}
+              </Button>
+              <p className="text-xs text-fg-muted">{t('downloadTemplateHint')}</p>
+            </div>
           </div>
         ) : (
           <>
@@ -203,42 +246,70 @@ export function ImportDialog({ board, onClose }: { board: BoardDetail; onClose: 
                       {t('target')}
                     </th>
                     <th scope="col" className="px-2 py-1.5 text-start">
+                      {t('newColumnType')}
+                    </th>
+                    <th scope="col" className="px-2 py-1.5 text-start">
                       {t('sample')}
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {preview.headers.map((header, index) => (
-                    <tr
-                      key={`${header}-${String(index)}`}
-                      className="border-b border-border last:border-b-0"
-                    >
-                      <th scope="row" className="px-2 py-1.5 text-start font-medium">
-                        {header}
-                      </th>
-                      <td className="px-2 py-1.5">
-                        <Select
-                          className="h-8"
-                          aria-label={t('targetFor', { column: header })}
-                          value={mapping[header] ?? 'ignore'}
-                          options={targets}
-                          onValueChange={(value) => {
-                            setMapping((current) => ({
-                              ...current,
-                              [header]: value === 'ignore' ? null : (value as ImportTarget),
-                            }));
-                          }}
-                        />
-                      </td>
-                      <td className="max-w-48 truncate px-2 py-1.5 text-fg-muted">
-                        {preview.sample
-                          .slice(0, 3)
-                          .map((row) => row[index] ?? '')
-                          .filter((cell) => cell !== '')
-                          .join(' · ')}
-                      </td>
-                    </tr>
-                  ))}
+                  {preview.headers.map((header, index) => {
+                    const key = String(index);
+                    const target = mapping[key] ?? 'ignore';
+                    const proposedKey = target.startsWith('column:')
+                      ? target.slice('column:'.length)
+                      : null;
+                    const proposed =
+                      proposedKey === null ? undefined : preview.proposedColumns[proposedKey];
+                    return (
+                      <tr key={`${header}-${key}`} className="border-b border-border last:border-b-0">
+                        <th scope="row" className="px-2 py-1.5 text-start font-medium">
+                          {header}
+                        </th>
+                        <td className="px-2 py-1.5">
+                          <Select
+                            className="h-8"
+                            aria-label={t('targetFor', { column: header })}
+                            value={target}
+                            options={targets}
+                            onValueChange={(value) => {
+                              setMapping((current) => ({
+                                ...current,
+                                [key]: value === 'ignore' ? null : (value as ImportTarget),
+                              }));
+                            }}
+                          />
+                        </td>
+                        <td className="px-2 py-1.5">
+                          {proposed === undefined || proposedKey === null ? null : (
+                            <Select
+                              className="h-8"
+                              aria-label={t('newColumnTypeFor', { column: header })}
+                              value={newColumnTypes[proposedKey] ?? proposed.type}
+                              options={INFERABLE_COLUMN_TYPES.map((type) => ({
+                                value: type,
+                                label: tt(`columnTypes.${type}`),
+                              }))}
+                              onValueChange={(value) => {
+                                setNewColumnTypes((current) => ({
+                                  ...current,
+                                  [proposedKey]: value as InferableColumnType,
+                                }));
+                              }}
+                            />
+                          )}
+                        </td>
+                        <td className="max-w-48 truncate px-2 py-1.5 text-fg-muted">
+                          {preview.sample
+                            .slice(0, 3)
+                            .map((row) => row[index] ?? '')
+                            .filter((cell) => cell !== '')
+                            .join(' · ')}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

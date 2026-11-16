@@ -1331,3 +1331,24 @@ Correções e pequenas funcionalidades aplicadas após o deploy inicial (fora da
   (override administrativo de plano via `POST /v1/billing/plan/override`, já existente desde o
   Prompt 16/billing, para liberar vagas sem cobrança real num deploy interno; orientação de quando
   vale migrar de VM única para Kubernetes/Helm).
+- **Importar export real do Monday (ADR 0042)**: o importador síncrono ("Importar planilha") não
+  lia corretamente um export real do Monday — duas causas, ambas corrigidas: (1) a leitura do XLSX só
+  iterava as células já preenchidas de cada LINHA (`row.eachCell`), então uma linha esparsa (título
+  do board do Monday, preenchido só na 1ª célula) virava uma única coluna bogus em vez do cabeçalho
+  real — corrigido lendo sempre até a largura da PLANILHA (`sheet.actualColumnCount`); (2) o formato
+  "tudo numa aba só" do Monday (nome do board + linha-marcador por grupo + resumo final que repete o
+  início do cabeçalho) não era reconhecido — novo `mondaySheetToTable`
+  (`packages/shared/src/importers.ts`) normaliza isso para a tabela genérica de qualquer CSV/Excel
+  (passthrough quando não há linha-marcador, incluindo o próprio export da plataforma). Também
+  corrigido um bug independente no front (`apps/web/src/features/table/import-dialog.tsx`): o estado
+  do mapeamento era lido/gravado pelo TEXTO do cabeçalho, mas o contrato da API é pelo ÍNDICE da
+  coluna — a tela sempre mostrava "Ignorar" mesmo quando a API já tinha sugerido o destino certo
+  (exatamente o sintoma relatado: uma planilha real virando "1 coluna, mapeada para Ignorar").
+  Além disso, `createMissing` agora também cria COLUNAS: um cabeçalho sem correspondência e com
+  algum valor preenchido vira uma proposta de coluna nova (`proposedColumns` na prévia, tipo inferido
+  por `inferColumnType` — data/número/status para poucos valores repetidos/texto), criada via
+  `ColumnsService.create` (exige `column.manage`) e revisável (`newColumnTypes`) antes de confirmar.
+  A tela ganhou um atalho "baixar modelo de exemplo" que exporta o board atual como referência de
+  formato. O importador de background do Prompt 15 (Monday/Trello/Jira/Pipefy via job no worker,
+  ainda só CSV) não foi alterado nesta rodada — fica para quando um export real passar de 5.000
+  linhas (hoje o síncrono já cobre até lá).

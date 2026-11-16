@@ -133,7 +133,7 @@ A escrita numa coluna sem permissão de edição, ou num campo nativo vinculado 
 | Criar/editar/excluir/duplicar colunas, rótulos, opções e status principal | `column.manage` no board                                                                          |
 | Editar valor de célula                                                    | `item.update` (ou `item.update_assigned` em itens atribuídos) **e** permissão de edição da coluna |
 | Criar, renomear, colorir, reordenar, duplicar, mover, arquivar grupos     | `group.manage`                                                                                    |
-| Criar e duplicar itens; importar planilha                                 | `item.create` (importar com `createMissing` em status/lista também exige `column.manage`)         |
+| Criar e duplicar itens; importar planilha                                 | `item.create` (importar com `createMissing` criando colunas novas, rótulos ou opções também exige `column.manage`) |
 | Edição em massa (`PATCH /v1/boards/:id/items`)                            | as mesmas regras por item e por coluna; o lote inteiro falha se um item for negado                |
 | Arquivar, excluir para a lixeira, restaurar, ver a lixeira                | `item.delete`                                                                                     |
 | Mover itens entre grupos                                                  | `item.update`; para outro board, também `item.delete` na origem e `item.create` no destino        |

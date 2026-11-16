@@ -459,7 +459,7 @@ describe('Boards, colunas, grupos e itens (Prompt 5)', () => {
     expect(Number(stopped.body.values[timerColumn.body.key]?.n)).toBeGreaterThanOrEqual(0);
   });
 
-  it('importa CSV com mapeamento (cria rótulos e grupos) e exporta CSV/Excel', async () => {
+  it('importa CSV com mapeamento (cria colunas, rótulos e grupos) e exporta CSV/Excel', async () => {
     const csv = [
       'Nome;Grupo;UST;Status;Observação',
       'Importada 1;Em análise;12,5;Em andamento;ok',
@@ -471,18 +471,24 @@ describe('Boards, colunas, grupos e itens (Prompt 5)', () => {
       headers: string[];
       totalRows: number;
       suggestedMapping: Record<string, string | null>;
+      proposedColumns: Record<string, { title: string; type: string }>;
     }>(`/v1/boards/${boardId}/imports`, {
       token: owner,
       body: { fileName: 'planilha.csv', contentBase64: Buffer.from(csv).toString('base64') },
     });
     expect(preview.status, JSON.stringify(preview.body)).toBe(201);
     expect(preview.body.totalRows).toBe(3);
+    // "Observação" não bate com nenhuma coluna existente, mas tem valor preenchido em alguma linha:
+    // em vez de "ignorar", vira uma PROPOSTA de coluna nova (tipo inferido do texto).
     expect(preview.body.suggestedMapping).toEqual({
       '0': 'name',
       '1': 'group',
       '2': 'column:c_ust',
       '3': 'column:c_status',
-      '4': null,
+      '4': 'column:c_observacao',
+    });
+    expect(preview.body.proposedColumns).toEqual({
+      c_observacao: { title: 'Observação', type: 'text' },
     });
     const committed = await api.post<{
       created: number;
@@ -498,8 +504,10 @@ describe('Boards, colunas, grupos e itens (Prompt 5)', () => {
     await reload();
     expect(board.groups.map((entry) => entry.name)).toContain('Novo grupo importado');
     expect(column('c_status').labels.map((entry) => entry.label)).toContain('Rótulo novo');
+    expect(column('c_observacao')).toMatchObject({ title: 'Observação', type: 'text' });
     const imported = (await list('&search=Importada 1'.replace(' ', '%20')))[0];
     expect(imported?.values.c_ust).toEqual({ n: '12.5' });
+    expect(imported?.values.c_observacao).toEqual({ text: 'ok' });
 
     const response = await fetch(
       `${server.url}/v1/boards/${boardId}/export?format=csv&search=Importada`,

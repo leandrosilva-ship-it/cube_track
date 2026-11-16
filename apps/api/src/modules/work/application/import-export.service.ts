@@ -2,7 +2,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import { schema } from '@cube-track/db';
 import {
   formatCellText,
+  inferColumnType,
   isColumnType,
+  mondaySheetToTable,
   newId,
   normalizeForMatch,
   parseCellText,
@@ -13,6 +15,8 @@ import {
   type CellTextDirectory,
   type CellTextLocale,
   type FilterGroup,
+  type ImportTable,
+  type InferableColumnType,
   type SortTerm,
 } from '@cube-track/shared';
 import ExcelJS from 'exceljs';
@@ -35,6 +39,7 @@ import { AccessService } from '../../access/application/access.service.js';
 import type { ColumnDefinition } from '../domain/board-definition.js';
 import type { ItemDto } from '../domain/item.js';
 import { ItemsRepository } from '../infrastructure/items.repository.js';
+import { ColumnsService } from './columns.service.js';
 import { ItemWriter, type WriteContext } from './item-writer.js';
 import { ItemsService } from './items.service.js';
 
@@ -57,6 +62,13 @@ interface StoredImport {
   rows: string[][];
 }
 
+/** Coluna nova proposta para um cabeçalho sem correspondência no board — título + tipo inferido dos
+ * valores da planilha; o usuário pode trocar o tipo antes de confirmar (`ImportCommitInput.newColumnTypes`). */
+export interface ProposedColumn {
+  title: string;
+  type: InferableColumnType;
+}
+
 export interface ImportPreview {
   importId: string;
   fileName: string;
@@ -64,15 +76,19 @@ export interface ImportPreview {
   sample: string[][];
   totalRows: number;
   suggestedMapping: Record<string, ImportTarget>;
+  /** Por chave de coluna nova citada em `suggestedMapping` (`column:<chave>` que ainda não existe). */
+  proposedColumns: Record<string, ProposedColumn>;
 }
 
 export interface ImportCommitInput {
   mapping: Record<string, ImportTarget>;
   /** Grupo das linhas sem grupo mapeado (ou com grupo vazio). */
   groupId: string;
-  /** Cria rótulos, opções e grupos citados na planilha que ainda não existem. */
+  /** Cria grupos, colunas, rótulos e opções citados na planilha que ainda não existem. */
   createMissing: boolean;
   locale: CellTextLocale;
+  /** Troca o tipo inferido de uma coluna nova (chave de `ProposedColumn`) antes de criá-la. */
+  newColumnTypes?: Record<string, InferableColumnType> | undefined;
 }
 
 export interface ImportResult {
@@ -100,6 +116,7 @@ export class ImportExportService {
     private readonly repository: ItemsRepository,
     private readonly writer: ItemWriter,
     private readonly boardCache: BoardCacheService,
+    private readonly columns: ColumnsService,
     @Inject(REDIS) private readonly redis: Redis,
   ) {}
 
@@ -115,8 +132,8 @@ export class ImportExportService {
     if (buffer.byteLength > IMPORT_MAX_BYTES)
       throw new PayloadTooLargeError('Arquivo acima de 10 MB.');
     const table = await this.readTable(input.fileName, buffer);
-    const [headerRow, ...rows] = table;
-    if (headerRow === undefined || rows.length === 0)
+    const { headers: headerRow, rows } = table;
+    if (headerRow.length === 0 || rows.length === 0)
       throw new UnprocessableError('A planilha não tem linhas de dados.', 'import_empty');
     if (rows.length > IMPORT_MAX_ROWS)
       throw new UnprocessableError(
@@ -143,13 +160,19 @@ export class ImportExportService {
       IMPORT_TTL_SECONDS,
     );
     const context = await this.writer.context(user, boardId);
+    const { mapping, proposedColumns } = suggestImportMapping(
+      headers,
+      context.definition.columns,
+      normalizedRows,
+    );
     return {
       importId,
       fileName: input.fileName,
       headers,
       sample: normalizedRows.slice(0, 10),
       totalRows: normalizedRows.length,
-      suggestedMapping: suggestImportMapping(headers, context.definition.columns),
+      suggestedMapping: mapping,
+      proposedColumns,
     };
   }
 
@@ -179,13 +202,54 @@ export class ImportExportService {
         { path: 'body.mapping', message: 'Mapeie uma coluna para o nome do item.' },
       ]);
     const groupIndex = entries.find(([, target]) => target === 'group')?.[0];
-    const columnTargets = entries.flatMap(([index, target]) => {
+    const missingColumns = entries.flatMap(([index, target]) => {
       if (!target?.startsWith('column:')) return [];
-      const column = this.importableColumn(context, target.slice('column:'.length));
-      return [{ index: Number(index), column }];
+      const key = target.slice('column:'.length);
+      return context.definition.columns.some((column) => column.key === key)
+        ? []
+        : [{ index: Number(index), key }];
     });
+    if (missingColumns.length > 0 && !input.createMissing)
+      throw new ValidationError(
+        missingColumns.map(({ index }) => ({
+          path: `body.mapping.${String(index)}`,
+          message: 'Coluna inexistente.',
+        })),
+      );
+    // Cada coluna nova usa ColumnsService.create — mesma validação/posição/rótulos padrão de
+    // criar pela tela de colunas; exige `column.manage` (checado ali), não só `item.create`.
+    const createdKeyByIndex = new Map<number, string>();
+    for (const { index, key } of missingColumns) {
+      const title = (stored.headers[index] ?? key).trim() || key;
+      const type =
+        input.newColumnTypes?.[key] ?? inferColumnType(stored.rows.map((row) => row[index] ?? ''));
+      // `labels: []` evita os rótulos padrão genéricos (Não iniciado/Em andamento/Concluído): os
+      // rótulos reais entram sob demanda pelo `createChoices` abaixo, ao encontrar cada valor da
+      // planilha (mesmo mecanismo já usado para colunas de status/lista existentes).
+      const created = await this.columns.create(
+        user,
+        boardId,
+        type === 'status' ? { type, title, labels: [] } : { type, title },
+      );
+      createdKeyByIndex.set(index, created.key);
+    }
+    const resolvedContext =
+      missingColumns.length > 0 ? await this.writer.context(user, boardId) : context;
+    const createdKeys = new Set(createdKeyByIndex.values());
+    const columnTargets = entries.flatMap(([indexText, target]) => {
+      if (!target?.startsWith('column:')) return [];
+      const index = Number(indexText);
+      const key = createdKeyByIndex.get(index) ?? target.slice('column:'.length);
+      const column = this.importableColumn(resolvedContext, key);
+      return [{ index, column }];
+    });
+    // Coluna recém-criada NESTE commit: já exigiu `column.manage` para existir (acima) e nasce com
+    // permissões abertas — pular a checagem de `column.update` aqui evita um falso 403: o cache de
+    // permissões (`AccessService`) só é invalidado DEPOIS do commit da transação (de propósito, para
+    // nunca recachear dados ainda não comitados), então ainda não enxerga a coluna nova.
     for (const { column } of columnTargets)
-      await this.writer.assertColumnWrite(context, column, undefined);
+      if (!createdKeys.has(column.key))
+        await this.writer.assertColumnWrite(resolvedContext, column, undefined);
     if (
       input.createMissing &&
       columnTargets.some(({ column }) => column.type === 'status' || column.type === 'dropdown')
@@ -254,12 +318,12 @@ export class ImportExportService {
       const position = positionBetween(lastPositions.get(groupId) ?? null, null);
       try {
         const item = await this.writer.insert(
-          context,
+          resolvedContext,
           { groupId, name, values, position },
           { checkPermissions: false },
         );
         lastPositions.set(groupId, position);
-        await this.writer.emitCreated(context, item, 'imported', false);
+        await this.writer.emitCreated(resolvedContext, item, 'imported', false);
         result.created += 1;
       } catch (error) {
         if (!(error instanceof AppError)) throw error;
@@ -387,10 +451,13 @@ export class ImportExportService {
     return column;
   }
 
-  private async readTable(fileName: string, buffer: Buffer): Promise<string[][]> {
+  /** Lê CSV/Excel para a forma tabular genérica, já passada por `mondaySheetToTable` (normaliza o
+   * export "tudo numa aba só" do Monday quando presente; é um passthrough para CSV/Excel comuns,
+   * incluindo o próprio export da plataforma — ver ADR 0042). */
+  private async readTable(fileName: string, buffer: Buffer): Promise<ImportTable> {
     const lower = fileName.toLowerCase();
     if (lower.endsWith('.csv') || lower.endsWith('.txt') || lower.endsWith('.tsv'))
-      return parseCsv(buffer.toString('utf8'));
+      return mondaySheetToTable(parseCsv(buffer.toString('utf8')));
     if (!lower.endsWith('.xlsx'))
       throw new UnprocessableError('Formato não suportado (use .csv ou .xlsx).', 'import_format');
     const workbook = new ExcelJS.Workbook();
@@ -400,16 +467,18 @@ export class ImportExportService {
       throw new UnprocessableError('Não foi possível ler a planilha.', 'import_unreadable');
     }
     const sheet = workbook.worksheets[0];
-    if (sheet === undefined) return [];
-    const rows: string[][] = [];
+    if (sheet === undefined) return { headers: [], rows: [] };
+    // Lê sempre até a largura da PLANILHA (não só as células já preenchidas de cada linha): um
+    // export com linhas iniciais esparsas (ex.: título do board do Monday, preenchido só na 1ª
+    // célula) senão vira uma única coluna bogus — essa era a causa da importação quebrada.
+    const width = sheet.actualColumnCount;
+    const rawRows: string[][] = [];
     sheet.eachRow({ includeEmpty: false }, (row) => {
       const cells: string[] = [];
-      row.eachCell({ includeEmpty: true }, (cell, columnNumber) => {
-        cells[columnNumber - 1] = excelText(cell.value);
-      });
-      rows.push(Array.from({ length: cells.length }, (_, index) => cells[index] ?? ''));
+      for (let column = 1; column <= width; column += 1) cells.push(excelText(row.getCell(column).value));
+      rawRows.push(cells);
     });
-    return rows.filter((row) => row.some((cell) => cell.trim() !== ''));
+    return mondaySheetToTable(rawRows.filter((row) => row.some((cell) => cell.trim() !== '')));
   }
 
   private async directory(): Promise<CellTextDirectory> {
@@ -507,11 +576,34 @@ export class ImportExportService {
   }
 }
 
-/** Sugestão de mapeamento: "Nome"/"Item" → nome, "Grupo" → grupo, títulos iguais → coluna. */
+/** Chave estável derivada do título (`c_<slug>`), sem colidir com as chaves já usadas — mesmo
+ * esquema de `ColumnsService.uniqueKey`, mas só em memória (a coluna ainda não existe). */
+function generateColumnKey(title: string, taken: ReadonlySet<string>): string {
+  const slug = normalizeForMatch(title)
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40);
+  const base = `c_${slug === '' ? 'coluna' : slug}`;
+  if (!taken.has(base)) return base;
+  for (let suffix = 2; ; suffix += 1) {
+    const candidate = `${base}_${String(suffix)}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+}
+
+/**
+ * Sugestão de mapeamento: "Nome"/"Item" → nome, "Grupo" → grupo, títulos iguais → coluna existente
+ * (comportamento inalterado — inclusive o 1º cabeçalho virar "nome" quando nada mais bateu). Só
+ * DEPOIS disso, cada cabeçalho que sobrou sem destino (`null`) e com algum valor preenchido na
+ * planilha vira uma PROPOSTA de coluna nova (tipo inferido dos valores) em vez de "ignorar" — o
+ * usuário revisa tipo e título antes de confirmar (`ImportCommitInput.newColumnTypes`), e
+ * `createMissing` decide se ela é mesmo criada.
+ */
 export function suggestImportMapping(
   headers: readonly string[],
   columns: readonly ColumnDefinition[],
-): Record<string, ImportTarget> {
+  rows: readonly string[][],
+): { mapping: Record<string, ImportTarget>; proposedColumns: Record<string, ProposedColumn> } {
   const mapping: Record<string, ImportTarget> = {};
   const used = new Set<string>();
   headers.forEach((header, index) => {
@@ -530,14 +622,28 @@ export function suggestImportMapping(
           entry.binding === null &&
           !(isColumnType(entry.type) && READ_ONLY_COLUMN_TYPES.has(entry.type)),
       );
-      if (column !== undefined && !used.has(`column:${column.key}`))
-        target = `column:${column.key}`;
+      if (column !== undefined && !used.has(`column:${column.key}`)) target = `column:${column.key}`;
     }
     if (target !== null) used.add(target);
     mapping[String(index)] = target;
   });
   if (!used.has('name') && headers.length > 0 && mapping['0'] === null) mapping['0'] = 'name';
-  return mapping;
+
+  const proposedColumns: Record<string, ProposedColumn> = {};
+  const takenKeys = new Set(columns.map((column) => column.key));
+  headers.forEach((header, index) => {
+    if (mapping[String(index)] !== null) return;
+    const values = rows.map((row) => row[index] ?? '');
+    if (!values.some((value) => value.trim() !== '')) return;
+    const key = generateColumnKey(header, takenKeys);
+    takenKeys.add(key);
+    mapping[String(index)] = `column:${key}`;
+    proposedColumns[key] = {
+      title: header.trim() || `Coluna ${String(index + 1)}`,
+      type: inferColumnType(values),
+    };
+  });
+  return { mapping, proposedColumns };
 }
 
 function describeParseFailure(reason: string, unknown: string[] | undefined): string {

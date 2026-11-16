@@ -8,6 +8,7 @@ import type {
 
 /** Chamadas públicas de autenticação (refresh token volta em cookie HttpOnly). */
 export const authApi = {
+  methods: () => api<{ google: boolean; microsoft: boolean }>('/v1/auth/methods', { auth: false }),
   login: (email: string, password: string) =>
     api<LoginResponse>('/v1/auth/login', {
       method: 'POST',

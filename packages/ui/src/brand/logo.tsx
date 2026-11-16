@@ -54,7 +54,7 @@ export function Logo({ className, compact = false }: LogoProps) {
     <span className={cn('inline-flex items-center gap-2', className)}>
       <LogoMark decorative />
       <span className="text-base font-extrabold tracking-[0.08em] text-fg">
-        CUBE<span className="text-primary"> TRACK</span>
+        CUBE<span className="text-primary"> PROJECT</span>
       </span>
     </span>
   );

@@ -478,6 +478,12 @@ export class AuthService {
 
   // -------------------------------------------------------------------------------- OAuth ---
 
+  /** Quais provedores de login social têm credenciais configuradas nesta implantação — usado pela
+   * tela de login para só mostrar os botões que de fato funcionam (ADR 0026). */
+  authMethods(): { google: boolean; microsoft: boolean } {
+    return { google: this.oauth.isEnabled('google'), microsoft: this.oauth.isEnabled('microsoft') };
+  }
+
   async startOAuth(
     provider: OAuthProviderName,
     tenant: ResolvedTenant | null,

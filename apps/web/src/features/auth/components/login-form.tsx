@@ -2,6 +2,7 @@
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Field, Input } from '@cube-track/ui';
+import { useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
@@ -25,6 +26,15 @@ export function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [sendingLink, setSendingLink] = useState(false);
+  // Só mostra os botões de provedores com credenciais de fato configuradas nesta implantação —
+  // sem isso, clicar sempre terminaria num erro (oauth_disabled). Escondido por padrão até a
+  // resposta chegar (nunca mostra um botão sem saber se ele funciona).
+  const methods = useQuery({
+    queryKey: ['auth', 'methods'],
+    queryFn: authApi.methods,
+    staleTime: Infinity,
+  });
+  const showSocial = methods.data?.google === true || methods.data?.microsoft === true;
 
   const schema = z.object({
     email: z.email(tv('email')),
@@ -74,19 +84,27 @@ export function LoginForm() {
   return (
     <div className="flex flex-col gap-5">
       <h1 className="text-xl font-semibold">{t('login.title')}</h1>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <Button variant="secondary" asChild>
-          <a href="/v1/auth/oauth/google">{t('google')}</a>
-        </Button>
-        <Button variant="secondary" asChild>
-          <a href="/v1/auth/oauth/microsoft">{t('microsoft')}</a>
-        </Button>
-      </div>
-      <div className="flex items-center gap-3 text-xs text-fg-muted" aria-hidden="true">
-        <span className="h-px flex-1 bg-border" />
-        {t('or')}
-        <span className="h-px flex-1 bg-border" />
-      </div>
+      {showSocial ? (
+        <>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {methods.data?.google === true ? (
+              <Button variant="secondary" asChild>
+                <a href="/v1/auth/oauth/google">{t('google')}</a>
+              </Button>
+            ) : null}
+            {methods.data?.microsoft === true ? (
+              <Button variant="secondary" asChild>
+                <a href="/v1/auth/oauth/microsoft">{t('microsoft')}</a>
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-3 text-xs text-fg-muted" aria-hidden="true">
+            <span className="h-px flex-1 bg-border" />
+            {t('or')}
+            <span className="h-px flex-1 bg-border" />
+          </div>
+        </>
+      ) : null}
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
         <FormMessage>{error}</FormMessage>
         <FormMessage tone="success">{notice}</FormMessage>

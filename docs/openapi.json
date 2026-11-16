@@ -5698,6 +5698,82 @@
         "x-audit-action": "auth.magic_link_login"
       }
     },
+    "/v1/auth/methods": {
+      "get": {
+        "operationId": "Auth_authMethods",
+        "summary": "Quais métodos de login social (Google/Microsoft) estão habilitados nesta implantação",
+        "description": "Público — usado pela tela de login para só mostrar os botões de provedores com credenciais configuradas, em vez de deixar o usuário clicar num botão que sempre falharia.",
+        "tags": [
+          "auth"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "google": {
+                      "type": "boolean"
+                    },
+                    "microsoft": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "google",
+                    "microsoft"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Dados inválidos",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Não encontrado",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Limite de requisições",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro interno",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/auth/mfa/verify": {
       "post": {
         "operationId": "Auth_verifyMfa",

@@ -470,6 +470,12 @@ describe('Autenticação', () => {
     expect(foreign.status).toBe(403);
   });
 
+  it('GET /v1/auth/methods reflete só os provedores com credenciais configuradas', async () => {
+    const methods = await api.get<{ google: boolean; microsoft: boolean }>('/v1/auth/methods');
+    expect(methods.status).toBe(200);
+    expect(methods.body).toEqual({ google: true, microsoft: false });
+  });
+
   it('OAuth (Google): vincula conta existente pelo e-mail verificado e recusa e-mail sem conta', async () => {
     const start = async () => {
       const response = await api.get('/v1/auth/oauth/google', {

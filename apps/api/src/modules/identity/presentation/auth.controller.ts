@@ -274,6 +274,20 @@ export class AuthController {
     return sessionResponse(session, wantsBodyRefresh(request));
   }
 
+  @Get('methods')
+  @Endpoint({
+    summary: 'Quais métodos de login social (Google/Microsoft) estão habilitados nesta implantação',
+    description:
+      'Público — usado pela tela de login para só mostrar os botões de provedores com credenciais ' +
+      'configuradas, em vez de deixar o usuário clicar num botão que sempre falharia.',
+    tags: ['auth'],
+    public: true,
+    response: S.AuthMethodsResponse,
+  })
+  authMethods() {
+    return this.auth.authMethods();
+  }
+
   @Get('oauth/:provider')
   @RateLimit({ limit: 30, windowSeconds: 60, by: 'ip', bucket: 'oauth' })
   @Endpoint({

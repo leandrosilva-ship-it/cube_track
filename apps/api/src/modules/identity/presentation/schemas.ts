@@ -57,6 +57,7 @@ export const MfaVerifyBody = z
   );
 export const RefreshBody = z.object({ refreshToken: z.string().max(256).optional() }).default({});
 export const SwitchBody = z.object({ tenantId: z.uuid() });
+export const AuthMethodsResponse = z.object({ google: z.boolean(), microsoft: z.boolean() });
 export const ProviderParams = z.object({ provider: z.enum(['google', 'microsoft']) });
 export const OAuthStartQuery = z.object({ loginHint: z.email().optional() });
 export const OAuthCallbackQuery = z.object({

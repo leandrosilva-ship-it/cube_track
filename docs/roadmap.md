@@ -1305,3 +1305,16 @@ Correções e pequenas funcionalidades aplicadas após o deploy inicial (fora da
   pré-existente: `BoardsService.loadShape` (leitura de `GET /v1/boards/:id`) não filtrava
   `deletedAt`, então um board de alguma forma marcado como excluído continuava acessível por essa
   rota.
+- **HTTPS automático no deploy de VM única (Caddy)**: `docker-compose.prod.yml` ganhou um serviço
+  `caddy` (Let's Encrypt automático, renovação sozinha) na frente de `web`/`api` — único serviço
+  com porta publicada no host (80/443); `web`/`api` deixaram de publicar porta própria. Domínio
+  configurável via `APP_DOMAIN`/`API_DOMAIN` (novo `Caddyfile` na raiz, com substituição de
+  variável de ambiente nativa do Caddy); sem domínio próprio, os guias (`docs/deploy-vm.md`,
+  `docs/deploy-aws.md`) recomendam nip.io (domínio de graça a partir do IP). `COOKIE_SECURE=true`
+  passou a ser o padrão em `.env.prod.example` (HTTPS agora é o caminho padrão, não mais um "próximo
+  passo" opcional). Guias também passaram a cobrir: reservar IP fixo (Elastic IP/IP estático) antes
+  de configurar o domínio — sem isso, o IP muda a cada reinício e quebra o domínio/certificado
+  junto; troca do nip.io por domínio próprio depois, sem downtime; e abertura para um time maior
+  (override administrativo de plano via `POST /v1/billing/plan/override`, já existente desde o
+  Prompt 16/billing, para liberar vagas sem cobrança real num deploy interno; orientação de quando
+  vale migrar de VM única para Kubernetes/Helm).

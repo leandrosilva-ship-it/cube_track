@@ -7,8 +7,8 @@ name: cube-track-prod
 #   cp .env.prod.example .env.prod   # e preencha os segredos (ver comentários no arquivo)
 #   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
 #
-# Só os serviços "web" (HTTP) e, opcionalmente, "api" (webhooks de integrações) ficam expostos à
-# internet — postgres/redis/minio/meilisearch só são alcançáveis entre os próprios containers.
+# Só o "caddy" (HTTPS automático via Let's Encrypt) fica exposto à internet, nas portas 80/443 —
+# web, api e os serviços de infraestrutura só são alcançáveis entre os próprios containers.
 
 services:
   postgres:
@@ -145,13 +145,9 @@ services:
       MEILI_API_KEY: ${MEILI_MASTER_KEY}
       OTEL_SDK_DISABLED: 'true'
       METRICS_PORT: '9464'
-    # Porta 3001 publicada: a maioria das chamadas da web app vai pela rede interna do Docker
-    # (API_INTERNAL_URL, proxy same-origin em /v1), mas o tempo real (Socket.IO) conecta DIRETO do
-    # navegador para a API — por isso ela também precisa estar acessível publicamente (ver
-    # NEXT_PUBLIC_REALTIME_URL). Sem domínio/HTTPS ainda, fica em HTTP simples; ver
-    # docs/deploy-vm.md para adicionar um domínio com HTTPS automático depois.
-    ports:
-      - '3001:3001'
+    # Sem porta publicada no host: o tempo real (Socket.IO) conecta DIRETO do navegador para a API
+    # (NEXT_PUBLIC_REALTIME_URL), mas por HTTPS através do Caddy (API_DOMAIN), nunca mais direto na
+    # porta 3001 — o Caddy já repassa upgrade de WebSocket automaticamente no reverse_proxy.
     restart: unless-stopped
 
   # Roda as migrações do banco uma vez e sai — NÃO sobe com `docker compose up` normal (precisa
@@ -242,8 +238,29 @@ services:
         NEXT_PUBLIC_REALTIME_URL: ${PUBLIC_API_URL}
     depends_on:
       - api
+    restart: unless-stopped
+
+  # HTTPS automático (Let's Encrypt, renovação sozinha) na frente de web/api — único serviço com
+  # porta publicada no host. Precisa de APP_DOMAIN/API_DOMAIN resolvendo para o IP desta máquina
+  # (ver .env.prod.example) e das portas 80 (desafio HTTP-01) e 443 liberadas no firewall/security
+  # group.
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN}
     ports:
-      - '80:3000'
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
     restart: unless-stopped
 
 volumes:
@@ -252,3 +269,5 @@ volumes:
   minio-data:
   meili-data:
   clamav-data:
+  caddy-data:
+  caddy-config:

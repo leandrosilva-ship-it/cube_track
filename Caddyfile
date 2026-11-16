@@ -1,0 +1,13 @@
+# Proxy reverso para o deploy de VM única (docker-compose.prod.yml) — HTTPS automático via Let's
+# Encrypt (HTTP-01), renovado sozinho pelo Caddy. APP_DOMAIN/API_DOMAIN vêm do .env.prod; sem
+# domínio próprio ainda, use nip.io (ver comentário em .env.prod.example).
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+{$API_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy api:3001
+}
